@@ -120,11 +120,6 @@ class PasswordResetCodeRequest(BaseModel):
     correo: EmailStr
 
 
-class PasswordResetCodeRequest(BaseModel):
-    cedula: str
-    correo: EmailStr
-
-
 class ResetPasswordRequest(BaseModel):
     """RecuperaciÃ³n sin SMTP: identidad verificada con cÃ©dula + correo registrado."""
     cedula: str

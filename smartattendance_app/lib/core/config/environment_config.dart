@@ -6,7 +6,7 @@ enum Environment { development, staging, production }
 
 final class EnvironmentConfig {
   // CAMBIAR SEGÚN AMBIENTE
-  static const Environment _environment = Environment.production;
+  static const Environment _environment = Environment.development;
 
   static final _configs = {
     Environment.development: _DevConfig(),
@@ -48,9 +48,11 @@ final class _DevConfig extends _BaseConfig {
   String get baseUrl {
     if (kIsWeb) return 'http://localhost:8000/api/v1';
     if (defaultTargetPlatform == TargetPlatform.android) {
+      // Con 'adb reverse tcp:8000 tcp:8000', localhost del celular
+      // redirige al backend en el PC. Sin adb, usa 10.0.2.2 (emulador).
       return const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'http://10.0.2.2:8000/api/v1',
+        defaultValue: 'http://localhost:8000/api/v1',
       );
     }
     return 'http://localhost:8000/api/v1';

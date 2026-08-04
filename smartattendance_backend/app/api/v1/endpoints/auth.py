@@ -11,6 +11,7 @@ from app.schemas.user import (
     GoogleAuthRequest,
     LoginRequest,
     LoginResponse,
+    PasswordResetCodeRequest,
     RefreshRequest,
     RefreshResponse,
     RegisterRequest,
