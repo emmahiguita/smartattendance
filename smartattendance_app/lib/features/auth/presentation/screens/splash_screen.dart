@@ -27,12 +27,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _restoreSession() async {
-    // Delay mínimo de presentación en paralelo con la restauración real de
-    // la sesión (secure storage).
-    await Future.wait([
-      Future.delayed(const Duration(milliseconds: 300)),
-      ref.read(sessionControllerProvider.notifier).restore(),
-    ]);
+    try {
+      // Timeout global: si restore() se cuelga por Keystore bloqueado
+      // (sin screen lock en algunos Android), forzamos login tras 10s.
+      await Future.wait([
+        Future.delayed(const Duration(milliseconds: 300)),
+        ref.read(sessionControllerProvider.notifier).restore(),
+      ]).timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // Timeout o error en restore → ir a login directamente.
+      if (mounted) context.go(AppRoutes.login);
+      return;
+    }
 
     // Navegación explícita: cubre el caso donde restore() terminó ANTES de
     // que el listener de build() se registrara (race condition).

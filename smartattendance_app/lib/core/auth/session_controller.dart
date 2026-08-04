@@ -1,4 +1,5 @@
 // lib/core/auth/session_controller.dart
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,17 +54,49 @@ class SessionController extends StateNotifier<SessionState> {
   final TokenStore _tokens;
 
   Future<void> restore() async {
-    final token = await _storage.read(key: AppConfig.keyAccessToken);
-    final user = await _readUserFromStorage();
+    try {
+      // Timeout: si secure_storage se bloquea (Keystore sin screen lock
+      // en algunos Android), tratamos como sesión no iniciada.
+      final token = await _storage
+          .read(key: AppConfig.keyAccessToken)
+          .timeout(const Duration(seconds: 3));
+      final user = await _readUserFromStorage()
+          .timeout(const Duration(seconds: 3));
 
-    if (token == null || user == null) {
-      // Incomplete session → clean slate.
-      await clear();
+      if (token == null || user == null) {
+        await _safeClear();
+        _set(const SessionUnauthenticated());
+        return;
+      }
+
+      _set(SessionAuthenticated(user));
+    } on TimeoutException {
+      // Secure storage blocked → proceed without session.
       _set(const SessionUnauthenticated());
-      return;
+    } catch (_) {
+      // Any other error → treat as unauthenticated.
+      await _safeClear();
+      _set(const SessionUnauthenticated());
     }
+  }
 
-    _set(SessionAuthenticated(user));
+  /// Same as clear() but never throws — used during restore() when
+  /// secure storage may be unreachable.
+  Future<void> _safeClear() async {
+    _tokens.clear();
+    try {
+      await Future.wait([
+        _storage.delete(key: AppConfig.keyAccessToken),
+        _storage.delete(key: AppConfig.keyRefreshToken),
+        _storage.delete(key: AppConfig.keyUserName),
+        _storage.delete(key: AppConfig.keyUserId),
+        _storage.delete(key: AppConfig.keyUserCedula),
+        _storage.delete(key: AppConfig.keyUserRole),
+        _storage.delete(key: AppConfig.keyUserJson),
+      ]).timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // Ignore: storage is unreachable, nothing to clear.
+    }
   }
 
   /// Inicia sesión y persiste el estado.
