@@ -1,4 +1,4 @@
-﻿# app/schemas/user.py
+# app/schemas/user.py
 """
 Pydantic schemas for User â€” request/response contracts.
 ISP: separate schemas per use case (Create, Response, Login).

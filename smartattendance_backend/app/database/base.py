@@ -1,4 +1,4 @@
-﻿# app/database/base.py
+# app/database/base.py
 """
 Database engine, session factory, and declarative base.
 SRP: this module owns ONLY the database connection setup.
@@ -76,7 +76,9 @@ def get_db():
 
 def create_all_tables() -> None:
     """Create all tables. Called once on startup."""
-    # Ensure every SQLAlchemy model is registered before creating schema.`n    import app.models  # noqa: F401`n    Base.metadata.create_all(bind=engine)
+    # Ensure every SQLAlchemy model is registered before creating schema.
+    import app.models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
     # Migraciones ligeras (SQLite: CHECK constraints de SAEnum no se auto-migran)
     from app.database.migrate import run_migrations
     run_migrations(engine)

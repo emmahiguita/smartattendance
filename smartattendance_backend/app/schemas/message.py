@@ -1,4 +1,4 @@
-﻿"""Validation contracts for internal messaging."""
+"""Validation contracts for internal messaging."""
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator

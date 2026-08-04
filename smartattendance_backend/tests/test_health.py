@@ -1,4 +1,4 @@
-﻿# tests/test_health.py
+# tests/test_health.py
 # ===================================================================
 # Pruebas de salud del backend: verifica que la API arranca, responde
 # al health check, la documentaciÃ³n estÃ¡ accesible, y los endpoints

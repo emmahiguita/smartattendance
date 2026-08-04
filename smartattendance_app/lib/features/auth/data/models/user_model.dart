@@ -54,4 +54,16 @@ final class UserModel {
         direccion: direccion,
         fotoUrl: fotoUrl,
       );
+
+  /// Crea un UserModel desde una fila de SQLite (usuarios_locales).
+  factory UserModel.fromLocalRow(Map<String, dynamic> row) => UserModel(
+        id: row['id'] as int,
+        nombre: row['nombre'] as String,
+        apellido: row['apellido'] as String,
+        cedula: row['cedula'] as String,
+        correo: (row['correo'] as String?) ?? '',
+        cargo: (row['cargo'] as String?) ?? 'Empleado',
+        fotoUrl: row['foto_url'] as String?,
+        telefono: row['telefono'] as String?,
+      );
 }

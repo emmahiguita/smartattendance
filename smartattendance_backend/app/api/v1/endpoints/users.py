@@ -1,4 +1,4 @@
-﻿# app/api/v1/endpoints/users.py
+# app/api/v1/endpoints/users.py
 """
 Users endpoints â€” list and manage employees.
 SRP: router delegates all logic to repository.

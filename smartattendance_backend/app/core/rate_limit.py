@@ -1,4 +1,4 @@
-﻿"""Thread-safe in-process rate limiter for public endpoints."""
+"""Thread-safe in-process rate limiter for public endpoints."""
 from collections import deque
 from threading import Lock
 from time import monotonic

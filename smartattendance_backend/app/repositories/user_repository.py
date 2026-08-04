@@ -1,4 +1,4 @@
-﻿# app/repositories/user_repository.py
+# app/repositories/user_repository.py
 """
 User repository â€” abstracts all DB queries for users.
 SRP: only user-related DB access.

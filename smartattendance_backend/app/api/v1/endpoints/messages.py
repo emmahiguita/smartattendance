@@ -1,4 +1,4 @@
-﻿"""Authenticated employee-to-employee internal messaging."""
+"""Authenticated employee-to-employee internal messaging."""
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status

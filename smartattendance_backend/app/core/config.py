@@ -1,4 +1,4 @@
-﻿# app/core/config.py
+# app/core/config.py
 """
 Application settings via pydantic-settings.
 SRP: single place for all environment/config values.

@@ -1,4 +1,4 @@
-﻿# Importar todos los modelos para que SQLAlchemy los registre en Base.metadata
+# Importar todos los modelos para que SQLAlchemy los registre en Base.metadata
 # antes de que create_all_tables() sea llamado en cualquier contexto.
 from app.models.user import User
 from app.models.attendance import Attendance

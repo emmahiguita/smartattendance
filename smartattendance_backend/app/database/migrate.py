@@ -38,6 +38,12 @@ ATTENDANCE_NULLABLE_COLUMNS = {
 
 def run_migrations(engine: Engine) -> None:
     """Ejecuta todas las migraciones conocidas. Idempotente."""
+    # Solo SQLite necesita migraciones ligeras manuales.
+    # PostgreSQL gestiona el schema vía create_all de SQLAlchemy.
+    is_sqlite = engine.url.get_backend_name() == "sqlite"
+    if not is_sqlite:
+        return
+
     with Session(engine) as db:
         _migrate_users_columns(db, engine)
         _migrate_attendance_columns(db, engine)

@@ -1,4 +1,4 @@
-﻿"""Internal direct-message persistence model."""
+"""Internal direct-message persistence model."""
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text

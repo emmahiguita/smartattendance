@@ -1,4 +1,4 @@
-﻿# app/services/auth_service.py
+# app/services/auth_service.py
 """
 Authentication service â€” login, registro pÃºblico, recuperaciÃ³n de contraseÃ±a
 y renovaciÃ³n de tokens.

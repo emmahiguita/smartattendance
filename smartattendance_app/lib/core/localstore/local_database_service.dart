@@ -19,7 +19,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE offline_attendances (
@@ -34,10 +34,106 @@ class LocalDatabaseService {
             created_at TEXT NOT NULL
           )
         ''');
-        AppLogger.info('SQLite offline_attendances table created successfully');
+        await db.execute('''
+          CREATE TABLE usuarios_locales (
+            id INTEGER PRIMARY KEY,
+            cedula TEXT NOT NULL UNIQUE,
+            nombre TEXT NOT NULL,
+            apellido TEXT NOT NULL,
+            correo TEXT,
+            cargo TEXT,
+            foto_url TEXT,
+            telefono TEXT,
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            password_hash TEXT
+          )
+        ''');
+        await _seedLocalUsers(db);
+        AppLogger.info('SQLite tables created and seeded');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS usuarios_locales (
+              id INTEGER PRIMARY KEY,
+              cedula TEXT NOT NULL UNIQUE,
+              nombre TEXT NOT NULL,
+              apellido TEXT NOT NULL,
+              correo TEXT,
+              cargo TEXT,
+              foto_url TEXT,
+              telefono TEXT,
+              is_admin INTEGER NOT NULL DEFAULT 0,
+              password_hash TEXT
+            )
+          ''');
+          await _seedLocalUsers(db);
+        }
       },
     );
   }
+
+  /// Seed de usuarios locales — permite login offline sin backend.
+  Future<void> _seedLocalUsers(Database db) async {
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM usuarios_locales'),
+    ) ?? 0;
+    if (count > 0) return; // Ya hay datos.
+
+    final users = [
+      {
+        'id': 1, 'cedula': '1007331963', 'nombre': 'Emmanuel',
+        'apellido': 'Higuita', 'correo': 'emmanuel@empresa.co',
+        'cargo': 'Administrador', 'is_admin': 1, 'password_hash': null,
+      },
+      {
+        'id': 2, 'cedula': '1234567890', 'nombre': 'Juan',
+        'apellido': 'Pérez', 'correo': 'juan@empresa.co',
+        'cargo': 'Desarrollador', 'is_admin': 0, 'password_hash': null,
+      },
+      {
+        'id': 3, 'cedula': '0987654321', 'nombre': 'María',
+        'apellido': 'García', 'correo': 'maria@empresa.co',
+        'cargo': 'Diseñadora', 'is_admin': 0, 'password_hash': null,
+      },
+      {
+        'id': 4, 'cedula': '1122334455', 'nombre': 'Carlos',
+        'apellido': 'López', 'correo': 'carlos@empresa.co',
+        'cargo': 'Analista', 'is_admin': 0, 'password_hash': null,
+      },
+      {
+        'id': 5, 'cedula': '5544332211', 'nombre': 'Sofía',
+        'apellido': 'Martínez', 'correo': 'sofia@empresa.co',
+        'cargo': 'QA', 'is_admin': 0, 'password_hash': null,
+      },
+    ];
+
+    for (final u in users) {
+      await db.insert('usuarios_locales', u,
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    AppLogger.info('Seeded ${users.length} local users');
+  }
+
+  /// Busca usuario local por cédula. Retorna null si no existe.
+  Future<Map<String, dynamic>?> getLocalUserByCedula(String cedula) async {
+    final db = await database;
+    final results = await db.query(
+      'usuarios_locales',
+      where: 'cedula = ?',
+      whereArgs: [cedula],
+      limit: 1,
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  /// Retorna todos los usuarios locales.
+  Future<List<Map<String, dynamic>>> getAllLocalUsers() async {
+    final db = await database;
+    return db.query('usuarios_locales', orderBy: 'nombre ASC');
+  }
+
+  // ── Offline Attendances ──────────────────────────────────────────
 
   Future<void> insertOfflineAttendance(Map<String, dynamic> row) async {
     final db = await database;
@@ -46,8 +142,7 @@ class LocalDatabaseService {
       row,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    AppLogger.info(
-        'Inserted offline attendance with uuid: ${row['uuid_marca']}');
+    AppLogger.info('Inserted offline attendance: ${row['uuid_marca']}');
   }
 
   Future<List<Map<String, dynamic>>> getPendingOfflineAttendances() async {
@@ -81,7 +176,7 @@ class LocalDatabaseService {
       );
     }
     await batch.commit(noResult: true);
-    AppLogger.info('Marked ${uuids.length} attendances as synced in SQLite');
+    AppLogger.info('Marked ${uuids.length} attendances as synced');
   }
 }
 

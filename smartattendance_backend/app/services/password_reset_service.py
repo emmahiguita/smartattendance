@@ -1,4 +1,4 @@
-﻿"""Password reset OTP delivery and verification."""
+"""Password reset OTP delivery and verification."""
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 import secrets

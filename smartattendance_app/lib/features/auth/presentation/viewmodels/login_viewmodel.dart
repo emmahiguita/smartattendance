@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/exceptions/app_exception.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/exceptions/error_handler.dart';
@@ -105,6 +106,7 @@ final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepositoryImpl(
     remoteDataSource: ref.watch(_authRemoteDataSourceProvider),
     storage: ref.watch(secureStorageProvider),
+    localDb: ref.watch(localDatabaseServiceProvider),
   ),
 );
 

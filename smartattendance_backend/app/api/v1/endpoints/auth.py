@@ -1,4 +1,4 @@
-﻿# app/api/v1/endpoints/auth.py
+# app/api/v1/endpoints/auth.py
 """
 Auth endpoints â€” login, registro pÃºblico, recuperaciÃ³n de contraseÃ±a y refresh.
 SRP: router delegates all logic to AuthService.

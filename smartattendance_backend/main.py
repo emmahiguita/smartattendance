@@ -1,4 +1,4 @@
-﻿# main.py
+# main.py
 """
 SmartAttendance FastAPI application entry point.
 SRP: only application factory and startup configuration live here.
