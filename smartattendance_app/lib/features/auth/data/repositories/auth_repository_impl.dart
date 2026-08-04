@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/exceptions/error_handler.dart';
 import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/logging/app_logger.dart';
@@ -61,6 +62,8 @@ final class AuthRepositoryImpl implements AuthRepository {
 
   /// Detecta si el error es de conectividad (no del servidor rechazando).
   bool _isNetworkError(Object e) {
+    // NetworkException is thrown by ErrorHandler when Dio catches connection errors
+    if (e is NetworkException) return true;
     if (e is DioException) {
       return e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.sendTimeout ||

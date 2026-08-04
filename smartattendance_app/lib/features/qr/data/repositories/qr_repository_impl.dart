@@ -1,25 +1,28 @@
 // lib/features/qr/data/repositories/qr_repository_impl.dart
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/exceptions/error_handler.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/location/location_service.dart';
+import '../../../../core/logging/app_logger.dart';
 import '../../domain/repositories/qr_repository.dart';
 import '../datasources/qr_remote_datasource.dart';
 
 final class QRRepositoryImpl implements QRRepository {
-  const QRRepositoryImpl(this._remoteDataSource,
+  const QRRepositoryImpl(this._remoteDataSource, this._localDb,
       {LocationService location = const LocationService()})
       : _location = location;
 
   final QRRemoteDataSource _remoteDataSource;
+  final LocalDatabaseService _localDb;
   final LocationService _location;
 
   @override
   Future<QRValidationResult> validateQR(String qrCode) async {
     try {
-      // Ubicación en tiempo real del escaneo — misma política que la marca
-      // manual: timeout duro, jamás bloquea la validación.
       final location = await _location.capture();
 
       final result = await _remoteDataSource.validateQR(
@@ -41,8 +44,25 @@ final class QRRepositoryImpl implements QRRepository {
         fechaRegistro: result.fechaRegistro,
         horaRegistro: result.horaRegistro,
       );
-    } on DioException catch (e) {
-      throw ErrorHandler.handle(e);
+    } on DioException catch (_) {
+      // Offline: validate QR from local DB
+      AppLogger.info('Offline mode: validating QR from local database');
+      final qrRow = await _localDb.getValidQR(qrCode);
+      if (qrRow == null) {
+        throw ValidationException(
+            message: 'QR no válido o ya fue usado (offline).');
+      }
+      await _localDb.markQRAsUsed(qrCode);
+      final userId = qrRow['usuario_id'] as int;
+      final now = DateTime.now();
+      return (
+        userId: userId,
+        tipo: 'entrada',
+        fechaRegistro:
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+        horaRegistro:
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+      );
     }
   }
 
@@ -54,8 +74,12 @@ final class QRRepositoryImpl implements QRRepository {
         throw UnknownException(message: 'Respuesta inválida del servidor.');
       }
       return result.codigo;
-    } on DioException catch (e) {
-      throw ErrorHandler.handle(e);
+    } on DioException catch (_) {
+      // Offline: generate QR locally
+      AppLogger.info('Offline mode: generating QR locally');
+      final codigo = 'QR-${userId}-${const Uuid().v4().substring(0, 8)}';
+      await _localDb.insertLocalQR(userId, codigo);
+      return codigo;
     }
   }
 }

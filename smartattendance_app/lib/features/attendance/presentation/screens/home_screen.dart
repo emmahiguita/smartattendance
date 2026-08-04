@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/location/location_service.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/notifications/journey_reminders.dart';
 import '../../../../core/router/app_router.dart';
@@ -30,7 +31,7 @@ import '../../../qr/presentation/widgets/generate_qr_dialog.dart';
 import '../../domain/entities/attendance_entity.dart';
 import '../../data/repositories/attendance_repository_impl.dart';
 
-/// HomeScreen â€” Main dashboard.
+/// HomeScreen — Main dashboard.
 /// SRP: displays quick actions and last activity. Delegates navigation.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -57,7 +58,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _startLocationTracking();
   }
 
-  /// Estado GPS HONESTO: si no hay señal/permiso, se muestra tal cual â€”
+  /// Estado GPS HONESTO: si no hay señal/permiso, se muestra tal cual —
   /// nunca coordenadas ficticias que aparenten un fix inexistente.
   Future<void> _startLocationTracking() async {
     setState(() => _loadingLocation = true);
@@ -111,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// C1: el flujo manual de "Marcar Asistencia" llama al endpoint real.
-  /// El servidor decide el tipo (entrada/salida) â€” C2.
+  /// El servidor decide el tipo (entrada/salida) — C2.
   Future<void> _registerAttendance() async {
     if (_registering) return;
     setState(() => _registering = true);
@@ -151,7 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final now = DateTime.now();
     AttendanceEntity? lastToday;
     for (final r in records) {
-      // toLocal(): la fecha del servidor es UTC â€” se compara con el día local.
+      // toLocal(): la fecha del servidor es UTC — se compara con el día local.
       final local = r.fecha.toLocal();
       if (local.year == now.year &&
           local.month == now.month &&
@@ -190,7 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
   }
 
-  /// H3: exporta el Excel con token Bearer (Dio) y lo abre â€” lógica única
+  /// H3: exporta el Excel con token Bearer (Dio) y lo abre — lógica única
   /// en [ExcelExporter] (también la usa el panel admin).
   Future<void> _exportExcel() async {
     if (kIsWeb) {
@@ -199,7 +200,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     try {
-      final path = await ExcelExporter(ref.read(dioProvider)).exportAndOpen();
+      final path = await ExcelExporter(
+        ref.read(dioProvider),
+        localDb: ref.read(localDatabaseServiceProvider),
+      ).exportAndOpen();
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -254,7 +258,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       orElse: () => '--:--',
     );
 
-    // Próxima marca de la jornada â€” espejo de la máquina de estado del
+    // Próxima marca de la jornada — espejo de la máquina de estado del
     // servidor (entrada â†’ almuerzo â†’ regreso â†’ salida â†’ nueva entrada).
     // El servidor decide siempre; esto es solo información de UI.
     final nextTipo = _nextTipoJornada(records);
@@ -282,7 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Greeting â€” wireframe: nombre completo + cargo + ID
+                          // Greeting — wireframe: nombre completo + cargo + ID
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -352,7 +356,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               .slideY(begin: 0.1, end: 0),
                           const SizedBox(height: 16),
 
-                          // â”€â”€ Primary Action Card (Escanear QR) â€” acción principal del plano â”€â”€
+                          // â”€â”€ Primary Action Card (Escanear QR) — acción principal del plano â”€â”€
                           _PremiumCard(
                             title: 'Escanear QR',
                             subtitle: 'Registra tu asistencia con el código',
@@ -367,7 +371,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                           const SizedBox(height: 16),
 
-                          // â”€â”€ Grid Dashboard â€” botón dinámico: muestra la PRÃ“XIMA
+                          // â”€â”€ Grid Dashboard — botón dinámico: muestra la PRÓXIMA
                           // marca de la jornada con su color e ícono semántico.
                           LayoutBuilder(
                             builder: (context, constraints) {
@@ -452,7 +456,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ).animate().fadeIn(delay: 450.ms),
                             const SizedBox(height: 16),
-                            // Asistencia Hoy â€” pantalla de empleados con estado del día.
+                            // Asistencia Hoy — pantalla de empleados con estado del día.
                             _PremiumCard(
                               title: 'Asistencia de hoy',
                               subtitle:
@@ -543,12 +547,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text('Sincronizado',
+                                      const Text('Sincronizado',
                                           style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: context.cTextPrimary)),
+                                              fontWeight: FontWeight.w700)),
                                       Text(
-                                          'Ãšltima actividad: $lastActivityStr',
+                                          'Última actividad: $lastActivityStr',
                                           style: TextStyle(
                                               fontSize: 13,
                                               color: context.cGray)),
@@ -652,7 +655,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// Notificaciones REALES: recordatorios calculados desde la jornada del día
-  /// (registros de la API). Sin sistema push â€” estado honesto y accionable.
+  /// (registros de la API). Sin sistema push — estado honesto y accionable.
   void _showNotifications(BuildContext context) {
     final records = ref.read(historyViewModelProvider).valueOrNull ??
         const <AttendanceEntity>[];
@@ -691,7 +694,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Jornada al día â€” sin recordatorios pendientes',
+                      'Jornada al día — sin recordatorios pendientes',
                       style:
                           TextStyle(fontSize: 15, color: context.cTextPrimary),
                     ),
@@ -894,9 +897,9 @@ class _PremiumCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 17,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                             ),
@@ -923,7 +926,7 @@ class _PremiumCard extends StatelessWidget {
   }
 }
 
-/// Resumen del día â€” estado REAL de la jornada desde los registros de la API.
+/// Resumen del día — estado REAL de la jornada desde los registros de la API.
 /// Muestra las 4 marcas del plano: Entrada · Almuerzo · Regreso · Salida.
 class DaySummaryCard extends StatelessWidget {
   const DaySummaryCard({super.key, required this.records});
@@ -1046,7 +1049,7 @@ class DaySummaryCard extends StatelessWidget {
           // 4 marcas en orden de jornada. Organización responsive:
           // fila de 4 chips compactos en pantallas anchas, grid 2x2 con
           // etiquetas COMPLETAS ("Salida a almorzar", "Regreso de almuerzo")
-          // en pantallas angostas â€” nada se corta.
+          // en pantallas angostas — nada se corta.
           LayoutBuilder(
             builder: (context, constraints) {
               // Icono distintivo por marca (login/restaurant/work/logout).
@@ -1158,8 +1161,8 @@ class DaySummaryCard extends StatelessWidget {
 }
 
 /// Reloj en tiempo real del DISPOSITIVO.
-/// Muestra la hora exacta del teléfono â€” con la zona horaria y el formato
-/// (12h/24h) que el propio sistema maneja â€” actualizándose cada segundo.
+/// Muestra la hora exacta del teléfono — con la zona horaria y el formato
+/// (12h/24h) que el propio sistema maneja — actualizándose cada segundo.
 class _LiveClock extends StatefulWidget {
   const _LiveClock();
 
@@ -1329,7 +1332,7 @@ class _LiveLocationTrackerCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'UBICACIÃ“N GPS EN TIEMPO REAL',
+                      'UBICACIÓN GPS EN TIEMPO REAL',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1395,8 +1398,8 @@ class _LiveLocationTrackerCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       hasFix
-                          ? 'GPS ACTIVO â€” POSICIÃ“N REAL'
-                          : 'SIN SEÃ‘AL GPS',
+                          ? 'GPS ACTIVO — POSICIÓN REAL'
+                          : 'SIN SEÑAL GPS',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,

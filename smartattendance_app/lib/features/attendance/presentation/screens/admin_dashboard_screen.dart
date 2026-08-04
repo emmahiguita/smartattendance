@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/exceptions/app_exception.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/services/excel_exporter.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -92,8 +93,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             _exportTo!.toIso8601String().split('T').first;
       }
 
-      final path = await ExcelExporter(ref.read(dioProvider))
-          .exportAndOpen(queryParameters: queryParams);
+      final path = await ExcelExporter(
+        ref.read(dioProvider),
+        localDb: ref.read(localDatabaseServiceProvider),
+      ).exportAndOpen(queryParameters: queryParams);
 
       if (mounted) {
         ScaffoldMessenger.of(context)

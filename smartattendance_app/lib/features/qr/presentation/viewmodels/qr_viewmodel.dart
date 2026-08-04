@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/exceptions/app_exception.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../data/datasources/qr_remote_datasource.dart';
 import '../../data/repositories/qr_repository_impl.dart';
@@ -71,7 +72,10 @@ final _qrRemoteDataSourceProvider = Provider<QRRemoteDataSource>(
 
 /// Público: compartido por el escáner y el panel admin para generar códigos.
 final qrRepositoryProvider = Provider<QRRepository>(
-  (ref) => QRRepositoryImpl(ref.watch(_qrRemoteDataSourceProvider)),
+  (ref) => QRRepositoryImpl(
+    ref.watch(_qrRemoteDataSourceProvider),
+    ref.watch(localDatabaseServiceProvider),
+  ),
 );
 
 final _validateQRUseCaseProvider = Provider<ValidateQRUseCase>(

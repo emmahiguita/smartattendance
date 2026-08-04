@@ -20,6 +20,13 @@ from app.core.rate_limit import rate_limiter
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_all_tables()
+    # Seed fallback: si la BD está vacía (seed.py no corrió en build porque
+    # la BD de Render no estaba lista), poblarla ahora.
+    try:
+        from seed import seed
+        seed()
+    except Exception:
+        pass  # Ya tiene datos o no es crítico — la app funciona igual
     yield
 
 

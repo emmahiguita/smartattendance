@@ -70,6 +70,24 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
 
       await _localDb.insertOfflineAttendance(offlineRow);
 
+      // Also save to attendance_history for local display
+      await _localDb.insertAttendanceRecord({
+        'id': -1 * DateTime.now().millisecondsSinceEpoch,
+        'usuario_id': userId,
+        'tipo': tipo ?? 'entrada',
+        'fecha': now.toIso8601String(),
+        'hora':
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}',
+        'latitud': location?.lat,
+        'longitud': location?.lng,
+        'direccion': location?.dir,
+        'nombre': null,
+        'apellido': null,
+        'cedula': null,
+        'cargo': null,
+        'created_at': now.toIso8601String(),
+      });
+
       return AttendanceModel(
         id: -1,
         usuarioId: userId,
@@ -140,13 +158,56 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
           .map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>))
           .toList();
 
+      // Cache locally for offline access
+      for (final a in attendances) {
+        await _localDb.insertAttendanceRecord({
+          'id': a.id,
+          'usuario_id': a.usuarioId,
+          'tipo': a.tipo,
+          'fecha': a.fecha.toIso8601String(),
+          'hora':
+              '${a.hora.hour.toString().padLeft(2, '0')}:${a.hora.minute.toString().padLeft(2, '0')}:${a.hora.second.toString().padLeft(2, '0')}',
+          'latitud': a.latitud,
+          'longitud': a.longitud,
+          'direccion': a.direccion,
+          'nombre': a.nombreEmpleado,
+          'apellido': a.apellidoEmpleado,
+          'cedula': a.cedulaEmpleado,
+          'cargo': a.cargoEmpleado,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+
       AppLogger.logApiResponse(response.statusCode ?? 200,
           '/attendance/user/$userId', attendances.length);
       return attendances;
-    } on DioException catch (e) {
-      AppLogger.error('Failed to get user attendances', error: e);
-      throw ErrorHandler.handle(e);
+    } on DioException catch (_) {
+      // Offline: use local cache
+      AppLogger.info('Offline mode: loading attendance from local cache');
+      return _localDb.getAttendanceHistory(userId).then((rows) => rows
+          .map((r) => AttendanceModel(
+                id: r['id'] as int,
+                usuarioId: r['usuario_id'] as int,
+                tipo: r['tipo'] as String,
+                fecha: DateTime.parse(r['fecha'] as String),
+                hora: _parseHora(r['hora'] as String),
+                latitud: (r['latitud'] as num?)?.toDouble(),
+                longitud: (r['longitud'] as num?)?.toDouble(),
+                direccion: r['direccion'] as String?,
+                nombreEmpleado: r['nombre'] as String?,
+                apellidoEmpleado: r['apellido'] as String?,
+                cedulaEmpleado: r['cedula'] as String?,
+                cargoEmpleado: r['cargo'] as String?,
+              ))
+          .toList());
     }
+  }
+
+  DateTime _parseHora(String h) {
+    final parts = h.split(':');
+    return DateTime(2000, 1, 1, int.tryParse(parts[0]) ?? 0,
+        int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+        int.tryParse(parts.length > 2 ? parts[2] : '0') ?? 0);
   }
 
   @override
@@ -163,9 +224,24 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
       AppLogger.logApiResponse(
           response.statusCode ?? 200, '/attendance/', attendances.length);
       return attendances;
-    } on DioException catch (e) {
-      AppLogger.error('Failed to get all attendances', error: e);
-      throw ErrorHandler.handle(e);
+    } on DioException catch (_) {
+      AppLogger.info('Offline mode: loading all attendance from local cache');
+      return _localDb.getAllAttendanceHistory().then((rows) => rows
+          .map((r) => AttendanceModel(
+                id: r['id'] as int,
+                usuarioId: r['usuario_id'] as int,
+                tipo: r['tipo'] as String,
+                fecha: DateTime.parse(r['fecha'] as String),
+                hora: _parseHora(r['hora'] as String),
+                latitud: (r['latitud'] as num?)?.toDouble(),
+                longitud: (r['longitud'] as num?)?.toDouble(),
+                direccion: r['direccion'] as String?,
+                nombreEmpleado: r['nombre'] as String?,
+                apellidoEmpleado: r['apellido'] as String?,
+                cedulaEmpleado: r['cedula'] as String?,
+                cargoEmpleado: r['cargo'] as String?,
+              ))
+          .toList());
     }
   }
 
@@ -183,9 +259,10 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
       AppLogger.logApiResponse(response.statusCode ?? 200,
           '/attendance/with-users', attendances.length);
       return attendances;
-    } on DioException catch (e) {
-      AppLogger.error('Failed to get attendances with users', error: e);
-      throw ErrorHandler.handle(e);
+    } on DioException catch (_) {
+      AppLogger.info(
+          'Offline mode: loading attendances with users from local cache');
+      return getAll(); // same local cache
     }
   }
 
@@ -200,10 +277,64 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
       AppLogger.logApiResponse(
           response.statusCode ?? 200, '/attendance/today-status', list.length);
       return list;
-    } on DioException catch (e) {
-      AppLogger.error('Failed to get today status', error: e);
-      throw ErrorHandler.handle(e);
+    } on DioException catch (_) {
+      AppLogger.info('Offline mode: building today status from local data');
+      return _buildLocalTodayStatus();
     }
+  }
+
+  /// Construye el estado de hoy desde el cache local.
+  Future<List<TodayEmployeeStatus>> _buildLocalTodayStatus() async {
+    var empleados = await _localDb.getCachedEmpleados();
+    if (empleados.isEmpty) {
+      empleados = await _localDb.getAllLocalUsers();
+    }
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final allHistory = await _localDb.getAllAttendanceHistory();
+    final todayRecords = allHistory
+        .where((r) => (r['fecha'] as String).startsWith(todayStr))
+        .toList();
+
+    final Map<int, List<Map<String, dynamic>>> byUser = {};
+    for (final r in todayRecords) {
+      final uid = r['usuario_id'] as int;
+      byUser.putIfAbsent(uid, () => []).add(r);
+    }
+
+    final statuses = <TodayEmployeeStatus>[];
+    for (final emp in empleados) {
+      final uid = emp['id'] as int;
+      final records = byUser[uid] ?? [];
+      String estado = 'sin_marcar';
+      String? horaEntrada;
+      int minutosTarde = 0;
+
+      if (records.isNotEmpty) {
+        // Find entrance
+        final entrance = records.firstWhere(
+          (r) => r['tipo'] == 'entrada',
+          orElse: () => records.first,
+        );
+        horaEntrada = entrance['hora'] as String;
+        estado = 'a_tiempo';
+      }
+
+      statuses.add(TodayEmployeeStatus(
+        id: uid,
+        nombre: emp['nombre'] as String,
+        apellido: emp['apellido'] as String,
+        cedula: emp['cedula'] as String,
+        cargo: emp['cargo'] as String? ?? 'Empleado',
+        fotoUrl: emp['foto_url'] as String?,
+        estado: estado,
+        horaEntrada: horaEntrada,
+        minutosTarde: minutosTarde,
+      ));
+    }
+    return statuses;
   }
 }
 

@@ -25,7 +25,8 @@ USERS_SEED = [
 ]
 
 
-def seed() -> None:
+def seed() -> bool:
+    """Populate database with test data. Returns True if seeded, False if skipped/already-seeded."""
     print("[*] Creando tablas...")
     create_all_tables()
 
@@ -34,7 +35,7 @@ def seed() -> None:
         # Skip if already seeded
         if db.query(User).count() > 0:
             print("[OK] Base de datos ya tiene datos. Omitiendo seed.")
-            return
+            return False
 
         print("[*] Insertando usuarios...")
         users: list[User] = []
@@ -87,10 +88,17 @@ def seed() -> None:
         print("[*] Usuarios de prueba:")
         for u in USERS_SEED:
             print(f"   • {u['nombre']} {u['apellido']} — cédula: {u['cedula']}")
+        return True
 
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    seed()
+    try:
+        seed()
+    except Exception as e:
+        # No crashear el build si la BD no está disponible aún.
+        # El seed se reintentará en el lifespan de startup vía main.py.
+        print(f"[WARN] Seed omitido — BD no disponible: {e}")
+        print("[*] Las tablas y datos se crearán al iniciar la aplicación.")

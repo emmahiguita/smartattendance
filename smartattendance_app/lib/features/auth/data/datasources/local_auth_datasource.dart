@@ -18,9 +18,23 @@ class LocalAuthDataSource {
     String cedula, {
     String? password,
   }) async {
-    final row = await _localDb.getLocalUserByCedula(cedula);
+    var row = await _localDb.getLocalUserByCedula(cedula);
     if (row == null) {
-      throw Exception('Usuario no encontrado localmente');
+      row = await _localDb.getCachedEmpleadoByCedula(cedula);
+    }
+    if (row == null) {
+      // Auto-crear usuario local para cualquier cédula ingresada en modo offline
+      final newLocalUser = {
+        'id': (cedula.hashCode & 0x7FFFFFFF),
+        'cedula': cedula,
+        'nombre': 'Empleado',
+        'apellido': 'Offline',
+        'correo': 'usuario_$cedula@offline.local',
+        'cargo': 'Empleado',
+        'is_admin': 0,
+      };
+      await _localDb.insertLocalUser(newLocalUser);
+      row = newLocalUser;
     }
 
     AppLogger.info('Local auth OK for cedula: $cedula');

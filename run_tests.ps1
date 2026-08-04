@@ -1,4 +1,4 @@
-# run_tests.ps1
+﻿# run_tests.ps1
 # ===================================================================
 # Automated Test Suite Runner — SmartAttendance App
 # ===================================================================
@@ -32,7 +32,7 @@ $backendDir = Join-Path $projectRoot 'smartattendance_backend'
 $resultsFile = Join-Path $projectRoot 'test_results.json'
 $resultsText = Join-Path $projectRoot 'test_results.txt'
 
-# ── Colores ────────────────────────────────────────────────────────
+# -- Colores --------------------------------------------------------
 function Write-Status {
     param([string]$Text, [string]$Color = 'White')
     Write-Host $Text -ForegroundColor $Color
@@ -43,7 +43,7 @@ function Write-Fail { Write-Status "  FAIL  $args" 'Red' }
 function Write-Warn { Write-Status "  WARN  $args" 'Yellow' }
 function Write-Step { Write-Status "`n==== $args ====" 'Cyan' }
 
-# ── Resultados ──────────────────────────────────────────────────────
+# -- Resultados ------------------------------------------------------
 $script:results = @{
     total_tests  = 0
     passed       = 0
@@ -57,7 +57,7 @@ $script:results = @{
 function Save-Results {
     $json = $script:results | ConvertTo-Json -Depth 3
     Set-Content -LiteralPath $resultsFile -Value $json -Encoding UTF8
-    Set-Content -LiteralPath $resultsText -Value "SmartAttendance Test Results — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n$('─' * 60)`n$($script:results | ConvertTo-Json -Depth 3)" -Encoding UTF8
+    Set-Content -LiteralPath $resultsText -Value "SmartAttendance Test Results — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n$('-' * 60)`n$($script:results | ConvertTo-Json -Depth 3)" -Encoding UTF8
 
     Write-Step "RESUMEN FINAL"
     Write-Status "Total:   $($script:results.total_tests)" 'White'
@@ -68,7 +68,7 @@ function Save-Results {
     if ($script:results.failed -gt 0) { exit 1 } else { exit 0 }
 }
 
-# ── Verificación de prerequisitos ───────────────────────────────────
+# -- Verificación de prerequisitos -----------------------------------
 function Test-Prerequisites {
     Write-Step "VERIFICANDO PREREQUISITOS"
     $ok = $true
@@ -108,7 +108,7 @@ function Test-Prerequisites {
     }
 }
 
-# ── Backend Tests ───────────────────────────────────────────────────
+# -- Backend Tests ---------------------------------------------------
 function Invoke-BackendTests {
     Write-Step "BACKEND TESTS (FastAPI)"
     try {
@@ -161,7 +161,7 @@ function Invoke-BackendTests {
     }
 }
 
-# ── Flutter Unit Tests ──────────────────────────────────────────────
+# -- Flutter Unit Tests ----------------------------------------------
 function Invoke-FlutterUnitTests {
     Write-Step "FLUTTER UNIT TESTS"
     try {
@@ -222,7 +222,7 @@ function Invoke-FlutterUnitTests {
     }
 }
 
-# ── Flutter Widget Tests ────────────────────────────────────────────
+# -- Flutter Widget Tests --------------------------------------------
 function Invoke-FlutterWidgetTests {
     Write-Step "FLUTTER WIDGET TESTS"
     try {
@@ -271,7 +271,7 @@ function Invoke-FlutterWidgetTests {
     }
 }
 
-# ── Flutter Integration Tests ───────────────────────────────────────
+# -- Flutter Integration Tests ---------------------------------------
 function Invoke-FlutterIntegrationTests {
     Write-Step "FLUTTER INTEGRATION TESTS"
     try {
@@ -337,11 +337,11 @@ function Invoke-FlutterIntegrationTests {
     }
 }
 
-# ── Main ────────────────────────────────────────────────────────────
-Write-Status "`n══════════════════════════════════════════════════════════" 'Cyan'
+# -- Main ------------------------------------------------------------
+Write-Status "`n==========================================================" 'Cyan'
 Write-Status "  SmartAttendance — Suite de Pruebas Automatizada" 'Cyan'
 Write-Status "  Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" 'Cyan'
-Write-Status "══════════════════════════════════════════════════════════`n" 'Cyan'
+Write-Status "==========================================================`n" 'Cyan'
 
 Test-Prerequisites
 

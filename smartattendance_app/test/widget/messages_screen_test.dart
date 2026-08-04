@@ -2,11 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:smartattendance/core/localstore/local_database_service.dart';
 import 'package:smartattendance/features/messaging/data/messaging_repository.dart';
 import 'package:smartattendance/features/messaging/presentation/messages_screen.dart';
 
 class FakeMessagingRepository extends MessagingRepository {
-  FakeMessagingRepository() : super(Dio());
+  FakeMessagingRepository() : super(Dio(), LocalDatabaseService());
 
   final sent = <InternalMessage>[];
 

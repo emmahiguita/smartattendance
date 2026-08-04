@@ -1,6 +1,7 @@
 // lib/features/users/presentation/viewmodels/users_viewmodel.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../data/datasources/users_remote_datasource.dart';
@@ -15,5 +16,6 @@ final usersViewModelProvider = FutureProvider<List<UserEntity>>((ref) {
 final usersRepositoryProvider = Provider<UsersRepository>((ref) {
   return UsersRepositoryImpl(
     UsersRemoteDataSource(ref.watch(dioProvider)),
+    ref.watch(localDatabaseServiceProvider),
   );
 });
