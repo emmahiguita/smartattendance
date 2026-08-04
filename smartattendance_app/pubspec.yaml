@@ -1,0 +1,80 @@
+name: smartattendance
+description: "Sistema Inteligente de Control de Asistencia Empresarial — Flutter + FastAPI"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # QR Scanner (camera + decoder)
+  mobile_scanner: ^5.2.3
+  image_picker: ^1.1.2
+
+  # Google Sign-In (botón del login — id_token verificado server-side)
+  google_sign_in: ^6.2.1
+
+  # HTTP Client
+  dio: ^5.7.0
+
+  # Secure token storage
+  flutter_secure_storage: ^9.2.2
+
+  # Date formatting (0.20.2 fijado por flutter_localizations del SDK)
+  intl: ^0.20.2
+
+  # Icons — Material Symbols (legacy)
+
+  # Utilities
+  equatable: ^2.0.7
+  logger: ^2.4.0
+  sqflite: ^2.3.3+1
+  connectivity_plus: ^6.0.5
+  uuid: ^4.5.1
+  path: ^1.9.0
+
+  geolocator: ^14.0.2
+  geocoding: ^4.0.0
+  flutter_animate: ^4.5.2
+  fl_chart: ^1.2.0
+  url_launcher: ^6.3.2
+  path_provider: ^2.1.4
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.2
+  custom_lint: ^0.7.3
+  riverpod_lint: ^2.6.2
+  flutter_launcher_icons: ^0.14.4
+  mocktail: ^1.0.5
+
+# package_info_plus llega transitivamente (geolocator_linux) y su módulo
+# Android no compila en el orden del build de Flutter
+# (GeneratedPluginRegistrant: cannot find symbol). Linux no es plataforma
+# objetivo → geolocator_linux se reemplaza por un stub local sin el plugin.
+dependency_overrides:
+  geolocator_linux:
+    path: ./packages/geolocator_linux_stub
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

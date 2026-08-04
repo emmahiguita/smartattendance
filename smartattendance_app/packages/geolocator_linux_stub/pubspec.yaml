@@ -1,0 +1,27 @@
+name: geolocator_linux
+description: >
+  Stub local para geolocator_linux.
+  La implementación real arrastra package_info_plus como transitiva, y su
+  módulo Android no compila en el orden del build de Flutter
+  (GeneratedPluginRegistrant: cannot find symbol). La plataforma Linux no se
+  usa en este proyecto (target Android), por lo que el stub es suficiente.
+version: 0.2.3
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+# Declaración de plugin mínima: satisface la validación de flutter tools
+# ("default_package must be a plugin package"). Solo expone la plataforma
+# Linux, que no se compila en este proyecto; no genera nada en Android.
+flutter:
+  plugin:
+    implements: geolocator
+    platforms:
+      linux:
+        dartPluginClass: GeolocatorLinuxStub
+        pluginClass: none
+
+dependencies:
+  flutter:
+    sdk: flutter
+  geolocator_platform_interface: ^4.2.1
