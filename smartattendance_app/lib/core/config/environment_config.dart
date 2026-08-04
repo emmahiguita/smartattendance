@@ -6,7 +6,7 @@ enum Environment { development, staging, production }
 
 final class EnvironmentConfig {
   // CAMBIAR SEGÚN AMBIENTE
-  static const Environment _environment = Environment.development;
+  static const Environment _environment = Environment.production;
 
   static final _configs = {
     Environment.development: _DevConfig(),
@@ -81,8 +81,13 @@ final class _StagingConfig extends _BaseConfig {
 }
 
 final class _ProdConfig extends _BaseConfig {
+  /// Backend desplegado en Render.com — siempre disponible, no depende del PC.
+  /// Render URL: https://{service-name}.onrender.com/api/v1
   @override
-  String get baseUrl => 'https://api.smartattendance.io/api/v1';
+  String get baseUrl => const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'https://smartattendance-api.onrender.com/api/v1',
+      );
 
   @override
   bool get enableLogging => false;
