@@ -1,191 +1,146 @@
 # SmartAttendance
 
-> **Sistema Inteligente de Control de Asistencia Empresarial**
-> Flutter (Android + iOS) · FastAPI · Clean Architecture · MVVM · SOLID · Riverpod · Material 3
+Sistema Inteligente de Control de Asistencia Empresarial con escaneo QR, modo offline y panel administrativo.
+
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)](https://python.org)
+[![Tests](https://img.shields.io/badge/tests-131%20passed-brightgreen)]()
+[![License](https://img.shields.io/badge/license-proprietary-red)]()
 
 ---
 
-## 📱 Demo de Pantallas
-
-| Login | Home | QR Scanner | Confirmación |
-|-------|------|------------|--------------|
-| Cédula + QR login | Bento grid dashboard | Cámara real + scan line | Animación éxito + detalles |
-
----
-
-## 🏗️ Arquitectura
-
-Este proyecto implementa **Clean Architecture** estrictamente con separación en 3 capas por feature:
+## Estructura del repositorio
 
 ```
-Presentation Layer  →  Domain Layer  →  Data Layer
-   Screens               Entities         Models
-   ViewModels            Use Cases        Repositories (impl)
-   Widgets               Interfaces       Data Sources (HTTP)
-```
-
-**Patrón MVVM** aplicado:
-- **View** = Screen (solo renderiza, escucha estado)
-- **ViewModel** = `StateNotifier` de Riverpod (maneja UI state)
-- **Repository** = Interface (DIP) con implementación en Data layer
-
----
-
-## 🧱 Principios SOLID Aplicados
-
-| Principio | Aplicación concreta |
-|---|---|
-| **S** — SRP | Cada clase tiene una única razón de cambiar. `UserRepository` solo hace queries de usuario. `LoginUseCase` solo valida y delega. |
-| **O** — OCP | `ConfirmationScreen` usa un mapa de config — agregar `tipo=permiso` no modifica el widget. El API router agrega rutas sin tocar endpoints. |
-| **L** — LSP | `AuthRepositoryImpl` es intercambiable por cualquier otra implementación de `AuthRepository`. |
-| **I** — ISP | `AuthRepository`, `AttendanceRepository`, `QRRepository` son interfaces mínimas separadas. |
-| **D** — DIP | Screens → Riverpod Provider → UseCase → Repository Interface → Impl. Nunca acceso directo a Dio o SQLAlchemy desde UI. |
-
----
-
-## 🛠️ Stack Tecnológico
-
-### Frontend (Flutter)
-| Librería | Uso |
-|---|---|
-| `flutter_riverpod` | State management (StateNotifier) |
-| `go_router` | Navegación tipada con parámetros |
-| `mobile_scanner` | Escaneo QR real con cámara |
-| `dio` | Cliente HTTP con interceptores |
-| `flutter_secure_storage` | Almacenamiento seguro del JWT |
-| `equatable` | Igualdad por valor en entidades |
-| Material 3 | Design system nativo Flutter |
-
-### Backend (FastAPI)
-| Librería | Uso |
-|---|---|
-| `fastapi` | API REST con OpenAPI auto-generado |
-| `sqlalchemy` | ORM con patrón Repository |
-| `pydantic-settings` | Configuración tipada |
-| `python-jose` | JWT generation & validation |
-| `uvicorn` | ASGI server |
-| SQLite → PostgreSQL | MVP → Producción |
-
----
-
-## 📁 Estructura de Carpetas
-
-```
-smartattendance_app/
-└── lib/
-    ├── core/
-    │   ├── config/      # AppConfig — URLs, keys
-    │   ├── router/      # GoRouter — rutas tipadas
-    │   └── theme/       # Material 3 theme + color tokens
-    ├── features/
-    │   ├── auth/        # Login, Splash
-    │   │   ├── domain/  # UserEntity, AuthRepository (interface), LoginUseCase
-    │   │   ├── data/    # UserModel, AuthRepositoryImpl, AuthRemoteDataSource
-    │   │   └── presentation/  # LoginScreen, LoginViewModel (StateNotifier)
-    │   ├── attendance/  # Home, Confirmation
-    │   ├── qr/          # QRScannerScreen
-    │   └── history/     # HistoryScreen
-    └── shared/
-        └── widgets/     # GlassCard, PrimaryButton (DRY)
-
-smartattendance_backend/
-└── app/
-    ├── api/v1/          # FastAPI routers (auth, attendance, qr)
-    ├── core/            # config.py, security.py
-    ├── models/          # SQLAlchemy ORM models
-    ├── schemas/         # Pydantic request/response
-    ├── services/        # Business logic (SRP)
-    └── repositories/    # Data access (DIP)
+├── README.md                          ← Este archivo
+├── run_tests.ps1                      ← Suite automatizada de pruebas
+├── docs/                              ← Documentación del proyecto
+│   ├── QUICK_START.md                 ← Guía rápida de instalación
+│   ├── ENTREGABLES.md                 ← Entregables del proyecto
+│   └── ...                            ← Historial de fases, auditorías, planes
+├── smartattendance_app/               ← Flutter (Android + iOS + Web + Windows)
+│   ├── lib/
+│   │   ├── main.dart
+│   │   ├── core/                      ← Auth, red, tema, router, validadores
+│   │   ├── features/                  ← Clean Architecture por feature
+│   │   │   ├── auth/                  ← Login, registro, splash
+│   │   │   ├── attendance/            ← Dashboard admin, hoy empleado
+│   │   │   ├── qr/                    ← Escáner + generación QR
+│   │   │   ├── profile/               ← Perfil + edición
+│   │   │   ├── history/               ← Historial de asistencias
+│   │   │   ├── users/                 ← Gestión de empleados (admin)
+│   │   │   ├── settings/              ← Configuración
+│   │   │   └── messaging/             ← Mensajería interna
+│   │   └── shared/                    ← Widgets reutilizables
+│   ├── test/                          ← 107 tests (unit + widget + smoke)
+│   ├── integration_test/              ← Tests end-to-end reales
+│   └── packages/                      ← Stubs locales (geolocator_linux)
+├── smartattendance_backend/           ← FastAPI REST API
+│   ├── main.py                        ← Entry point + app factory
+│   ├── app/
+│   │   ├── api/v1/                    ← Endpoints + dependencias
+│   │   ├── core/                      ← Config, seguridad, hashing
+│   │   ├── database/                  ← SQLAlchemy engine + sesiones
+│   │   ├── models/                    ← ORM (User, Attendance, QRCode)
+│   │   ├── repositories/              ← Acceso a datos
+│   │   ├── schemas/                   ← Pydantic request/response
+│   │   └── services/                  ← Lógica de negocio
+│   ├── tests/                         ← 24 tests pytest
+│   └── seed.py                        ← Datos de prueba
 ```
 
 ---
 
-## 🚀 Cómo Ejecutar
+## Stack técnico
 
-### Backend (FastAPI)
+| Capa | Tecnología |
+|------|-----------|
+| Mobile | Flutter 3.x, Dart 3.4+ |
+| State | Riverpod 2.6 |
+| Router | GoRouter 14 |
+| HTTP | Dio 5 |
+| DB local | SQLite (sqflite) |
+| QR | mobile_scanner 5, qr_flutter 4 |
+| Auth | JWT (access + refresh rotado), Google Sign-In |
+| Backend | FastAPI 0.115, Python 3.12 |
+| ORM | SQLAlchemy 2.x |
+| Auth server | bcrypt, python-jose |
+| Excel | openpyxl |
+| Google Sheets | gspread (sincronización en background) |
 
-```bash
+---
+
+## Requisitos
+
+- Flutter SDK 3.x
+- Python 3.12
+- Android Studio / Xcode (para build mobile)
+- Dispositivo Android 11+ o iOS 15+
+
+---
+
+## Instalación rápida
+
+```powershell
+# Backend
 cd smartattendance_backend
-pip install -r requirements.txt
-python seed.py          # Crea tablas y datos de prueba
-uvicorn main:app --reload --port 8000
-```
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+copy .env.example .env    # Editar SECRET_KEY y DATABASE_URL
+.\venv\Scripts\python.exe seed.py
+.\venv\Scripts\python.exe -m uvicorn main:create_app --factory --reload --host 0.0.0.0 --port 8000
 
-**Swagger UI disponible en:** http://localhost:8000/docs
-
-**Usuarios de prueba:**
-| Nombre | Cédula |
-|---|---|
-| Juan Pérez | `1234567890` |
-| María García | `0987654321` |
-| Carlos López | `1122334455` |
-
-### App Flutter
-
-```bash
-cd smartattendance_app
+# Flutter
+cd ..\smartattendance_app
 flutter pub get
-flutter run                    # Android emulator / physical device
-flutter build apk --debug     # APK para Android
+flutter run
 ```
 
-> **Nota:** En el emulador Android, la URL del backend es `http://10.0.2.2:8000`.
-> En dispositivo físico, cambia a la IP local de tu PC en `AppConfig.baseUrl`.
+Guía detallada en [`docs/QUICK_START.md`](docs/QUICK_START.md).
 
 ---
 
-## 📡 API Endpoints
+## Pruebas
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/api/v1/auth/login` | Login por cédula → JWT |
-| `POST` | `/api/v1/attendance/` | Registrar entrada o salida |
-| `GET`  | `/api/v1/attendance/` | Listar todos (paginado) |
-| `GET`  | `/api/v1/attendance/user/{id}` | Historial por empleado |
-| `GET`  | `/api/v1/attendance/date/{fecha}` | Registros por fecha |
-| `POST` | `/api/v1/qr/generate` | Generar código QR |
-| `POST` | `/api/v1/qr/validate` | Validar QR + registrar asistencia |
+```powershell
+# Suite completa automatizada
+.\run_tests.ps1
 
----
+# Solo backend
+.\run_tests.ps1 -BackendOnly
 
-## 🗺️ Roadmap
+# Solo Flutter
+.\run_tests.ps1 -FlutterOnly
+```
 
-- [x] **Fase 1** — Diseño UI Material 3
-- [x] **Fase 2** — Backend FastAPI
-- [x] **Fase 3** — Base de datos SQLite + seed
-- [x] **Fase 4** — Login por cédula + JWT
-- [x] **Fase 5** — Registro de asistencia
-- [x] **Fase 6** — QR Scanner (cámara real)
-- [x] **Fase 7** — Historial de asistencia
-- [ ] **Fase 8** — Tests unitarios + integración
-- [ ] **Fase 9** — Publicación Play Store (Android)
-- [ ] **Fase 10** — Publicación App Store (iOS)
-
-### Versiones Futuras
-
-| Versión | Features |
-|---|---|
-| **V2** | GPS, fotografía de verificación, notificaciones push |
-| **V3** | Dashboard web, exportar PDF/Excel |
-| **V4** | Reconocimiento facial, analítica IA |
+| Suite | Tests | Estado |
+|-------|-------|--------|
+| Backend (pytest) | 24 | Pasando |
+| Flutter unit | 61 | Pasando |
+| Flutter widget | 7 | Pasando |
+| Flutter smoke | 42 | Pasando |
+| **Total** | **134** | |
 
 ---
 
-## 🎯 Evaluación de Portafolio
+## Funcionalidades principales
 
-| Criterio | Nivel |
-|---|---|
-| Arquitectura | Clean Architecture + MVVM ✅ |
-| Principios SOLID | Aplicados en cada capa ✅ |
-| Estado | Riverpod StateNotifier ✅ |
-| Navegación | GoRouter con parámetros ✅ |
-| UI/UX | Material 3 + Glassmorphism ✅ |
-| Backend real | FastAPI + SQLite/PostgreSQL ✅ |
-| API documentada | Swagger UI auto-generado ✅ |
-| Multiplataforma | Android + iOS (mismo código) ✅ |
-
-**Calificación portafolio: 8.5/10** — Proyecto completo, vendible para pequeñas empresas.
+- **Autenticación**: Login por cédula + contraseña, Google Sign-In, recuperación de contraseña
+- **QR Scanner**: Escaneo de QR con cámara para registrar entrada/salida
+- **Jornada laboral 4 marcas**: entrada → salida almuerzo → regreso almuerzo → salida (server-side)
+- **Modo offline**: Cola SQLite local con sincronización cuando hay conexión
+- **Dashboard admin**: KPIs, estado hoy de todos los empleados, exportación Excel
+- **Google Sheets**: Sincronización automática en background
+- **Perfil**: Edición de datos personales + foto
+- **Tema**: Claro / Oscuro / Sistema
 
 ---
 
-*Desarrollado como proyecto de portafolio profesional · SmartAttendance v1.0.0*
+## Documentación
+
+- [`docs/QUICK_START.md`](docs/QUICK_START.md) — Guía de instalación y primer uso
+- [`docs/ENTREGABLES.md`](docs/ENTREGABLES.md) — Entregables del proyecto
+- [`docs/AUDITORIA_PROFESIONAL.md`](docs/AUDITORIA_PROFESIONAL.md) — Auditoría de código
+- [`docs/PLAN_ACCION_PRODUCCION.md`](docs/PLAN_ACCION_PRODUCCION.md) — Plan de producción
+- [`docs/INDICE_DOCUMENTACION.md`](docs/INDICE_DOCUMENTACION.md) — Índice completo
