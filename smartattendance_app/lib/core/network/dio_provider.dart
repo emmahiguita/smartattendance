@@ -5,6 +5,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../auth/session_controller.dart';
 import '../auth/token_store.dart';
 import '../config/app_config.dart';
+import '../config/environment_config.dart';
+import '../config/server_config_provider.dart';
 import '../localstore/secure_storage_provider.dart';
 import '../logging/app_logger.dart';
 
@@ -15,13 +17,19 @@ import '../logging/app_logger.dart';
 /// On a failed refresh the session controller logs the user out; the router
 /// reacts to the session state change (dependency inversion).
 final dioProvider = Provider<Dio>((ref) {
+  // Observer server URL changes — si el usuario cambia el servidor
+  // en Settings, este provider se reconstruye automáticamente.
+  final serverUrl = ref.watch(serverConfigNotifierProvider);
+  // Sincronizar AppConfig.baseUrl para que fullPhotoUrl y otros
+  // consumidores estáticos usen la URL correcta.
+  AppConfig.setCustomUrl(serverUrl != EnvironmentConfig.baseUrl ? serverUrl : '');
+
   final dio = Dio(
     BaseOptions(
-      baseUrl: AppConfig.baseUrl,
+      baseUrl: serverUrl,
       connectTimeout: AppConfig.connectTimeout,
       receiveTimeout: AppConfig.receiveTimeout,
       contentType: Headers.jsonContentType,
-      // Only accept 2xx/3xx — so Dio properly throws on 4xx/5xx
       validateStatus: (status) => status != null && status < 400,
     ),
   );

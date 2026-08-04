@@ -1,23 +1,33 @@
 // lib/core/config/app_config.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'environment_config.dart';
 
 /// Application-wide configuration constants.
-/// Utiliza EnvironmentConfig para manejar diferentes ambientes.
+/// baseUrl, connectTimeout y receiveTimeout se resuelven desde
+/// [ServerConfig] que permite override en runtime por el usuario.
 class AppConfig {
   AppConfig._();
 
   // ── App ─────────────────────────────────────────────────────────
-  /// Versión mostrada en Configuración → Acerca de (sincronizada con pubspec).
   static const String appVersion = '1.0.0';
-
-  /// Nombre de la empresa — branding mostrado en escáner QR y textos.
   static const String companyName = 'CONTROL AI';
 
-  /// Preferencia de recordatorios de jornada (settings la escribe, home la lee).
   static const String keyNotificationsEnabled = 'key_notifications_enabled';
 
   // ── API ──────────────────────────────────────────────────────
-  static String get baseUrl => EnvironmentConfig.baseUrl;
+  /// URL del backend. Si el usuario configuró una manual en Settings,
+  /// se usa esa. Si no, el default del ambiente compilado.
+  static String _customUrl = '';
+  static String get baseUrl =>
+      _customUrl.isNotEmpty ? _customUrl : EnvironmentConfig.baseUrl;
+
+  /// Permite que ServerConfigNotifier inyecte la URL personalizada.
+  static void setCustomUrl(String url) {
+    _customUrl = url;
+  }
+
   static Duration get connectTimeout => EnvironmentConfig.connectTimeout;
   static Duration get receiveTimeout => EnvironmentConfig.receiveTimeout;
   static bool get enableLogging => EnvironmentConfig.enableLogging;
@@ -32,9 +42,8 @@ class AppConfig {
   static const String keyUserJson = 'user_json';
   static const String keySavedCedula = 'saved_cedula';
   static const String keySavedPassword = 'saved_password';
+  static const String keyCustomServerUrl = 'custom_server_url';
 
-  /// Construye la URL completa de la foto de perfil a partir de la ruta
-  /// relativa del servidor (/static/fotos/{filename}).
   static String fullPhotoUrl(String? relativePath) {
     if (relativePath == null || relativePath.isEmpty) return '';
     final base = baseUrl.replaceAll('/api/v1', '');
