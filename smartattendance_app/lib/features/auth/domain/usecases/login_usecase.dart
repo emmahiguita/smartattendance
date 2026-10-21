@@ -14,14 +14,16 @@ final class LoginUseCase {
 
   /// Execute the login flow.
   /// [cedula] must be valid per InputValidators.
+  /// [isOffline] skips remote attempt entirely for instant local login.
   Future<(String token, UserEntity user)> call(String cedula,
-      {String? password}) async {
+      {String? password, bool isOffline = false}) async {
     final validationError = InputValidators.validateCedula(cedula);
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
 
-    return _repository.loginByCedula(cedula.trim(), password: password);
+    return _repository.loginByCedula(cedula.trim(),
+        password: password, isOffline: isOffline);
   }
 
   /// Login con Google: delega en el repositorio (el id_token lo verifica el

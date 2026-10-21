@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+export '../design_system/design_system.dart';
 
 // enterprise_colors.dart se conserva como referencia histórica.
 // AppTheme ahora usa AppColors (fuente única de verdad).

@@ -5,10 +5,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/auth/session_controller.dart';
-import '../../../../core/exceptions/app_exception.dart';
-import '../../../../core/localstore/local_database_service.dart';
-import '../../../../core/network/dio_provider.dart';
-import '../../../../core/services/excel_exporter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -23,6 +19,8 @@ import '../widgets/premium_kpi_card.dart';
 import '../widgets/premium_attendance_table.dart';
 import '../widgets/enterprise_side_panel.dart';
 import '../viewmodels/admin_dashboard_viewmodel.dart';
+import '../viewmodels/export_preview_viewmodel.dart';
+import '../widgets/export_preview_sheet.dart';
 import '../../data/models/attendance_model.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
@@ -79,53 +77,29 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     await confirmLogout(context, ref);
   }
 
-  /// H3: exporta el Excel con token Bearer (Dio) y adjunta los filtros de
-  /// fecha seleccionados â€” lógica única en [ExcelExporter].
+  /// Abre el preview de exportación con resumen, selector de formato y tabla.
   Future<void> _exportExcel() async {
-    try {
-      final queryParams = <String, dynamic>{};
-      if (_exportFrom != null) {
-        queryParams['fecha_desde'] =
-            _exportFrom!.toIso8601String().split('T').first;
-      }
-      if (_exportTo != null) {
-        queryParams['fecha_hasta'] =
-            _exportTo!.toIso8601String().split('T').first;
-      }
+    final path = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ExportPreviewSheet(
+        fechaDesde: _exportFrom,
+        fechaHasta: _exportTo,
+      ),
+    );
 
-      final path = await ExcelExporter(
-        ref.read(dioProvider),
-        localDb: ref.read(localDatabaseServiceProvider),
-      ).exportAndOpen(queryParameters: queryParams);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text('Reporte Excel generado correctamente:\n$path'),
-              backgroundColor: AppColors.systemGreen,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-      }
-    } on AppException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+    if (path != null && mounted) {
+      ref.read(exportPreviewViewModelProvider.notifier).reset();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
           SnackBar(
-              content: Text(e.message), backgroundColor: AppColors.systemRed),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Error al exportar: ${e.toString().replaceFirst('Exception: ', '')}'),
-            backgroundColor: AppColors.systemRed,
+            content: Text('Reporte exportado correctamente:\n$path'),
+            backgroundColor: AppColors.systemGreen,
+            duration: const Duration(seconds: 4),
           ),
         );
-      }
     }
   }
 

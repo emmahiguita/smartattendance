@@ -80,13 +80,14 @@ abstract final class InputValidators {
     String? fieldName,
   }) {
     if (input == null || input.isEmpty) return null;
+    final name = fieldName ?? 'El campo';
 
     if (input.length < minLength) {
-      return '$fieldName mínimo $minLength caracteres';
+      return '$name mínimo $minLength caracteres';
     }
 
     if (input.length > maxLength) {
-      return '$fieldName máximo $maxLength caracteres';
+      return '$name máximo $maxLength caracteres';
     }
 
     return null;

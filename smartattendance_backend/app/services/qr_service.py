@@ -4,6 +4,7 @@ QR service — business logic for generating and validating QR codes.
 SRP: handles only QR use cases.
 OCP: new QR strategies (e.g., time-limited) can be added without modifying this class.
 """
+import re
 import uuid
 from sqlalchemy.orm import Session
 
@@ -65,9 +66,16 @@ class QRService:
         """
         raw_code = request.codigo.strip()
         # Normalización de formato corporativo de Empresa X
-        clean_code = raw_code
-        if "EMPRESA" in raw_code.upper() or ":" in raw_code:
-            clean_code = raw_code.split(":")[-1].split("_")[-1].strip()
+        # Extrae el UUID si viene con prefijos como EMPRESA_X:uuid o EMPRESA_X_uuid
+        uuid_match = re.search(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', raw_code, re.IGNORECASE)
+        if uuid_match:
+            clean_code = uuid_match.group(0)
+        elif ":" in raw_code:
+            clean_code = raw_code.split(":", 1)[1].strip()
+        elif raw_code.upper().startswith("EMPRESA"):
+            clean_code = re.sub(r'^EMPRESA[A-Z0-9_]*[:_]', '', raw_code, flags=re.IGNORECASE).strip()
+        else:
+            clean_code = raw_code
 
         qr = self._qr_code_repo.get_by_codigo(clean_code)
         if qr is None:

@@ -41,6 +41,12 @@ abstract base class _BaseConfig {
 }
 
 final class _DevConfig extends _BaseConfig {
+  @override
+  Duration get connectTimeout => const Duration(seconds: 5);
+
+  @override
+  Duration get receiveTimeout => const Duration(seconds: 10);
+
   // baseUrl según plataforma de ejecución:
   //  - Web / Windows / macOS / Linux  → localhost (el backend corre en la misma máquina)
   //  - Android (físico / emulador)    → 127.0.0.1 (vía adb reverse) o 10.0.2.2 (emulador)

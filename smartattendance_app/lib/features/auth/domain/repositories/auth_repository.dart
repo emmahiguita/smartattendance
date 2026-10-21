@@ -6,8 +6,9 @@
 abstract interface class AuthRepository {
   /// Login por cÃ©dula. [password] es obligatoria si la cuenta la tiene
   /// configurada (el servidor la exige).
+  /// [isOffline] salta el intento remoto y va directo a auth local (SQLite).
   Future<(String token, UserEntity user)> loginByCedula(String cedula,
-      {String? password});
+      {String? password, bool isOffline = false});
 
   /// Login con Google: el id_token se verifica server-side contra el client
   /// ID configurado. La cuenta debe existir por correo en el sistema.

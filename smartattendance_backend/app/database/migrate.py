@@ -16,7 +16,14 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-CURRENT_ATTENDANCE_TYPES = ("entrada", "salida_almuerzo", "regreso_almuerzo", "salida")
+CURRENT_ATTENDANCE_TYPES = (
+    "entrada",
+    "salida_almuerzo",
+    "regreso_almuerzo",
+    "salida",
+    "hora_extra_entrada",
+    "hora_extra_salida",
+)
 
 # Columnas nullable agregadas al modelo User después de la creación inicial de la tabla.
 USER_NULLABLE_COLUMNS = {
@@ -24,6 +31,8 @@ USER_NULLABLE_COLUMNS = {
     "telefono":          "VARCHAR(30)",
     "direccion":         "VARCHAR(255)",
     "hashed_password":   "VARCHAR(255)",
+    "modalidad":         "VARCHAR(50) DEFAULT 'cuadrilla_movil'",
+    "estacion_asignada": "VARCHAR(100)",
 }
 
 # Columnas nullable agregadas al modelo Attendance después de la creación inicial.

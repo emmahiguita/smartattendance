@@ -16,4 +16,8 @@ abstract interface class UsersRepository {
     String? telefono,
     String? direccion,
   });
+
+  /// Sincroniza usuarios creados en modo offline con el backend.
+  /// Retorna el número de usuarios sincronizados.
+  Future<int> syncPendingUsers();
 }

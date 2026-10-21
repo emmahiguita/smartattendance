@@ -5,7 +5,8 @@ from datetime import date, datetime, time
 from typing import Dict, List, Tuple
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
 from sqlalchemy.orm import Session
 
 from app.database.base import SessionLocal
@@ -29,32 +30,74 @@ class SheetsService:
         """datetime.time no es restable; se combina con una fecha arbitraria."""
         return datetime.combine(date(2000, 1, 1), t)
 
-    def generate_excel_bytes(self, records: List[Attendance]) -> bytes:
-        """Genera Excel en memoria con los registros de asistencia. Retorna bytes .xlsx."""
+    def generate_excel_bytes(
+        self,
+        records: List[Attendance],
+        fecha_desde: date | None = None,
+        fecha_hasta: date | None = None,
+    ) -> bytes:
+        """Genera Excel profesional en memoria con formato corporativo completo."""
         wb = Workbook()
         ws = wb.active
         ws.title = "ASISTENCIAS"
 
-        headers = [
-            "Nombre", "Cedula", "Cargo", "Fecha",
-            "Entrada", "Salida Almuerzo", "Regreso Almuerzo", "Salida Final", "Horas Laboradas", "Estado",
-        ]
-        ws.append(headers)
-
-        header_font = Font(bold=True, color="FFFFFF")
+        # ── Estilos reutilizables ──
+        thin_side = Side(style="thin", color="D1D5DB")
+        data_border = Border(
+            left=thin_side, right=thin_side, top=thin_side, bottom=thin_side,
+        )
+        header_font = Font(bold=True, color="FFFFFF", size=11)
         header_fill = PatternFill(start_color="374151", end_color="374151", fill_type="solid")
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=1, column=col)
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        data_align = Alignment(horizontal="center", vertical="center")
+        zebra_fill = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid")
+        white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+        title_font = Font(bold=True, color="1F2937", size=14)
+        subtitle_font = Font(color="6B7280", size=10)
+        footer_font = Font(color="9CA3AF", size=9, italic=True)
+
+        headers = [
+            "Nombre", "Cédula", "Cargo", "Fecha",
+            "Entrada", "Salida Almuerzo", "Regreso Almuerzo", "Salida Final",
+            "Horas Laboradas", "Estado",
+        ]
+
+        # ── Título ──
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+        rango_str = ""
+        if fecha_desde and fecha_hasta:
+            rango_str = f" — {fecha_desde.strftime('%d/%m/%Y')} al {fecha_hasta.strftime('%d/%m/%Y')}"
+        elif fecha_desde:
+            rango_str = f" — desde {fecha_desde.strftime('%d/%m/%Y')}"
+        elif fecha_hasta:
+            rango_str = f" — hasta {fecha_hasta.strftime('%d/%m/%Y')}"
+        title_cell = ws.cell(row=1, column=1, value=f"SmartAttendance · Reporte de Asistencias{rango_str}")
+        title_cell.font = title_font
+        title_cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[1].height = 32
+
+        # ── Subtítulo (cantidad de registros) ──
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+        sub_cell = ws.cell(row=2, column=1,
+                           value=f"{len(records)} registros · {len({r.usuario_id for r in records})} empleados · generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        sub_cell.font = subtitle_font
+        sub_cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[2].height = 22
+
+        # ── Header row (fila 3) ──
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(row=3, column=col_idx, value=header)
             cell.font = header_font
             cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center")
+            cell.alignment = header_align
+            cell.border = data_border
+        ws.row_dimensions[3].height = 28
 
-        # Agrupar por (usuario_id, fecha) y ordenar por hora dentro de cada grupo
+        # ── Agrupar datos ──
         grouped: Dict[Tuple[int, date], List[Attendance]] = {}
         for record in records:
             key = (record.usuario_id, record.fecha)
             grouped.setdefault(key, []).append(record)
-
         for key in grouped:
             grouped[key].sort(key=lambda r: r.hora)
 
@@ -64,9 +107,9 @@ class SheetsService:
             for user in self.db.query(User).filter(User.id.in_(user_ids)).all()
         } if user_ids else {}
 
-        row_idx = 2
-        # Ordenar por fecha desc, luego por user_id asc para salida consistente
-        for (user_id, record_date) in sorted(grouped.keys(), key=lambda k: (k[1], k[0]), reverse=False):
+        # ── Escribir datos ──
+        row_idx = 4
+        for (user_id, record_date) in sorted(grouped.keys(), key=lambda k: (k[1], k[0])):
             user_records = grouped[(user_id, record_date)]
             user = users_by_id.get(user_id)
             if not user:
@@ -76,7 +119,6 @@ class SheetsService:
             entrada = salida_almuerzo = regreso_almuerzo = salida_final = "-"
             estado, estado_color = "Ausente", COLOR_AUSENTE
 
-            # Mapear por tipo
             times_by_type = {r.tipo: r.hora for r in user_records}
             if "entrada" in times_by_type:
                 entrada = times_by_type["entrada"].strftime("%H:%M")
@@ -91,8 +133,7 @@ class SheetsService:
                 salida_final = times_by_type["salida"].strftime("%H:%M")
                 estado, estado_color = "Finalizado", COLOR_FINALIZADO
 
-            # Cálculo de horas laboradas
-            # Bug fix: datetime.time no es restable â†’ convertir a datetime.
+            # Horas laboradas
             total_seconds = 0
             if "entrada" in times_by_type and "salida_almuerzo" in times_by_type:
                 d1 = (self._as_datetime(times_by_type["salida_almuerzo"])
@@ -104,36 +145,70 @@ class SheetsService:
                       - self._as_datetime(times_by_type["entrada"])).total_seconds()
                 if d1 > 0:
                     total_seconds += d1
-
             if "regreso_almuerzo" in times_by_type and "salida" in times_by_type:
                 d2 = (self._as_datetime(times_by_type["salida"])
                       - self._as_datetime(times_by_type["regreso_almuerzo"])).total_seconds()
                 if d2 > 0:
                     total_seconds += d2
 
-            if total_seconds > 0:
-                h = int(total_seconds // 3600)
-                m = int((total_seconds % 3600) // 60)
-                horas_laboradas = f"{h}h {m:02d}m"
-            else:
-                horas_laboradas = "-"
+            # Horas extras calculadas
+            if "hora_extra_entrada" in times_by_type and "hora_extra_salida" in times_by_type:
+                d_extra = (self._as_datetime(times_by_type["hora_extra_salida"])
+                           - self._as_datetime(times_by_type["hora_extra_entrada"])).total_seconds()
+                if d_extra > 0:
+                    total_seconds += d_extra
+
+            horas_laboradas = f"{int(total_seconds // 3600)}h {int((total_seconds % 3600) // 60):02d}m" if total_seconds > 0 else "-"
 
             row_data = [
                 f"{user.nombre} {user.apellido}", user.cedula, user.cargo, fecha_str,
                 entrada, salida_almuerzo, regreso_almuerzo, salida_final, horas_laboradas, estado,
             ]
+
+            # Zebra striping
+            row_fill = zebra_fill if (row_idx % 2 == 0) else white_fill
+
             for col_idx, value in enumerate(row_data, start=1):
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
-                cell.alignment = Alignment(horizontal="center")
-                if col_idx == 10:
-                    cell.font = Font(color="FFFFFF", bold=True)
+                cell.alignment = data_align
+                cell.border = data_border
+                cell.fill = row_fill
+
+                if col_idx == 10:  # Estado
+                    cell.font = Font(color="FFFFFF", bold=True, size=11)
                     cell.fill = PatternFill(
-                        start_color=estado_color, end_color=estado_color, fill_type="solid"
+                        start_color=estado_color, end_color=estado_color, fill_type="solid",
                     )
+
+            # Ancho condicional: nombre y cargo más espacio en pantallas
+            nombre_len = len(f"{user.nombre} {user.apellido}")
+            ws.row_dimensions[row_idx].height = 22 if nombre_len < 30 else 28
+
             row_idx += 1
 
-        for col in range(1, len(headers) + 1):
-            ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = 20
+        # ── Auto-ancho de columnas adaptativo ──
+        col_widths = {
+            1: 28, 2: 16, 3: 22, 4: 14,       # Nombre, Cédula, Cargo, Fecha
+            5: 12, 6: 18, 7: 18, 8: 16,       # Horarios
+            9: 18, 10: 16,                      # Horas, Estado
+        }
+        for col_num, width in col_widths.items():
+            ws.column_dimensions[get_column_letter(col_num)].width = width
+
+        # ── Freeze panes: título + subtítulo + header siempre visibles ──
+        ws.freeze_panes = "A4"
+
+        # ── Auto-filtro en todas las columnas ──
+        last_col_letter = get_column_letter(len(headers))
+        ws.auto_filter.ref = f"A3:{last_col_letter}{row_idx - 1}"
+
+        # ── Footer ──
+        footer_row = row_idx + 2
+        ws.merge_cells(start_row=footer_row, start_column=1, end_row=footer_row, end_column=len(headers))
+        footer_cell = ws.cell(row=footer_row, column=1,
+                              value=f"SmartAttendance © {datetime.now().year} — Generado automáticamente. Solo para uso interno.")
+        footer_cell.font = footer_font
+        footer_cell.alignment = Alignment(horizontal="center", vertical="center")
 
         output = io.BytesIO()
         wb.save(output)

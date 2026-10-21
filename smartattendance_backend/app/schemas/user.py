@@ -4,7 +4,7 @@ Pydantic schemas for User â€” request/response contracts.
 ISP: separate schemas per use case (Create, Response, Login).
 """
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Field
 
 
 class UserCreate(BaseModel):
@@ -16,12 +16,14 @@ class UserCreate(BaseModel):
     fecha_nacimiento: str | None = None
     telefono: str | None = None
     direccion: str | None = None
+    modalidad: str = "cuadrilla_movil"
+    estacion_asignada: str | None = None
 
     @field_validator("cedula")
     @classmethod
     def cedula_must_be_numeric(cls, v: str) -> str:
         if not v.strip().isdigit():
-            raise ValueError("La cÃ©dula debe contener solo dÃ­gitos")
+            raise ValueError("La cédula debe contener solo dígitos")
         return v.strip()
 
 
@@ -37,6 +39,8 @@ class UserResponse(BaseModel):
     fecha_nacimiento: str | None = None
     telefono: str | None = None
     direccion: str | None = None
+    modalidad: str = "cuadrilla_movil"
+    estacion_asignada: str | None = None
     is_active: bool
     created_at: datetime
     foto_url: str | None = None
@@ -47,13 +51,15 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """Campos editables del perfil â€” todos opcionales."""
+    """Campos editables del perfil — todos opcionales."""
     nombre: str | None = None
     apellido: str | None = None
     correo: EmailStr | None = None
     fecha_nacimiento: str | None = None
     telefono: str | None = None
     direccion: str | None = None
+    modalidad: str | None = None
+    estacion_asignada: str | None = None
     foto_url: str | None = None
 
     @field_validator("nombre", "apellido")
@@ -170,6 +176,22 @@ class RefreshResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class ProfileSyncItem(BaseModel):
+    client_id: int = Field(..., description="ID local para idempotencia")
+    changes: dict  # campos modificados (nombre, apellido, correo, etc.)
+
+
+class ProfileBatchSyncRequest(BaseModel):
+    changes: list[ProfileSyncItem]
+
+
+class ProfileBatchSyncResponse(BaseModel):
+    procesados: int
+    errores: int
+    detalles: list[dict]
+
 
 
 

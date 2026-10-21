@@ -19,7 +19,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 7,
       onCreate: (db, version) async {
         await _createTables(db);
         await _seedLocalUsers(db);
@@ -47,11 +47,54 @@ class LocalDatabaseService {
           await _createV3Tables(db);
           await _seedLocalUsers(db);
         }
+        if (oldVersion < 5) {
+          await _migrateV5(db);
+        }
+        if (oldVersion < 6) {
+          await _migrateV6(db);
+        }
+        if (oldVersion < 7) {
+          await _migrateV7(db);
+        }
       },
       onOpen: (db) async {
         await _createV3Tables(db);
       },
     );
+  }
+
+  /// v5: añade columnas de perfil (fecha_nacimiento, direccion)
+  /// a usuarios_locales si no existen.
+  Future<void> _migrateV5(Database db) async {
+    try {
+      await db.execute(
+          'ALTER TABLE usuarios_locales ADD COLUMN fecha_nacimiento TEXT');
+    } catch (_) { /* ya existe */ }
+    try {
+      await db.execute(
+          'ALTER TABLE usuarios_locales ADD COLUMN direccion TEXT');
+    } catch (_) { /* ya existe */ }
+  }
+
+  /// v6: añade recipient_cedula a offline_messages para resolver IDs.
+  Future<void> _migrateV6(Database db) async {
+    try {
+      await db.execute(
+          'ALTER TABLE offline_messages ADD COLUMN recipient_cedula TEXT');
+    } catch (_) { /* ya existe */ }
+  }
+
+  /// v7: tabla de sync de cambios de perfil offline.
+  Future<void> _migrateV7(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS offline_profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        changes TEXT NOT NULL,
+        sincronizado INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
   }
 
   /// Crea todas las tablas (v1+v3) en una sola llamada.
@@ -79,6 +122,8 @@ class LocalDatabaseService {
         cargo TEXT,
         foto_url TEXT,
         telefono TEXT,
+        fecha_nacimiento TEXT,
+        direccion TEXT,
         is_admin INTEGER NOT NULL DEFAULT 0,
         password_hash TEXT
       )
@@ -135,11 +180,23 @@ class LocalDatabaseService {
       )
     ''');
 
+    // v7: cola de sync para cambios de perfil offline
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS offline_profiles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        changes TEXT NOT NULL,
+        sincronizado INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     // Mensajes offline (para envío cuando no hay red)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS offline_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         recipient_id INTEGER NOT NULL,
+        recipient_cedula TEXT,
         body TEXT NOT NULL,
         sincronizado INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
@@ -226,6 +283,44 @@ class LocalDatabaseService {
     return db.query('usuarios_locales', orderBy: 'nombre ASC');
   }
 
+  /// Obtiene el próximo ID secuencial para insertar un usuario local.
+  Future<int> nextLocalUserId() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT MAX(id) as max_id FROM usuarios_locales');
+    return (Sqflite.firstIntValue(result) ?? 0) + 1;
+  }
+
+  /// Actualiza los campos editables del perfil de un usuario local.
+  /// Solo modifica los campos no nulos pasados — los demás quedan intactos.
+  Future<void> updateLocalUser(int userId, {
+    String? nombre,
+    String? apellido,
+    String? correo,
+    String? telefono,
+    String? direccion,
+    String? fechaNacimiento,
+    String? fotoUrl,
+  }) async {
+    final db = await database;
+    final values = <String, dynamic>{};
+    if (nombre != null) values['nombre'] = nombre;
+    if (apellido != null) values['apellido'] = apellido;
+    if (correo != null) values['correo'] = correo;
+    if (telefono != null) values['telefono'] = telefono;
+    if (direccion != null) values['direccion'] = direccion;
+    if (fechaNacimiento != null) values['fecha_nacimiento'] = fechaNacimiento;
+    if (fotoUrl != null) values['foto_url'] = fotoUrl;
+    if (values.isEmpty) return;
+
+    await db.update(
+      'usuarios_locales',
+      values,
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+    AppLogger.info('Updated local user $userId: ${values.keys.join(', ')}');
+  }
+
   // ── Offline Attendances ──────────────────────────────────────────
 
   Future<void> insertOfflineAttendance(Map<String, dynamic> row) async {
@@ -292,6 +387,63 @@ class LocalDatabaseService {
     return db.query('empleados_cache', orderBy: 'nombre ASC');
   }
 
+  Future<List<Map<String, dynamic>>> getPendingOfflineUsers() async {
+    final db = await database;
+    return db.query(
+      'empleados_cache',
+      where: 'id < 0',
+      orderBy: 'updated_at ASC',
+    );
+  }
+
+  Future<void> updateUserIdCascade(int oldTempId, int newRealId) async {
+    final db = await database;
+    final batch = db.batch();
+
+    // 1. Actualizar en empleados_cache
+    batch.update(
+      'empleados_cache',
+      {'id': newRealId},
+      where: 'id = ?',
+      whereArgs: [oldTempId],
+    );
+
+    // 2. Actualizar en offline_attendances (si marcó estando offline)
+    batch.update(
+      'offline_attendances',
+      {'usuario_id': newRealId},
+      where: 'usuario_id = ?',
+      whereArgs: [oldTempId],
+    );
+
+    // 3. Actualizar en offline_profiles (si intentó editar perfil estando offline)
+    batch.update(
+      'offline_profiles',
+      {'user_id': newRealId},
+      where: 'user_id = ?',
+      whereArgs: [oldTempId],
+    );
+
+    // 4. Actualizar en local_qr_codes (si generó QR offline)
+    batch.update(
+      'local_qr_codes',
+      {'usuario_id': newRealId},
+      where: 'usuario_id = ?',
+      whereArgs: [oldTempId],
+    );
+
+    // 5. Actualizar en attendance_history
+    batch.update(
+      'attendance_history',
+      {'usuario_id': newRealId},
+      where: 'usuario_id = ?',
+      whereArgs: [oldTempId],
+    );
+
+    await batch.commit(noResult: true);
+    AppLogger.info('Cascaded user ID update from $oldTempId to $newRealId');
+  }
+
   Future<void> insertLocalEmpleado(Map<String, dynamic> empleado) async {
     final db = await database;
     await db.insert('empleados_cache', {
@@ -323,7 +475,36 @@ class LocalDatabaseService {
     return await db.query('attendance_history', orderBy: 'fecha DESC, hora DESC');
   }
 
-  // ── Local QR Codes ────────────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getAttendanceHistoryByDate(String dateStr) async {
+    final db = await database;
+    return await db.query(
+      'attendance_history',
+      where: 'fecha LIKE ?',
+      whereArgs: ['$dateStr%'],
+      orderBy: 'hora ASC',
+    );
+  }
+
+  // ┈┈ Local QR Codes ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+
+  Future<void> cacheQRs(List<Map<String, dynamic>> qrs) async {
+    final db = await database;
+    final batch = db.batch();
+    // Limpiamos los QRs cacheados anteriores que no hayan sido usados,
+    // o simplemente borramos todos para mantener la lista fresca
+    batch.delete('local_qr_codes');
+    final now = DateTime.now().toIso8601String();
+    for (final qr in qrs) {
+      batch.insert('local_qr_codes', {
+        'usuario_id': qr['usuario_id'],
+        'codigo': qr['codigo'],
+        'usado': 0,
+        'created_at': now,
+      });
+    }
+    await batch.commit(noResult: true);
+    AppLogger.info('Cached ${qrs.length} active QR codes locally');
+  }
 
   Future<void> insertLocalQR(int userId, String codigo) async {
     final db = await database;
@@ -358,10 +539,11 @@ class LocalDatabaseService {
 
   // ── Offline Messages ──────────────────────────────────────────
 
-  Future<void> insertOfflineMessage(int recipientId, String body) async {
+  Future<void> insertOfflineMessage(int recipientId, String body, {String? recipientCedula}) async {
     final db = await database;
     await db.insert('offline_messages', {
       'recipient_id': recipientId,
+      'recipient_cedula': recipientCedula,
       'body': body,
       'sincronizado': 0,
       'created_at': DateTime.now().toIso8601String(),
@@ -388,6 +570,39 @@ class LocalDatabaseService {
         where: 'id = ?',
         whereArgs: [id],
       );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  // ── offline_profiles ────────────────────────────────────────────────
+
+  /// Guarda un cambio de perfil pendiente de sincronizar.
+  /// [changes] es un JSON string con los campos modificados.
+  Future<void> insertOfflineProfileChange(int userId, String changes) async {
+    final db = await database;
+    await db.insert('offline_profiles', {
+      'user_id': userId,
+      'changes': changes,
+      'sincronizado': 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Retorna los cambios de perfil pendientes de sync (no sincronizados).
+  Future<List<Map<String, dynamic>>> getPendingOfflineProfiles() async {
+    final db = await database;
+    return db.query('offline_profiles',
+        where: 'sincronizado = 0', orderBy: 'created_at ASC');
+  }
+
+  /// Marca como sincronizados los cambios de perfil por ID.
+  Future<void> markProfilesAsSynced(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final batch = db.batch();
+    for (final id in ids) {
+      batch.update('offline_profiles', {'sincronizado': 1},
+          where: 'id = ?', whereArgs: [id]);
     }
     await batch.commit(noResult: true);
   }

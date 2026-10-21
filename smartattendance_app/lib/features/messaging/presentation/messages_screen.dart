@@ -99,7 +99,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
 
     try {
       final repo = ref.read(messagingRepositoryProvider);
-      final sent = await repo.send(contactId, text);
+      final sent = await repo.send(contactId, text, currentUserId: me ?? 0);
       final updatedContacts = await repo.contacts();
 
       if (!mounted) return;

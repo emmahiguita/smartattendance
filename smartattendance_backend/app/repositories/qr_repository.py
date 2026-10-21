@@ -24,6 +24,9 @@ class QRRepository:
             .first()
         )
 
+    def get_all_active(self) -> list[QRCode]:
+        return self._db.query(QRCode).filter(QRCode.estado.is_(True)).all()
+
     def create(self, codigo: str, user_id: int) -> QRCode:
         qr = QRCode(codigo=codigo, usuario_id=user_id)
         self._db.add(qr)

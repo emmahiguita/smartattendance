@@ -51,7 +51,14 @@ def sync_offline_attendance(
     Cada elemento incluye una `uuid_marca` única para garantizar idempotencia.
     Si el registro ya fue sincronizado anteriormente, el servidor lo ignora sin error.
     """
-    return AttendanceService(db).sync_offline_batch(payload.records, background_tasks)
+    records = payload.records
+    if not is_admin(current_user):
+        # Non-admins can only sync records with their own user id
+        records = [
+            r.model_copy(update={"usuario_id": current_user.id})
+            for r in records
+        ]
+    return AttendanceService(db).sync_offline_batch(records, background_tasks)
 
 
 
@@ -104,19 +111,44 @@ def list_by_date(
     return AttendanceService(db).get_by_date(fecha, skip=skip, limit=limit)
 
 
-@router.get("/export/excel", summary="Exportar asistencias a Excel")
-def export_excel(
+@router.get("/export/preview", summary="Preview de exportación")
+def export_preview(
     fecha_desde: date | None = Query(None, description="Filtrar desde (YYYY-MM-DD)"),
     fecha_hasta: date | None = Query(None, description="Filtrar hasta (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
+) -> dict:
+    """Retorna metadata + 20 sample rows para mostrar en el preview antes de exportar."""
+    return AttendanceService(db).export_preview(
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+    )
+
+
+@router.get("/export/excel", summary="Exportar asistencias a Excel o CSV")
+def export_excel(
+    fecha_desde: date | None = Query(None, description="Filtrar desde (YYYY-MM-DD)"),
+    fecha_hasta: date | None = Query(None, description="Filtrar hasta (YYYY-MM-DD)"),
+    formato: str = Query("xlsx", description="Formato: xlsx o csv"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ) -> Response:
-    """Export attendance history as an Excel file (.xlsx). Admins only."""
-    excel_bytes = AttendanceService(db).export_excel(fecha_desde=fecha_desde, fecha_hasta=fecha_hasta)
+    """Export attendance history as Excel (.xlsx) or CSV. Admins only."""
+    if formato == "csv":
+        csv_bytes = AttendanceService(db).export_csv(
+            fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+        )
+        return Response(
+            content=csv_bytes,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=asistencias.csv"},
+        )
+    excel_bytes = AttendanceService(db).export_excel(
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+    )
     return Response(
         content=excel_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=asistencias.xlsx"}
+        headers={"Content-Disposition": "attachment; filename=asistencias.xlsx"},
     )
 
 

@@ -28,9 +28,9 @@ void main() {
       ),
     );
 
-    // Advance the clock to exhaust the SplashScreen's 1800ms Future.delayed timer
-    // and its 1200ms animation, preventing "Timer is still pending" errors.
-    await tester.pump(const Duration(seconds: 3));
+    // Advance the clock to exhaust the SplashScreen's timer
+    // and wait for any other initialization timers to complete.
+    await tester.pumpAndSettle(const Duration(seconds: 10));
 
     // Verify that the app mounts and builds successfully.
     expect(find.byType(MaterialApp), findsOneWidget);

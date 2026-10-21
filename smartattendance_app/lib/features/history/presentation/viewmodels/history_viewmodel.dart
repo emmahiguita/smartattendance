@@ -12,9 +12,9 @@ import '../../../attendance/data/repositories/attendance_repository_impl.dart'
 class HistoryViewModel extends AsyncNotifier<List<AttendanceEntity>> {
   @override
   Future<List<AttendanceEntity>> build() async {
-    // H2: sin sesión autenticada no hay historial que cargar — el provider
-    // se reconstruye al hacer login/logout y descarta datos previos.
-    if (ref.read(sessionControllerProvider) is! SessionAuthenticated) {
+    // H2: sin sesión autenticada no hay historial que cargar.
+    // Usamos ref.watch para reaccionar a cambios de sesión automáticamente.
+    if (ref.watch(sessionControllerProvider) is! SessionAuthenticated) {
       return const [];
     }
     return _fetchHistory();

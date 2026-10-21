@@ -15,6 +15,11 @@ final class UsersRemoteDataSource {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> getActiveQRs() async {
+    final response = await _dio.get('/qr/active');
+    return List<Map<String, dynamic>>.from(response.data);
+  }
+
   Future<UserModel> createUser({
     required String nombre,
     required String apellido,

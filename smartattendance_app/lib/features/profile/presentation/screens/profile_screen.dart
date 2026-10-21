@@ -1,4 +1,6 @@
 // lib/features/profile/presentation/screens/profile_screen.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,23 +24,42 @@ class ProfileScreen extends ConsumerWidget {
     return n.isEmpty ? '?' : n[0].toUpperCase();
   }
 
-  /// Avatar con foto real si existe, o inicial si no se ha subido foto.
+  /// Avatar con foto real si existe (local o remota), o inicial si no hay.
   static Widget _buildAvatar(UserEntity? user) {
-    final fotoUrl = AppConfig.fullPhotoUrl(user?.fotoUrl);
-    final child = fotoUrl.isNotEmpty
-        ? null
-        : Text(user != null ? _initial(user.nombre) : '?',
+    final raw = user?.fotoUrl;
+    final ImageProvider? image = _resolveImageProvider(raw);
+
+    final child = image == null
+        ? Text(user != null ? _initial(user.nombre) : '?',
             style: const TextStyle(
                 fontSize: 40,
                 fontWeight: FontWeight.w800,
-                color: Colors.white));
+                color: Colors.white))
+        : null;
 
     return CircleAvatar(
       radius: 44,
       backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-      backgroundImage: fotoUrl.isNotEmpty ? NetworkImage(fotoUrl) : null,
+      backgroundImage: image,
       child: child,
     );
+  }
+
+  /// Resuelve el ImageProvider: FileImage para paths locales,
+  /// NetworkImage para URLs remotas (relativas o absolutas).
+  static ImageProvider? _resolveImageProvider(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    // Archivo local (guardado offline)
+    if (raw.startsWith('/') || raw.startsWith('file://')) {
+      final path = raw.replaceFirst('file://', '');
+      final file = File(path);
+      if (file.existsSync()) return FileImage(file);
+      return null;
+    }
+    // URL remota (incluye rutas relativas prefijadas con AppConfig)
+    final fullUrl = AppConfig.fullPhotoUrl(raw);
+    if (fullUrl.isNotEmpty) return NetworkImage(fullUrl);
+    return null;
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {

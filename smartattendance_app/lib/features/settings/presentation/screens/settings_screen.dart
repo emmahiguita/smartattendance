@@ -8,7 +8,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/config/app_config.dart';
-import '../../../../core/config/environment_config.dart';
 import '../../../../core/config/server_config_provider.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
 import '../../../../core/location/location_service.dart';
@@ -106,9 +105,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (_) {}
   }
 
-  Future<void> _openAppSettings() async {
+  Future<void> _requestLocationPermission() async {
     try {
-      await Geolocator.openAppSettings();
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+      }
+      await _refreshPermissions();
     } catch (_) {}
   }
 
@@ -310,7 +316,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ? 'Permiso concedido'
                     : 'Sin permiso — necesario para registrar la dirección',
                 trailing: _statusChip(_locationOk),
-                onTap: _openAppSettings,
+                onTap: _requestLocationPermission,
               ),
               const Divider(height: 1),
               _SettingRow(

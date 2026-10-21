@@ -32,13 +32,20 @@ final class AuthRepositoryImpl implements AuthRepository {
   Future<(String token, UserEntity user)> loginByCedula(
     String cedula, {
     String? password,
+    bool isOffline = false,
   }) async {
+    // Si NO hay internet, login local instantáneo — sin esperar timeout.
+    if (isOffline) {
+      AppLogger.info('Offline mode: skipping remote, using local auth');
+      return _localLogin(cedula);
+    }
+
     try {
       final (token, refreshToken, userModel) =
           await _remote.loginByCedula(cedula, password: password);
       return _persistSession(token, refreshToken, userModel);
     } catch (e) {
-      // Si es error de RED (no error del servidor), intentar auth local.
+      // Si el intento remoto falló por error de red, intentar local.
       if (_isNetworkError(e)) {
         AppLogger.warning('Backend unreachable, falling back to local auth');
         return _localLogin(cedula);

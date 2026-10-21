@@ -1,4 +1,4 @@
-﻿# ── Flutter ──────────────────────────────────────────────────────────
+# ── Flutter ──────────────────────────────────────────────────────────
 smartattendance_app/.dart_tool/
 smartattendance_app/.packages
 smartattendance_app/build/
@@ -43,6 +43,7 @@ test_results.json
 test_results.txt
 
 # ── Misc ─────────────────────────────────────────────────────────────
+*.log
 *.pdf
 *.png
 *.jpg

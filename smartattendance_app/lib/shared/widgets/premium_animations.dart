@@ -111,21 +111,23 @@ class LoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: context.cBorder.withValues(alpha: 0.3),
-        borderRadius: borderRadius ?? BorderRadius.circular(8),
-      ),
-    )
-        .animate(
-          onPlay: (controller) => controller.repeat(),
-        )
-        .shimmer(
-          duration: const Duration(milliseconds: 1500),
-          color: context.cBorder.withValues(alpha: 0.5),
-        );
+    return RepaintBoundary(
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: context.cBorder.withValues(alpha: 0.3),
+          borderRadius: borderRadius ?? BorderRadius.circular(8),
+        ),
+      )
+          .animate(
+            onPlay: (controller) => controller.repeat(),
+          )
+          .shimmer(
+            duration: const Duration(milliseconds: 1500),
+            color: context.cBorder.withValues(alpha: 0.5),
+          ),
+    );
   }
 }
 
@@ -227,7 +229,6 @@ class _CountAnimationState extends State<CountAnimation>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  int _currentValue = 0;
 
   @override
   void initState() {
@@ -239,11 +240,6 @@ class _CountAnimationState extends State<CountAnimation>
     _animation = Tween<double>(begin: 0, end: widget.target.toDouble()).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
-    _controller.addListener(() {
-      setState(() {
-        _currentValue = _animation.value.round();
-      });
-    });
     _controller.forward();
   }
 
@@ -255,9 +251,14 @@ class _CountAnimationState extends State<CountAnimation>
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      _currentValue.toString(),
-      style: widget.style,
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Text(
+          _animation.value.round().toString(),
+          style: widget.style,
+        );
+      },
     ).animate().fadeIn(duration: const Duration(milliseconds: 300));
   }
 }
@@ -424,13 +425,15 @@ class ShimmerLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return child
-        .animate(
-          onPlay: (controller) => controller.repeat(),
-        )
-        .shimmer(
-          duration: const Duration(milliseconds: 1500),
-          color: context.cBorder.withValues(alpha: 0.3),
-        );
+    return RepaintBoundary(
+      child: child
+          .animate(
+            onPlay: (controller) => controller.repeat(),
+          )
+          .shimmer(
+            duration: const Duration(milliseconds: 1500),
+            color: context.cBorder.withValues(alpha: 0.3),
+          ),
+    );
   }
 }

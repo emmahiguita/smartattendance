@@ -7,6 +7,7 @@ import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/exceptions/error_handler.dart';
+import '../../../../core/network/connectivity_service.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/user_entity.dart';
@@ -49,16 +50,19 @@ final class LoginError extends LoginState {
 /// SRP: manages only the login UI state.
 /// Depends on LoginUseCase — not on any data source directly (DIP).
 class LoginViewModel extends StateNotifier<LoginState> {
-  LoginViewModel(this._useCase) : super(const LoginInitial());
+  LoginViewModel(this._useCase, this._ref) : super(const LoginInitial());
 
   final LoginUseCase _useCase;
+  final Ref _ref;
 
   /// Ejecuta el login. [remember] se propaga al SessionController desde la
   /// pantalla (LoginSuccess lleva el token para la sesión efímera).
   Future<void> login(String cedula, {String? password}) async {
     state = const LoginLoading();
     try {
-      final (token, user) = await _useCase(cedula, password: password);
+      // Si NO hay internet, login local instantáneo — sin esperar timeout.
+      final isOffline = !_ref.read(connectivityProvider);
+      final (token, user) = await _useCase(cedula, password: password, isOffline: isOffline);
       state = LoginSuccess(token: token, user: user);
     } catch (e) {
       final appError = ErrorHandler.handle(e);
@@ -117,5 +121,5 @@ final _loginUseCaseProvider = Provider<LoginUseCase>(
 /// Public provider — screens depend only on this.
 final loginViewModelProvider =
     StateNotifierProvider<LoginViewModel, LoginState>(
-  (ref) => LoginViewModel(ref.watch(_loginUseCaseProvider)),
+  (ref) => LoginViewModel(ref.watch(_loginUseCaseProvider), ref),
 );

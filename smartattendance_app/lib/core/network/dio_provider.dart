@@ -92,7 +92,8 @@ final dioProvider = Provider<Dio>((ref) {
                 error.requestOptions.path.contains('/auth/refresh');
 
         if (status == 401 && !isCredentialCall) {
-          final refreshResult = await _tryRefreshResult(storage, tokens);
+          final refreshResult = await _tryRefreshResult(
+              storage, tokens, error.requestOptions.baseUrl);
           if (refreshResult == _RefreshStatus.success) {
             // Retry the original request once with the new access token.
             try {
@@ -111,7 +112,15 @@ final dioProvider = Provider<Dio>((ref) {
                 'Refresh attempted while offline/unreachable. Preserving offline session.');
             return handler.next(error);
           }
-          // Server explicitly rejected the refresh token (401/400) → end the session.
+          // Server explicitly rejected the refresh token (401/400).
+          // BUT: if the current token is the local offline token, don't logout —
+          // the user is in offline mode and will sync when they get a real token.
+          final currentToken = tokens.accessToken ??
+              await storage.read(key: AppConfig.keyAccessToken);
+          if (currentToken == 'local-offline-token') {
+            AppLogger.info('Offline session — ignoring 401, preserving session.');
+            return handler.next(error);
+          }
           await ref.read(sessionControllerProvider.notifier).logout();
         }
         return handler.next(error);
@@ -128,6 +137,7 @@ enum _RefreshStatus { success, rejected, networkError }
 Future<_RefreshStatus> _tryRefreshResult(
   FlutterSecureStorage storage,
   TokenStore tokens,
+  String baseUrl,
 ) async {
   final refreshToken =
       tokens.refreshToken ?? await storage.read(key: AppConfig.keyRefreshToken);
@@ -136,15 +146,15 @@ Future<_RefreshStatus> _tryRefreshResult(
   }
 
   try {
+    final refreshUrl = baseUrl.endsWith('/') ? '${baseUrl}auth/refresh' : '$baseUrl/auth/refresh';
     final response = await Dio(
       BaseOptions(
-        baseUrl: AppConfig.baseUrl,
         contentType: Headers.jsonContentType,
         connectTimeout: const Duration(seconds: 5),
         receiveTimeout: const Duration(seconds: 5),
       ),
     ).post(
-      '/auth/refresh',
+      refreshUrl,
       data: {'refresh_token': refreshToken},
     );
 

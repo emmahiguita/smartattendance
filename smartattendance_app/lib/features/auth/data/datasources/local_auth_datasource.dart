@@ -5,7 +5,6 @@
 // ===================================================================
 import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/logging/app_logger.dart';
-import '../../domain/entities/user_entity.dart';
 import '../models/user_model.dart';
 
 class LocalAuthDataSource {
@@ -19,13 +18,13 @@ class LocalAuthDataSource {
     String? password,
   }) async {
     var row = await _localDb.getLocalUserByCedula(cedula);
+    row ??= await _localDb.getCachedEmpleadoByCedula(cedula);
     if (row == null) {
-      row = await _localDb.getCachedEmpleadoByCedula(cedula);
-    }
-    if (row == null) {
-      // Auto-crear usuario local para cualquier cédula ingresada en modo offline
+      // Auto-crear usuario local para cualquier cédula ingresada en modo offline.
+      // ID secuencial: usa MAX(id) + 1 para evitar colisiones de hash.
+      final nextId = await _localDb.nextLocalUserId();
       final newLocalUser = {
-        'id': (cedula.hashCode & 0x7FFFFFFF),
+        'id': nextId,
         'cedula': cedula,
         'nombre': 'Empleado',
         'apellido': 'Offline',

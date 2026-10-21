@@ -18,10 +18,7 @@ const _keyServerUrl = 'custom_server_url';
 /// Provider que expone la URL actual del backend. Si el usuario ha
 /// configurado una URL manual, la usa. Si no, usa el default por ambiente.
 final serverUrlProvider = Provider<String>((ref) {
-  final storage = ref.watch(secureStorageProvider);
-  // Leer de storage una sola vez por ciclo de vida del provider.
-  // Para cambios reactivos, usar serverConfigNotifierProvider.
-  return EnvironmentConfig.baseUrl; // fallback compilado
+  return EnvironmentConfig.baseUrl;
 });
 
 /// Notifier que permite leer y escribir la URL del servidor.

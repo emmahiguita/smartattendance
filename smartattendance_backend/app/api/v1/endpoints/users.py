@@ -4,7 +4,6 @@ Users endpoints â€” list and manage employees.
 SRP: router delegates all logic to repository.
 """
 import os
-import imghdr
 import uuid
 from pathlib import Path
 
@@ -12,7 +11,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, 
 from sqlalchemy.orm import Session
 
 from app.database.base import get_db
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.schemas.user import (
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+    ProfileBatchSyncRequest,
+    ProfileBatchSyncResponse,
+)
 from app.repositories.user_repository import UserRepository
 from app.api.v1.deps import get_current_user, require_admin
 from app.models.user import User
@@ -96,6 +101,16 @@ FOTOS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "static" / "f
 FOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _detect_image_format(content: bytes) -> str | None:
+    if content.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if content.startswith(b"RIFF") and len(content) >= 12 and content[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
 @router.put("/me/foto", response_model=UserResponse, summary="Subir foto de perfil")
 async def upload_foto(
     file: UploadFile = File(...),
@@ -110,7 +125,7 @@ async def upload_foto(
     if len(content) > 2 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="La imagen no puede superar 2MB.")
 
-    detected_format = imghdr.what(None, content)
+    detected_format = _detect_image_format(content)
     expected_format = {"image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp"}[file.content_type]
     if detected_format != expected_format:
         raise HTTPException(status_code=400, detail="El contenido no coincide con el tipo de imagen declarado.")
@@ -128,4 +143,52 @@ async def upload_foto(
     repo = UserRepository(db)
     updated = repo.update(current_user, {"foto_url": f"/static/fotos/{filename}"})
     return UserResponse.model_validate(updated)
+
+
+# ── SYNC DE PERFIL OFFLINE ────────────────────────────────────────────
+
+# Profile sync schemas imported from app.schemas.user
+@router.post("/me/sync", response_model=ProfileBatchSyncResponse, status_code=200,
+             summary="Sincronizar cambios de perfil offline")
+def sync_profile(
+    payload: ProfileBatchSyncRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ProfileBatchSyncResponse:
+    """Aplica cambios de perfil guardados offline y retorna resultados."""
+    procesados = 0
+    errores = 0
+    detalles = []
+    seen: set[int] = set()
+    repo = UserRepository(db)
+
+    for item in payload.changes:
+        cid = item.client_id
+        if cid in seen:
+            detalles.append({"client_id": cid, "status": "duplicado_ignorado"})
+            continue
+        seen.add(cid)
+
+        try:
+            changes = item.changes
+            # Solo permitir campos seguros
+            allowed = {"nombre", "apellido", "correo", "fecha_nacimiento",
+                       "telefono", "direccion"}
+            safe = {k: v for k, v in changes.items() if k in allowed}
+            if not safe:
+                errores += 1
+                detalles.append({"client_id": cid, "status": "error_empty"})
+                continue
+
+            repo.update(current_user, safe)
+            procesados += 1
+            detalles.append({"client_id": cid, "status": "creado"})
+        except Exception as e:
+            errores += 1
+            detalles.append({"client_id": cid, "status": "error",
+                             "mensaje": str(e)})
+
+    return ProfileBatchSyncResponse(
+        procesados=procesados, errores=errores, detalles=detalles,
+    )
 

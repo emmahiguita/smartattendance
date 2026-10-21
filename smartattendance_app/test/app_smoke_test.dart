@@ -141,8 +141,8 @@ void main() {
       expect(AppConfig.appVersion, '1.0.0');
     });
 
-    test('companyName is CONTROL AI', () {
-      expect(AppConfig.companyName, 'CONTROL AI');
+    test('companyName is Buentiempo', () {
+      expect(AppConfig.companyName, 'Buentiempo');
     });
 
     test('storage key constants are correct', () {

@@ -1,4 +1,6 @@
 // lib/features/profile/presentation/screens/edit_profile_screen.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,7 +35,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   DateTime? _fechaNacimiento;
   String _cedula = '---';
   String _cargo = '---';
-  String? _fotoUrl;
+  String? _resolvedPhotoUrl;
   bool _uploadingPhoto = false;
 
   @override
@@ -55,7 +57,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     _cedula = user?.cedula ?? '---';
     _cargo = user?.cargo ?? 'Empleado';
-    _fotoUrl = AppConfig.fullPhotoUrl(user?.fotoUrl);
+    _resolvedPhotoUrl = _resolvePhotoUrl(user?.fotoUrl);
+  }
+
+  /// Resuelve la URL de la foto: si es un path local (empieza con /),
+  /// lo usa tal cual. Si es relativo al servidor, lo prefija con la URL base.
+  String? _resolvePhotoUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    // Archivo local absoluto (guardado offline)
+    if (raw.startsWith('/') || raw.startsWith('file://')) {
+      return raw;
+    }
+    return AppConfig.fullPhotoUrl(raw);
   }
 
   Future<void> _pickAndUploadPhoto() async {
@@ -76,7 +89,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           .read(sessionControllerProvider.notifier)
           .authenticate(user, remember: true);
       setState(() {
-        _fotoUrl = AppConfig.fullPhotoUrl(user.fotoUrl);
+        _resolvedPhotoUrl = _resolvePhotoUrl(user.fotoUrl);
         _uploadingPhoto = false;
       });
     } else {
@@ -192,24 +205,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 // ── Avatar con foto/incial y badge de edición ──
                 GestureDetector(
                   onTap: _pickAndUploadPhoto,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 46,
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.12),
-                        backgroundImage:
-                            _fotoUrl != null && _fotoUrl!.isNotEmpty
-                                ? NetworkImage(_fotoUrl!)
-                                : null,
-                        child: _fotoUrl == null || _fotoUrl!.isEmpty
-                            ? Text(initialChar,
-                                style: const TextStyle(
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primary))
-                            : null,
-                      ),
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 46,
+                          backgroundColor:
+                              AppColors.primary.withValues(alpha: 0.12),
+                          backgroundImage: _buildAvatarImage(),
+                          child: _resolvedPhotoUrl == null
+                              ? Text(initialChar,
+                                  style: const TextStyle(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary))
+                              : null,
+                        ),
                       Positioned(
                         bottom: 0,
                         right: 0,
@@ -377,4 +387,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
       );
+
+  /// Construye el ImageProvider según si la foto es local (FileImage)
+  /// o remota (NetworkImage).
+  ImageProvider? _buildAvatarImage() {
+    if (_resolvedPhotoUrl == null || _resolvedPhotoUrl!.isEmpty) return null;
+    if (_resolvedPhotoUrl!.startsWith('/') ||
+        _resolvedPhotoUrl!.startsWith('file://')) {
+      final path = _resolvedPhotoUrl!.replaceFirst('file://', '');
+      final file = File(path);
+      if (file.existsSync()) return FileImage(file);
+    }
+    if (_resolvedPhotoUrl!.startsWith('http')) {
+      return NetworkImage(_resolvedPhotoUrl!);
+    }
+    return null;
+  }
 }

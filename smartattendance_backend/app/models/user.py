@@ -26,6 +26,8 @@ class User(Base):
     # Nullable: cuentas creadas por un admin no tienen contraseña hasta que el
     # empleado la establece vía /auth/reset-password.
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    modalidad: Mapped[str] = mapped_column(String(50), default="cuadrilla_movil")
+    estacion_asignada: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -1,7 +1,4 @@
 // lib/core/config/app_config.dart
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import 'environment_config.dart';
 
 /// Application-wide configuration constants.
@@ -12,7 +9,7 @@ class AppConfig {
 
   // ── App ─────────────────────────────────────────────────────────
   static const String appVersion = '1.0.0';
-  static const String companyName = 'CONTROL AI';
+  static const String companyName = 'Buentiempo';
 
   static const String keyNotificationsEnabled = 'key_notifications_enabled';
 

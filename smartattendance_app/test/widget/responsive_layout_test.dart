@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smartattendance/features/attendance/domain/entities/attendance_entity.dart';
-import 'package:smartattendance/features/attendance/presentation/screens/home_screen.dart';
+import 'package:smartattendance/features/attendance/presentation/widgets/day_summary_card.dart';
 
 /// Verifica que el resumen del día y el selector de tema NO desborden
 /// (textos cortados) en pantallas angostas de móvil (360dp).

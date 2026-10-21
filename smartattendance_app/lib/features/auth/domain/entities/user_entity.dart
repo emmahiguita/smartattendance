@@ -15,6 +15,7 @@ final class UserEntity extends Equatable {
     this.telefono,
     this.direccion,
     this.fotoUrl,
+    this.isAdmin = false,
   });
 
   final int id;
@@ -31,7 +32,18 @@ final class UserEntity extends Equatable {
   /// Null si no ha subido foto (se muestra el avatar con iniciales).
   final String? fotoUrl;
 
+  final bool isAdmin;
+
   String get fullName => '$nombre $apellido';
+
+  String get initials {
+    final n = nombre.trim();
+    final a = apellido.trim();
+    final first = n.isNotEmpty ? n[0].toUpperCase() : '';
+    final second = a.isNotEmpty ? a[0].toUpperCase() : '';
+    final res = '$first$second';
+    return res.isNotEmpty ? res : 'U';
+  }
 
   @override
   List<Object?> get props => [
@@ -45,5 +57,6 @@ final class UserEntity extends Equatable {
         telefono,
         direccion,
         fotoUrl,
+        isAdmin,
       ];
 }

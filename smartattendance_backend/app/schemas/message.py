@@ -17,6 +17,24 @@ class MessageCreate(BaseModel):
         return value
 
 
+class MessageOfflineItem(BaseModel):
+    recipient_id: int
+    recipient_cedula: str | None = None
+    body: str
+    client_id: int = Field(..., description="ID local del cliente para idempotencia")
+    created_at: str | None = None  # ISO datetime del envío original
+
+
+class MessageBatchSyncRequest(BaseModel):
+    messages: list[MessageOfflineItem]
+
+
+class MessageBatchSyncResponse(BaseModel):
+    procesados: int
+    errores: int
+    detalles: list[dict]
+
+
 class MessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,13 +1,14 @@
 // lib/features/profile/presentation/viewmodels/edit_profile_viewmodel.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/auth/session_controller.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/exceptions/error_handler.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../data/datasources/profile_remote_datasource.dart';
 import '../../data/repositories/profile_repository_impl.dart';
-import '../../domain/repositories/profile_repository.dart';
 
 sealed class EditProfileState {
   const EditProfileState();
@@ -32,9 +33,16 @@ final class EditProfileError extends EditProfileState {
 }
 
 class EditProfileViewModel extends StateNotifier<EditProfileState> {
-  EditProfileViewModel(this._repository) : super(const EditProfileIdle());
+  EditProfileViewModel(this._repository, this._ref)
+      : super(const EditProfileIdle());
 
-  final ProfileRepository _repository;
+  final ProfileRepositoryImpl _repository;
+  final Ref _ref;
+
+  int get _userId {
+    final session = _ref.read(sessionControllerProvider);
+    return session is SessionAuthenticated ? session.user.id : -1;
+  }
 
   Future<UserEntity?> save({
     required String nombre,
@@ -53,6 +61,7 @@ class EditProfileViewModel extends StateNotifier<EditProfileState> {
         fechaNacimiento: fechaNacimiento?.trim(),
         telefono: telefono?.trim(),
         direccion: direccion?.trim(),
+        userId: _userId,
       );
       state = EditProfileSuccess(user);
       return user;
@@ -60,8 +69,7 @@ class EditProfileViewModel extends StateNotifier<EditProfileState> {
       state = EditProfileError(e.message);
       return null;
     } catch (e) {
-      final appError = ErrorHandler.handle(e);
-      state = EditProfileError(appError.message);
+      state = EditProfileError(ErrorHandler.handle(e).message);
       return null;
     }
   }
@@ -79,8 +87,15 @@ class EditProfileViewModel extends StateNotifier<EditProfileState> {
       state = EditProfileError(e.message);
       return null;
     } catch (e) {
-      state = EditProfileError(ErrorHandler.handle(e).message);
-      return null;
+      // Offline fallback: save photo locally
+      try {
+        final user = await _repository.uploadPhotoOffline(filePath, _userId);
+        state = EditProfileSuccess(user);
+        return user;
+      } catch (e2) {
+        state = EditProfileError(ErrorHandler.handle(e2).message);
+        return null;
+      }
     }
   }
 }
@@ -89,11 +104,15 @@ final _profileRemoteDataSourceProvider = Provider<ProfileRemoteDataSource>(
   (ref) => ProfileRemoteDataSource(ref.watch(dioProvider)),
 );
 
-final profileRepositoryProvider = Provider<ProfileRepository>(
-  (ref) => ProfileRepositoryImpl(ref.watch(_profileRemoteDataSourceProvider)),
+final profileRepositoryProvider = Provider<ProfileRepositoryImpl>(
+  (ref) => ProfileRepositoryImpl(
+    ref.watch(_profileRemoteDataSourceProvider),
+    ref.watch(localDatabaseServiceProvider),
+    dio: ref.watch(dioProvider),
+  ),
 );
 
 final editProfileViewModelProvider =
     StateNotifierProvider<EditProfileViewModel, EditProfileState>(
-  (ref) => EditProfileViewModel(ref.watch(profileRepositoryProvider)),
+  (ref) => EditProfileViewModel(ref.watch(profileRepositoryProvider), ref),
 );

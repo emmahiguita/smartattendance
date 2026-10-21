@@ -84,9 +84,9 @@ class AuthService:
         return self._issue_tokens(user)
 
     def reset_password(self, request: ResetPasswordRequest) -> ResetPasswordResponse:
+        """Recuperación sin SMTP: la identidad se verifica con cédula + correo registrado.
+        Mismo mensaje genérico si cédula o correo no coinciden — no filtra cuál falló."""
         password_reset_service.verify_code(request.cedula, str(request.correo), request.code)
-        """RecuperaciÃ³n sin SMTP: la identidad se verifica con cÃ©dula + correo registrado.
-        Mismo mensaje genÃ©rico si cÃ©dula o correo no coinciden â€” no filtra cuÃ¡l fallÃ³."""
         user = self._repo.get_by_cedula(request.cedula)
 
         if (

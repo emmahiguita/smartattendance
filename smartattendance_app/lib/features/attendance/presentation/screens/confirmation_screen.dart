@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../../../core/config/app_config.dart';
+import '../../../../core/auth/session_controller.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -14,10 +14,10 @@ import '../../../../shared/widgets/primary_button.dart';
 
 /// Confirmation screen — shown after successful attendance registration.
 ///
-/// H1: employee data is read from secure storage (survives app restarts),
-/// and the shown date/time comes from the SERVER when available, falling
-/// back to device time only as a last resort.
-class ConfirmationScreen extends StatefulWidget {
+/// All employee data comes from the session (Riverpod state), NOT from
+/// secure_storage — avoids Android Keystore hangs on devices without
+/// screen lock.
+class ConfirmationScreen extends ConsumerStatefulWidget {
   const ConfirmationScreen({
     super.key,
     required this.tipo,
@@ -25,24 +25,18 @@ class ConfirmationScreen extends StatefulWidget {
     this.horaRegistro,
   });
 
-  final String tipo; // 'entrada' | 'salida' — decidido por el servidor
-  final String? fechaRegistro; // YYYY-MM-DD (server)
-  final String? horaRegistro; // HH:MM:SS (server)
+  final String tipo;
+  final String? fechaRegistro;
+  final String? horaRegistro;
 
   @override
-  State<ConfirmationScreen> createState() => _ConfirmationScreenState();
+  ConsumerState<ConfirmationScreen> createState() => _ConfirmationScreenState();
 }
 
-class _ConfirmationScreenState extends State<ConfirmationScreen>
+class _ConfirmationScreenState extends ConsumerState<ConfirmationScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _scaleAnim;
-
-  static const _storage = FlutterSecureStorage();
-
-  String _empleadoNombre = 'Empleado';
-  String _empleadoCedula = '---';
-  String _empleadoCargo = '---';
 
   // Fecha/hora mostradas: servidor primero, reloj local como fallback.
   late final DateTime _fechaHora = _resolveFechaHora();
@@ -119,19 +113,6 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
         vsync: this, duration: const Duration(milliseconds: 600));
     _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack);
     _ctrl.forward();
-    _loadEmployeeData();
-  }
-
-  Future<void> _loadEmployeeData() async {
-    final name = await _storage.read(key: AppConfig.keyUserName);
-    final cedula = await _storage.read(key: AppConfig.keyUserCedula);
-    final cargo = await _storage.read(key: AppConfig.keyUserRole);
-    if (!mounted) return;
-    setState(() {
-      _empleadoNombre = name ?? 'Empleado';
-      _empleadoCedula = cedula ?? '---';
-      _empleadoCargo = cargo ?? '---';
-    });
   }
 
   @override
@@ -144,6 +125,13 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
   Widget build(BuildContext context) {
     final cfg = _configs[widget.tipo] ?? _configs['entrada']!;
     final now = _fechaHora;
+
+    // Employee data from session (zero secure_storage dependency)
+    final session = ref.watch(sessionControllerProvider);
+    final user = session is SessionAuthenticated ? session.user : null;
+    final empleadoNombre = user?.fullName ?? 'Empleado';
+    final empleadoCedula = user?.cedula ?? '---';
+    final empleadoCargo = user?.cargo ?? '---';
 
     return Scaffold(
       backgroundColor: context.cBackground,
@@ -214,9 +202,9 @@ class _ConfirmationScreenState extends State<ConfirmationScreen>
                               label: 'Tipo',
                               value: cfg.tipoLabel,
                               valueColor: cfg.badgeColor),
-                          _DetailRow(label: 'Empleado', value: _empleadoNombre),
-                          _DetailRow(label: 'C.C.', value: _empleadoCedula),
-                          _DetailRow(label: 'Cargo', value: _empleadoCargo),
+                          _DetailRow(label: 'Empleado', value: empleadoNombre),
+                          _DetailRow(label: 'C.C.', value: empleadoCedula),
+                          _DetailRow(label: 'Cargo', value: empleadoCargo),
                           _DetailRow(
                               label: 'Fecha',
                               value: DateFormat('dd/MM/yyyy').format(now)),

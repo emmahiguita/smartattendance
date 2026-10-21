@@ -51,6 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
     });
     _loadSavedCredentials();
+    _tryRestoreSession();
   }
 
   /// Prefill de la cédula si existe una guardada con "Recordar sesión".
@@ -59,15 +60,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// credenciales en claro — se eliminó el write de keySavedPassword por
   /// seguridad; aquí solo se limpia el uso residual).
   /// Sin sesión guardada el campo queda VACÍO: nada de datos de demostración.
+  ///
+  /// Timeout de 3s: secure_storage puede colgarse en Android sin screen lock.
   Future<void> _loadSavedCredentials() async {
-    final storage = ref.read(secureStorageProvider);
-    final savedCedula = await storage.read(key: AppConfig.keySavedCedula);
+    try {
+      final storage = ref.read(secureStorageProvider);
+      final savedCedula = await storage
+          .read(key: AppConfig.keySavedCedula)
+          .timeout(const Duration(seconds: 3));
 
-    if (!mounted) return;
-    if (savedCedula != null && savedCedula.isNotEmpty) {
-      _cedulaController.text = savedCedula;
+      if (!mounted) return;
+      if (savedCedula != null && savedCedula.isNotEmpty) {
+        _cedulaController.text = savedCedula;
+      }
+      setState(() {});
+    } catch (_) {
+      // Secure storage unreachable → proceed without prefilled cedula.
     }
-    setState(() {});
+  }
+
+/// Background session restore — si hay una sesión válida en storage,
+  /// el router redirige automáticamente a home (evita mostrar login).
+  ///
+  /// El splash screen YA NO llama a restore() porque secure_storage puede
+  /// bloquearse y congelar el arranque. En lugar de eso, hacemos la
+  /// restauración aquí, con la UI del login ya visible.
+  void _tryRestoreSession() {
+    // Lanza restore en background. Si ya hay sesión, el router listener
+    // navega a home. Si falla/tardea, la pantalla de login sigue visible.
+    Future.microtask(() => ref
+        .read(sessionControllerProvider.notifier)
+        .restore()
+        .catchError((_) {}));
   }
 
   @override
@@ -553,12 +577,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Icon(Icons.lock_outline,
                             size: 14, color: context.cGray),
                         const SizedBox(width: 6),
-                        Text(
-                          'Sesión protegida con token cifrado (JWT)',
-                          style: TextStyle(
-                            color: context.cGray,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
+                        Flexible(
+                          child: Text(
+                            'Sesión protegida con token cifrado (JWT)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: context.cGray,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                         ),
                       ],

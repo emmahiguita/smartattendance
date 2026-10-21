@@ -3,6 +3,7 @@ import '../../../auth/domain/entities/user_entity.dart';
 
 abstract interface class ProfileRepository {
   /// Actualiza nombre/apellido/correo/fechaNacimiento/telefono/direccion del usuario autenticado (PUT /users/me).
+  /// [userId] permite fallback offline: si no hay red, guarda en SQLite local.
   Future<UserEntity> updateProfile({
     String? nombre,
     String? apellido,
@@ -10,6 +11,7 @@ abstract interface class ProfileRepository {
     String? fechaNacimiento,
     String? telefono,
     String? direccion,
+    int? userId,
   });
 
   /// Sube una foto de perfil (multipart JPEG/PNG). Reemplaza la anterior.

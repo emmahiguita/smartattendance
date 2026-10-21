@@ -3,18 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/router/app_router.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es', null);
 
-  // Force portrait orientation
+  // Habilitar orientaciones vertical y horizontal adaptativa (Material Expressive)
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   runApp(
@@ -38,7 +42,7 @@ class SmartAttendanceApp extends ConsumerWidget {
     _applySystemOverlay(context, themeMode);
 
     return MaterialApp.router(
-      title: 'CONTROL AI',
+      title: 'Buentiempo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

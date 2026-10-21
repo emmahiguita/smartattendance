@@ -1,26 +1,26 @@
 // lib/core/auth/session_controller.dart
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../../features/auth/domain/entities/user_entity.dart';
 import '../config/app_config.dart';
 import '../localstore/secure_storage_provider.dart';
 import 'token_store.dart';
 
-/// Application session state.
-///
-/// `sameAs` evita notificaciones espurias: objetos equivalentes (p. ej.
-/// re-restaurar una sesión ya autenticada) no deben reconstruir el router.
+/// ============================================================================
+/// CONTROLADOR: SessionController
+/// ============================================================================
+/// QUÉ HACE: Administra el ciclo de vida de la sesión (Autenticado / Desautenticado).
+/// PARA QUÉ SIRVE: Garantiza persistencia segura de tokens y usuario sin memory leaks.
+/// PRINCIPIOS SOLID: Single Responsibility (gestión de sesión) y Dependency Inversion.
+/// ============================================================================
+
 sealed class SessionState {
   const SessionState();
-
   bool sameAs(SessionState other) => runtimeType == other.runtimeType;
 }
 
-/// Session still being restored from storage — UI should not decide yet.
 final class SessionUnknown extends SessionState {
   const SessionUnknown();
 }
@@ -38,14 +38,6 @@ final class SessionUnauthenticated extends SessionState {
   const SessionUnauthenticated();
 }
 
-/// Single source of truth for the authenticated session.
-///
-/// - Restores the session from secure storage on app start.
-/// - `logout()` clears every session key — providers that watch
-///   [sessionControllerProvider] rebuild automatically, so no state
-///   leaks between users on the same device (H2).
-/// - Never depends on the router or on feature providers: layers stay
-///   inverted-free. Navigation reacts to the state, not the other way.
 class SessionController extends StateNotifier<SessionState> {
   SessionController(this._storage, this._tokens)
       : super(const SessionUnknown());
@@ -53,59 +45,45 @@ class SessionController extends StateNotifier<SessionState> {
   final FlutterSecureStorage _storage;
   final TokenStore _tokens;
 
+  /// Restaura la sesión autenticada al iniciar la aplicación
   Future<void> restore() async {
     try {
-      // Timeout: si secure_storage se bloquea (Keystore sin screen lock
-      // en algunos Android), tratamos como sesión no iniciada.
       final token = await _storage
           .read(key: AppConfig.keyAccessToken)
           .timeout(const Duration(seconds: 3));
-      final user = await _readUserFromStorage()
+      final refreshToken = await _storage
+          .read(key: AppConfig.keyRefreshToken)
           .timeout(const Duration(seconds: 3));
+      final user =
+          await _readUserFromStorage().timeout(const Duration(seconds: 3));
 
-      if (token == null || user == null) {
+      // El perfil del operador es local: no requiere inventar un JWT para
+      // abrir la interfaz. Los endpoints remotos siguen exigiendo su token real.
+      if (user == null) {
         await _safeClear();
         _set(const SessionUnauthenticated());
         return;
       }
 
+      // Restaura tokens en memoria para que DioInterceptor no falle
+      _tokens
+        ..accessToken = token
+        ..refreshToken = refreshToken;
+
       _set(SessionAuthenticated(user));
-    } on TimeoutException {
-      // Secure storage blocked → proceed without session.
-      _set(const SessionUnauthenticated());
     } catch (_) {
-      // Any other error → treat as unauthenticated.
       await _safeClear();
       _set(const SessionUnauthenticated());
     }
   }
 
-  /// Same as clear() but never throws — used during restore() when
-  /// secure storage may be unreachable.
   Future<void> _safeClear() async {
-    _tokens.clear();
     try {
-      await Future.wait([
-        _storage.delete(key: AppConfig.keyAccessToken),
-        _storage.delete(key: AppConfig.keyRefreshToken),
-        _storage.delete(key: AppConfig.keyUserName),
-        _storage.delete(key: AppConfig.keyUserId),
-        _storage.delete(key: AppConfig.keyUserCedula),
-        _storage.delete(key: AppConfig.keyUserRole),
-        _storage.delete(key: AppConfig.keyUserJson),
-      ]).timeout(const Duration(seconds: 2));
-    } catch (_) {
-      // Ignore: storage is unreachable, nothing to clear.
-    }
+      await clear().timeout(const Duration(seconds: 2));
+    } catch (_) {}
   }
 
-  /// Inicia sesión y persiste el estado.
-  ///
-  /// [remember] controla la sesión EFÍMERA: cuando es false, los tokens se
-  /// mantienen SOLO en memoria ([TokenStore]) y se borran del secure storage —
-  /// al reiniciar la app no hay sesión restaurable. El interceptor de Dio lee
-  /// primero la memoria y luego el storage, así las peticiones funcionan
-  /// igual mientras la app esté abierta.
+  /// Autentica al usuario y persiste sesión de forma segura
   Future<void> authenticate(UserEntity user, {bool remember = true}) async {
     await Future.wait([
       _storage.write(key: AppConfig.keyUserId, value: user.id.toString()),
@@ -122,12 +100,12 @@ class SessionController extends StateNotifier<SessionState> {
           'correo': user.correo,
           'cargo': user.cargo,
           'foto_url': user.fotoUrl,
+          // Persiste el permiso local para que el administrador no lo pierda al reiniciar.
+          'is_admin': user.isAdmin,
         }),
       ),
     ]);
     if (!remember) {
-      // Los datos del perfil persisten (no hay nada sensible en ellos), pero
-      // los tokens NO: la sesión muere al cerrar la app.
       await Future.wait([
         _storage.delete(key: AppConfig.keyAccessToken),
         _storage.delete(key: AppConfig.keyRefreshToken),
@@ -136,8 +114,6 @@ class SessionController extends StateNotifier<SessionState> {
     _set(SessionAuthenticated(user));
   }
 
-  /// Guarda los tokens EFÍMEROS (solo memoria) para una sesión no recordada.
-  /// El token llega por este canal porque `authenticate` recibe solo el user.
   void setEphemeralTokens({required String accessToken, String? refreshToken}) {
     _tokens
       ..accessToken = accessToken
@@ -149,7 +125,6 @@ class SessionController extends StateNotifier<SessionState> {
     _set(const SessionUnauthenticated());
   }
 
-  /// Solo notifica cuando el estado realmente cambió (evita rebuilds en loop).
   void _set(SessionState next) {
     if (next.sameAs(state)) return;
     state = next;
@@ -169,38 +144,35 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<UserEntity?> _readUserFromStorage() async {
-    // Primary: serialized user JSON.
     final jsonStr = await _storage.read(key: AppConfig.keyUserJson);
     if (jsonStr != null) {
       try {
-        final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+        final m = jsonDecode(jsonStr) as Map<String, dynamic>;
         return UserEntity(
-          id: map['id'] as int,
-          nombre: map['nombre'] as String,
-          apellido: map['apellido'] as String? ?? '',
-          cedula: map['cedula'] as String? ?? '',
-          correo: map['correo'] as String? ?? '',
-          cargo: map['cargo'] as String,
-          fotoUrl: map['foto_url'] as String?,
+          id: m['id'] as int,
+          nombre: m['nombre'] as String,
+          apellido: m['apellido'] as String? ?? '',
+          cedula: m['cedula'] as String? ?? '',
+          correo: m['correo'] as String? ?? '',
+          cargo: m['cargo'] as String,
+          fotoUrl: m['foto_url'] as String?,
+          // Compatibilidad con el perfil local creado antes de guardar este campo.
+          isAdmin: m['is_admin'] as bool? ??
+              (m['cargo'] == 'Encargado local' &&
+                  (m['correo'] as String? ?? '').isEmpty),
         );
-      } catch (_) {
-        return null;
-      }
+      } catch (_) {}
     }
-
-    // Fallback: legacy individual keys (user_name holds the full name).
     final name = await _storage.read(key: AppConfig.keyUserName);
     final role = await _storage.read(key: AppConfig.keyUserRole);
     if (name == null || role == null) return null;
-
-    final cedula = await _storage.read(key: AppConfig.keyUserCedula) ?? '';
     final idStr = await _storage.read(key: AppConfig.keyUserId);
     final parts = name.trim().split(RegExp(r'\s+'));
     return UserEntity(
       id: int.tryParse(idStr ?? '') ?? 0,
       nombre: parts.isNotEmpty ? parts.first : name,
       apellido: parts.length > 1 ? parts.sublist(1).join(' ') : '',
-      cedula: cedula,
+      cedula: await _storage.read(key: AppConfig.keyUserCedula) ?? '',
       correo: '',
       cargo: role,
     );

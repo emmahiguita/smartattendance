@@ -1,98 +1,92 @@
 // lib/shared/widgets/control_ai_logo.dart
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Widget de marca e imagotipo oficial para CONTROL AI.
-/// Renderiza el logo ejecutivo con chip IA, efectos de brillo y tipografía premium.
+/// ============================================================================
+/// COMPONENTE: ControlAiLogo (Identidad Visual Corporativa iOS Style)
+/// ============================================================================
+/// QUÉ HACE:
+/// Renderiza el imagotipo y logotipo empresarial con diseño sobrio y profesional
+/// alineado a las Guías de Interfaz Humana de Apple (iOS Human Interface Guidelines).
+///
+/// PARA QUÉ SIRVE:
+/// Provee una presencia de marca seria, confiable y universal para cualquier
+/// sector productivo (servicios públicos, industria manufacturera, logística).
+///
+/// PRINCIPIOS SOLID:
+/// - S (Single Responsibility): Exclusivamente responsable de proyectar la identidad de marca.
+/// ============================================================================
 class ControlAiLogo extends StatelessWidget {
   final double size;
   final bool isHorizontal;
   final bool showSubtitle;
   final Color? textColor;
+  final bool iconOnly;
 
   const ControlAiLogo({
     super.key,
-    this.size = 36,
+    this.size = 32,
     this.isHorizontal = true,
-    this.showSubtitle = true,
+    this.showSubtitle = false,
     this.textColor,
+    this.iconOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = Container(
+    // 1. Emblema biométrico estilo iOS: Squircle con degradado sutil
+    final emblemWidget = Container(
       width: size,
       height: size,
-      padding: EdgeInsets.all(size * 0.2),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF2563EB),
-            Color(0xFF3B82F6),
-            Color(0xFF6366F1),
-          ],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(size * 0.3),
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.0),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-            blurRadius: size * 0.4,
-            offset: Offset(0, size * 0.15),
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: size * 0.35,
+            offset: Offset(0, size * 0.12),
           ),
         ],
       ),
       child: Center(
         child: Icon(
-          Icons.memory,
-          size: size * 0.55,
-          color: Colors.white,
+          Icons.shield_rounded,
+          size: size * 0.52,
+          color: AppColors.systemBlue,
         ),
       ),
     );
 
-    final titleText = Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: 'CONTROL ',
-            style: TextStyle(
-              fontSize: size * 0.5,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-              color: textColor ?? context.cTextPrimary,
-            ),
-          ),
-          WidgetSpan(
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF2563EB), Color(0xFF8B5CF6)],
-              ).createShader(bounds),
-              child: Text(
-                'AI',
-                style: TextStyle(
-                  fontSize: size * 0.5,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
+    if (iconOnly) {
+      return emblemWidget;
+    }
+
+    // 2. Tipografía empresarial sobria (Cero colores estridentes estilo vibecoding)
+    final titleWidget = Text(
+      'AsistenciaPro',
+      style: TextStyle(
+        fontSize: size * 0.52,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.4,
+        color: textColor ?? context.cTextPrimary,
       ),
     );
 
-    final subtitleText = showSubtitle
+    final subtitleWidget = showSubtitle
         ? Text(
-            'SISTEMA INTELIGENTE DE ASISTENCIA',
+            'GESTIÓN DE TALENTO HUMANO',
             style: TextStyle(
-              fontSize: size * 0.22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color:
-                  (textColor ?? context.cTextSecondary).withValues(alpha: 0.7),
+              fontSize: size * 0.24,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
+              color: (textColor ?? context.cTextSecondary).withValues(alpha: 0.75),
             ),
           )
         : const SizedBox.shrink();
@@ -102,16 +96,16 @@ class ControlAiLogo extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          iconWidget,
-          SizedBox(width: size * 0.3),
+          emblemWidget,
+          SizedBox(width: size * 0.32),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              titleText,
+              titleWidget,
               if (showSubtitle) ...[
-                const SizedBox(height: 1),
-                subtitleText,
+                const SizedBox(height: 2),
+                subtitleWidget,
               ],
             ],
           ),
@@ -123,12 +117,12 @@ class ControlAiLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        iconWidget,
-        SizedBox(height: size * 0.3),
-        titleText,
+        emblemWidget,
+        SizedBox(height: size * 0.35),
+        titleWidget,
         if (showSubtitle) ...[
           const SizedBox(height: 4),
-          subtitleText,
+          subtitleWidget,
         ],
       ],
     );

@@ -161,16 +161,33 @@ abstract final class DesignTokens {
   // ── Border Radius ──
   static const double radiusXS = 8.0;
   static const double radiusSmall = 12.0;
+  static const double radiusButton = 12.0;
   static const double radiusMedium = 16.0;
+  static const double radiusCard = 16.0;
   static const double radiusLarge = 20.0;
+  static const double radiusPanel = 20.0;
   static const double radiusXL = 24.0;
+  static const double radiusPanelLarge = 24.0;
+  static const double radiusPill = 999.0;
+
+  // ── Border Width & Touch Target ──
+  static const double borderWidth = 1.0;
+  static const double minTouchTargetSize = 48.0;
 
   // ── Spacing ──
   static const double spaceXS = 4.0;
+  static const double space4 = 4.0;
   static const double spaceS = 8.0;
+  static const double space8 = 8.0;
+  static const double space12 = 12.0;
   static const double spaceM = 16.0;
+  static const double space16 = 16.0;
+  static const double space20 = 20.0;
   static const double spaceL = 24.0;
+  static const double space24 = 24.0;
   static const double spaceXL = 32.0;
+  static const double space32 = 32.0;
+  static const double space40 = 40.0;
   static const double spaceXXL = 48.0;
 
   // ── Padding estándar ──

@@ -46,10 +46,10 @@ class FakeMessagingRepository extends MessagingRepository {
   Future<int> markConversationRead(int contactId) async => 2;
 
   @override
-  Future<InternalMessage> send(int id, String body) async {
+  Future<InternalMessage> send(int id, String body, {int currentUserId = 0, String? recipientCedula}) async {
     final message = InternalMessage(
       id: 10,
-      senderId: 99,
+      senderId: currentUserId,
       recipientId: id,
       body: body,
       createdAt: DateTime(2026, 8, 3, 10),

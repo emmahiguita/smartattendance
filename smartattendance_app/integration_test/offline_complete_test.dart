@@ -72,7 +72,9 @@ void main() {
     debugPrint('  QA OFFLINE: $pass/${r.length} tests pasaron');
     debugPrint('  ${pass == r.length ? "TODOS PASARON" : "ALGUNOS FALLARON"}');
     debugPrint('============================================================');
-    for (final t in r) debugPrint('  $t');
+    for (final t in r) {
+      debugPrint('  $t');
+    }
   });
 
   testWidgets('QA OFFLINE COMPLETO', (tester) async {
@@ -87,7 +89,7 @@ void main() {
             find.textContaining('Iniciar').evaluate().isNotEmpty,
         maxSecs: 15);
     r.add(TestResult('1. App inicia y muestra login', ok,
-        '${_dump(tester).take(3).join(" | ")}'));
+        _dump(tester).take(3).join(" | ")));
     if (!ok) return;
 
     // --- 2. Login offline ---

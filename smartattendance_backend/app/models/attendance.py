@@ -15,6 +15,8 @@ AttendanceType = Literal[
     "salida_almuerzo",
     "regreso_almuerzo",
     "salida",
+    "hora_extra_entrada",
+    "hora_extra_salida",
 ]
 
 
@@ -31,6 +33,8 @@ class Attendance(Base):
             "salida_almuerzo",
             "regreso_almuerzo",
             "salida",
+            "hora_extra_entrada",
+            "hora_extra_salida",
             name="attendance_type",
         ),
         nullable=False,

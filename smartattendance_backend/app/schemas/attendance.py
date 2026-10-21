@@ -13,6 +13,8 @@ AttendanceType = Literal[
     "salida_almuerzo",
     "regreso_almuerzo",
     "salida",
+    "hora_extra_entrada",
+    "hora_extra_salida",
 ]
 
 
