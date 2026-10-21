@@ -4,16 +4,14 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
 /// ============================================================================
-/// COMPONENTE: SmartPunchCard (Tarjeta Inteligente de Próxima Marcación)
+/// COMPONENTE: SmartPunchCard (Acceso a la marcación)
 /// ============================================================================
 /// QUÉ HACE:
-/// Proyecta el llamado a la acción primario del colaborador:
-/// calcula visualmente cuál es la siguiente marcación obligatoria según la
-/// secuencia de la jornada (Entrada -> Almuerzo -> Regreso -> Salida).
+/// Abre el directorio local de trabajadores desde la portada.
 ///
 /// CÓMO FUNCIONA:
-/// Recibe [nextTipo] y determina color, icono, título y disparador
-/// de apertura biométrica facial mediante un [InkWell] con respuesta háptica.
+/// El operador elige un trabajador y la pantalla de selección obtiene su
+/// siguiente marca desde los datos locales antes de abrir la cámara.
 ///
 /// POR QUÉ:
 /// Principio de Responsabilidad Única (SRP):
@@ -22,48 +20,22 @@ import '../../../../core/theme/app_theme.dart';
 ///
 /// PRINCIPIOS SOLID:
 /// - S (Single Responsibility): Exclusivamente responsable de renderizar el botón de acción principal.
-/// - O (Open/Closed): Fácilmente extensible con nuevos tipos de marcaciones o turnos especiales.
+/// - O (Open/Closed): El componente no depende de tipos de marca individuales.
 /// ============================================================================
 class SmartPunchCard extends StatelessWidget {
-  final String nextTipo;
   final VoidCallback onTap;
 
   const SmartPunchCard({
     super.key,
-    required this.nextTipo,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Determinación de tokens visuales según el estado de la jornada
-    final (label, icon, color) = switch (nextTipo) {
-      'entrada' => (
-        'REGISTRAR ENTRADA',
-        Icons.login_rounded,
-        AppColors.primary,
-      ),
-      'salida_almuerzo' => (
-        'REGISTRAR INICIO DE ALMUERZO',
-        Icons.restaurant_rounded,
-        const Color(0xFFF59E0B),
-      ),
-      'regreso_almuerzo' => (
-        'REGISTRAR REGRESO DE ALMUERZO',
-        Icons.work_history_rounded,
-        const Color(0xFF10B981),
-      ),
-      'salida' => (
-        'REGISTRAR SALIDA',
-        Icons.logout_rounded,
-        const Color(0xFFEF4444),
-      ),
-      _ => (
-        'REGISTRAR ENTRADA',
-        Icons.camera_alt_rounded,
-        AppColors.primary,
-      ),
-    };
+    // Cada trabajador puede tener una marca distinta como siguiente paso.
+    const label = 'Seleccionar trabajador';
+    const icon = Icons.camera_alt_rounded;
+    const color = AppColors.primary;
 
     return Container(
       decoration: BoxDecoration(
@@ -87,7 +59,7 @@ class SmartPunchCard extends StatelessWidget {
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: color, size: 24),
+                  child: const Icon(icon, color: color, size: 24),
                 ),
                 const SizedBox(width: 14),
                 // Etiqueta y descripción
@@ -100,15 +72,15 @@ class SmartPunchCard extends StatelessWidget {
                           Container(
                             width: 7,
                             height: 7,
-                            decoration: BoxDecoration(
-                              color: color,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Expanded(
+                          const Expanded(
                             child: Text(
-                              'PRÓXIMA MARCACIÓN',
+                              'REGISTRO DE ASISTENCIA',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
@@ -135,7 +107,7 @@ class SmartPunchCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        'Apertura facial biométrica instantánea',
+                        'La marca sigue la jornada de cada persona',
                         style: TextStyle(
                           fontSize: 11,
                           color: context.cTextSecondary,
@@ -150,8 +122,8 @@ class SmartPunchCard extends StatelessWidget {
                 // Flecha indicadora de acción
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

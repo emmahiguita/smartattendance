@@ -88,16 +88,26 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'SmartAttendance',
-                  style: TextStyle(
-                    color: context.cTextPrimary,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
+                RichText(
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'Buen',
+                        style: TextStyle(color: isDark ? Colors.white : const Color(0xFF0A2540)),
+                      ),
+                      const TextSpan(
+                        text: 'Tiempo',
+                        style: TextStyle(color: Color(0xFF00838F)),
+                      ),
+                    ],
+                  ),
                 ),
                 Text(
                   sectionTitle,

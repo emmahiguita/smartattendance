@@ -22,11 +22,9 @@ class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
     required this.user,
-    this.onRegisterTap,
   });
 
   final dynamic user;
-  final VoidCallback? onRegisterTap;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +54,9 @@ class HomeHeader extends StatelessWidget {
                 '${user?.cargo ?? 'Colaborador'} · C.C. ${user?.cedula ?? '---'}',
                 style: TextStyle(
                   fontSize: 12.5,
-                  color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF6C6C70),
+                  color: isDark
+                      ? const Color(0xFF8E8E93)
+                      : const Color(0xFF6C6C70),
                   fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,

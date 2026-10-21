@@ -1,35 +1,14 @@
-// lib/features/attendance/presentation/widgets/home_dashboard_body.dart
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/buen_tiempo_pop_banner.dart';
 import '../../domain/entities/attendance_entity.dart';
-import 'admin_access_banner.dart';
+import 'dashboard_staff_status.dart';
 import 'day_summary_card.dart';
 import 'home_header.dart';
 import 'live_location_card.dart';
 import 'smart_punch_card.dart';
 
-/// ============================================================================
-/// COMPONENTE: HomeDashboardBody (Módulo de Marcaje y Jornada Personal)
-/// ============================================================================
-/// QUÉ HACE:
-/// Estructura la experiencia del colaborador para registrar su jornada diaria:
-/// 1. Cabecera con saludo, documento y reloj en tiempo real.
-/// 2. Tarjeta de acción inteligente primaria calculada por [MarkSequence.next].
-/// 3. Resumen y secuencia horaria de la jornada actual (Entrada, Almuerzo, Salida).
-/// 4. Validación y geolocalización GPS en tiempo real.
-/// 5. Banner publicitario y de garantías de la app "BuenTiempo".
-/// 6. Acceso al módulo ejecutivo de RRHH para supervisores/administradores.
-///
-/// CÓMO FUNCIONA:
-/// Adapta el flujo mediante [LayoutBuilder] respondiendo a pantallas anchas
-/// (tablets / foldables) o pantallas móviles estándar en modo vertical.
-///
-/// POR QUÉ:
-/// Principio de Responsabilidad Única (SRP - SOLID):
-/// Actúa como orquestador de alto nivel de los módulos de presentación,
-/// delegando el renderizado a subcomponentes aislados de menos de 150 líneas.
-/// ============================================================================
+/// Organiza la portada móvil con una sola ruta de marcación y datos existentes.
+/// El componente no crea empleados ni registros: delega esas acciones a sus
+/// pantallas y proveedores locales para mantener responsabilidades claras.
 class HomeDashboardBody extends StatelessWidget {
   const HomeDashboardBody({
     super.key,
@@ -42,25 +21,28 @@ class HomeDashboardBody extends StatelessWidget {
     required this.isLoadingLocation,
     required this.onRefreshLocation,
     required this.records,
-    required this.nextTipo,
-    required this.registering,
+    this.nextTipo,
+    this.registering = false,
     required this.onRegisterAttendance,
-    required this.onSelectMark,
-    this.onNavigateToAdmin,
+    this.onSelectMark,
+    this.onOpenStaff,
   });
 
   final dynamic user;
-  final String address, coords, nextTipo;
+  final String address, coords;
   final double? latitude, longitude;
-  final bool hasFix, isLoadingLocation, registering;
+  final bool hasFix, isLoadingLocation;
+  // Parámetros conservados para consumidores previos; la marca ya se resuelve
+  // en el directorio de cada trabajador, no en el resumen agregado del panel.
+  final String? nextTipo;
+  final bool registering;
   final VoidCallback onRefreshLocation, onRegisterAttendance;
-  final ValueChanged<String> onSelectMark;
+  final ValueChanged<String>? onSelectMark;
+  final VoidCallback? onOpenStaff;
   final List<AttendanceEntity> records;
-  final VoidCallback? onNavigateToAdmin;
 
   @override
   Widget build(BuildContext context) {
-    // Componentes modulares reutilizables y livianos
     final location = LiveLocationCard(
       address: address,
       coords: coords,
@@ -70,89 +52,53 @@ class HomeDashboardBody extends StatelessWidget {
       isLoading: isLoadingLocation,
       onRefresh: onRefreshLocation,
     );
-
-    final summary = DaySummaryCard(
-      records: records,
-      onMarkTap: onSelectMark,
+    final team = DashboardStaffStatus(
+      onOpenAll: onOpenStaff ?? onRegisterAttendance,
     );
-
-    final punchAction = SmartPunchCard(
-      nextTipo: nextTipo,
-      onTap: onRegisterAttendance,
-    );
-
-    const popBanner = BuenTiempoPopBanner();
+    // El resumen solo informa; la tarjeta superior es el único acceso de marcación.
+    final journey = DaySummaryCard(records: records);
+    final punch = SmartPunchCard(onTap: onRegisterAttendance);
 
     return LayoutBuilder(builder: (context, size) {
-      // 1. Pantalla Ancha (Tablets / Dispositivos Plegables)
+      // En horizontal/tablet se separa el flujo de marcación del estado del equipo.
       if (size.maxWidth >= 700) {
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 5,
-              child: SingleChildScrollView(
-                key: const PageStorageKey('home-location-wide'),
-                padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    HomeHeader(user: user, onRegisterTap: onRegisterAttendance),
-                    const SizedBox(height: 14),
-                    punchAction,
-                    const SizedBox(height: 14),
-                    summary,
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 4,
-              child: SingleChildScrollView(
-                key: const PageStorageKey('home-actions-wide'),
-                padding: const EdgeInsets.fromLTRB(8, 16, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    location,
-                    const SizedBox(height: 14),
-                    popBanner,
-                    if (onNavigateToAdmin != null) ...[
-                      const SizedBox(height: 14),
-                      AdminAccessBanner(onNavigateToAdmin: onNavigateToAdmin!),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: _column([
+            HomeHeader(user: user),
+            punch,
+            journey,
+          ])),
+          Expanded(child: _column([team, location])),
+        ]);
       }
 
-      // 2. Pantalla Móvil Estándar (Smartphones en Vertical)
+      // En teléfono, todo queda en una lista vertical que se adapta a la altura.
       return SingleChildScrollView(
-        key: const PageStorageKey('home-portrait'),
-        padding: const EdgeInsets.all(AppDesignTokens.mobileHorizontalPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            HomeHeader(user: user, onRegisterTap: onRegisterAttendance),
-            const SizedBox(height: 14),
-            punchAction,
-            const SizedBox(height: 14),
-            summary,
-            const SizedBox(height: 14),
-            location,
-            const SizedBox(height: 14),
-            popBanner,
-            if (onNavigateToAdmin != null) ...[
-              const SizedBox(height: 14),
-              AdminAccessBanner(onNavigateToAdmin: onNavigateToAdmin!),
-            ],
-            const SizedBox(height: 24),
-          ],
-        ),
+        key: const PageStorageKey('home-dashboard'),
+        padding: EdgeInsets.zero,
+        child: _column([
+          HomeHeader(user: user),
+          punch,
+          team,
+          journey,
+          location,
+        ]),
       );
     });
   }
+
+  /// Mantiene separación constante entre tarjetas en móvil y pantalla ancha.
+  Widget _column(List<Widget> children) => Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) const SizedBox(height: 12),
+              children[i],
+            ],
+          ],
+        ),
+      );
 }
