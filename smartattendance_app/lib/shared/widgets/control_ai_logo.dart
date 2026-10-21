@@ -1,21 +1,27 @@
 // lib/shared/widgets/control_ai_logo.dart
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_theme.dart';
+import 'buen_tiempo_logo.dart';
 
 /// ============================================================================
-/// COMPONENTE: ControlAiLogo (Identidad Visual Corporativa iOS Style)
+/// COMPONENTE COMPATIBLE: ControlAiLogo -> Redirige a BuenTiempoLogo
 /// ============================================================================
 /// QUÉ HACE:
-/// Renderiza el imagotipo y logotipo empresarial con diseño sobrio y profesional
-/// alineado a las Guías de Interfaz Humana de Apple (iOS Human Interface Guidelines).
+/// Actúa como adaptador arquitectónico (Adapter Pattern) para mantener
+/// compatibilidad con las pantallas existentes mientras proyecta la marca oficial
+/// "BuenTiempo" (sol, reloj y checkmark).
 ///
-/// PARA QUÉ SIRVE:
-/// Provee una presencia de marca seria, confiable y universal para cualquier
-/// sector productivo (servicios públicos, industria manufacturera, logística).
+/// CÓMO FUNCIONA:
+/// Recibe los parámetros históricos (`size`, `isHorizontal`, `iconOnly`, etc.)
+/// y los mapea directamente a [BuenTiempoLogo], asegurando que toda la aplicación
+/// adopte la nueva identidad gráfica sin romper contratos previos.
+///
+/// POR QUÉ:
+/// Cumple con el principio Open/Closed de SOLID: El sistema evoluciona a la nueva
+/// marca "BuenTiempo" sin necesidad de modificar agresivamente llamadas en decenas de archivos.
 ///
 /// PRINCIPIOS SOLID:
-/// - S (Single Responsibility): Exclusivamente responsable de proyectar la identidad de marca.
+/// - S (Single Responsibility): Adaptar llamadas de marca previas a BuenTiempo.
+/// - L (Liskov Substitution): Puede utilizarse en cualquier lugar donde se esperaba el logo anterior.
 /// ============================================================================
 class ControlAiLogo extends StatelessWidget {
   final double size;
@@ -35,96 +41,12 @@ class ControlAiLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Emblema biométrico estilo iOS: Squircle con degradado sutil
-    final emblemWidget = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: size * 0.35,
-            offset: Offset(0, size * 0.12),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Icon(
-          Icons.shield_rounded,
-          size: size * 0.52,
-          color: AppColors.systemBlue,
-        ),
-      ),
-    );
-
-    if (iconOnly) {
-      return emblemWidget;
-    }
-
-    // 2. Tipografía empresarial sobria (Cero colores estridentes estilo vibecoding)
-    final titleWidget = Text(
-      'AsistenciaPro',
-      style: TextStyle(
-        fontSize: size * 0.52,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.4,
-        color: textColor ?? context.cTextPrimary,
-      ),
-    );
-
-    final subtitleWidget = showSubtitle
-        ? Text(
-            'GESTIÓN DE TALENTO HUMANO',
-            style: TextStyle(
-              fontSize: size * 0.24,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: (textColor ?? context.cTextSecondary).withValues(alpha: 0.75),
-            ),
-          )
-        : const SizedBox.shrink();
-
-    if (isHorizontal) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          emblemWidget,
-          SizedBox(width: size * 0.32),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              titleWidget,
-              if (showSubtitle) ...[
-                const SizedBox(height: 2),
-                subtitleWidget,
-              ],
-            ],
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        emblemWidget,
-        SizedBox(height: size * 0.35),
-        titleWidget,
-        if (showSubtitle) ...[
-          const SizedBox(height: 4),
-          subtitleWidget,
-        ],
-      ],
+    return BuenTiempoLogo(
+      size: size,
+      isHorizontal: isHorizontal,
+      showSubtitle: showSubtitle,
+      iconOnly: iconOnly,
+      iosSquircle: iconOnly,
     );
   }
 }
