@@ -1,11 +1,12 @@
 // ============================================================================
 // ARCHIVO: worker_dialog.dart
-// QUÉ HACE: Modal flotante iOS para alta de colaboradores por el Administrador,
-//           asignando Turno, Ventana de Marcación, Cuadrilla y captura de
-//           coordenadas GPS reales del móvil para la zona de trabajo.
+// QUÉ HACE: Modal flotante iOS para alta de personal por el Administrador,
+//           permitiendo asignar Rol (`Colaborador`, `Supervisor`, `Administrador`),
+//           Turno, Ventana de Marcación, Cuadrilla y coordenadas GPS reales.
 // CÓMO FUNCIONA: Usa `LocationService` para capturar la posición real del móvil,
-//                asocia plantilla de horario y persiste en SQLite.
-// POR QUÉ: Satisface la regla de negocio del administrador (< 190 líneas).
+//                asocia plantilla de horario y persiste en SQLite (`workers`).
+// POR QUÉ: Permite crear colaboradores, supervisores y administradores listos
+//          para iniciar sesión (< 190 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -18,7 +19,7 @@ import '../domain/work_schedule.dart';
 import 'local_providers.dart';
 import 'worker_dialog_fields.dart';
 
-/// Componente modal para afiliar un nuevo colaborador con turno y geocerca.
+/// Componente modal para afiliar un colaborador, supervisor o administrador.
 class WorkerDialog extends ConsumerStatefulWidget {
   const WorkerDialog({super.key});
   @override
@@ -28,7 +29,7 @@ class WorkerDialog extends ConsumerStatefulWidget {
 class _WorkerDialogState extends ConsumerState<WorkerDialog> {
   final _name = TextEditingController();
   final _document = TextEditingController();
-  final _job = TextEditingController(text: 'Operario');
+  final _job = TextEditingController(text: 'Colaborador');
   List<Map<String, Object?>> _teams = [];
   List<ShiftTemplate> _templates = [];
   int? _crewId;
@@ -63,6 +64,30 @@ class _WorkerDialogState extends ConsumerState<WorkerDialog> {
         if (templates.isNotEmpty) _selectedTemplate = templates.first;
       });
     } catch (_) {}
+  }
+
+  /// QUÉ HACE: Permite elegir si la nueva persona será Colaborador, Supervisor o Administrador.
+  Future<void> _pickRole() async {
+    const roles = [
+      ('Colaborador', 'Solo marca ingreso, almuerzo y salida (sin acceso a RRHH)'),
+      ('Supervisor', 'Inicia sesión con permisos de supervisión de cuadrilla y RRHH'),
+      ('Administrador', 'Inicia sesión con control total de horarios, zonas y reportes'),
+    ];
+    final selected = await showIosGlassFloatingMenu<String>(
+      context: context,
+      title: 'Rol y Nivel de Acceso',
+      subtitle: 'Define los permisos con los que iniciará sesión con su cédula',
+      actions: [
+        for (final r in roles)
+          IosGlassAction<String>(
+            label: r.$1,
+            subtitle: r.$2,
+            value: r.$1,
+            icon: r.$1 == 'Colaborador' ? CupertinoIcons.person : CupertinoIcons.shield_lefthalf_fill,
+          ),
+      ],
+    );
+    if (mounted && selected != null) setState(() => _job.text = selected);
   }
 
   /// QUÉ HACE: Captura las coordenadas GPS reales del dispositivo actual.
@@ -121,21 +146,14 @@ class _WorkerDialogState extends ConsumerState<WorkerDialog> {
   WorkSchedule? _buildSchedule() {
     final t = _selectedTemplate;
     if (t == null) return null;
-    int? markStart = t.startMinute, markEnd = t.endMinute;
-    if (_toleranceMode == 'Tolerancia ±30 min') {
-      markStart = (t.startMinute - 30).clamp(0, 1439);
-      markEnd = (t.endMinute + 30).clamp(0, 1439);
-    } else if (_toleranceMode == 'Tolerancia ±60 min') {
-      markStart = (t.startMinute - 60).clamp(0, 1439);
-      markEnd = (t.endMinute + 60).clamp(0, 1439);
-    } else if (_toleranceMode == 'Sin límite de hora') {
-      markStart = null;
-      markEnd = null;
-    }
+    final delta = _toleranceMode == 'Tolerancia ±30 min' ? 30 : (_toleranceMode == 'Tolerancia ±60 min' ? 60 : -1);
+    final unlim = _toleranceMode == 'Sin límite de hora';
+    final markStart = unlim ? null : (delta > 0 ? (t.startMinute - delta).clamp(0, 1439) : t.startMinute);
+    final markEnd = unlim ? null : (delta > 0 ? (t.endMinute + delta).clamp(0, 1439) : t.endMinute);
     return WorkSchedule(t.dailyMinutes, t.deductLunch, shiftName: t.name, startMinute: t.startMinute, endMinute: t.endMinute, markStartMinute: markStart, markEndMinute: markEnd, weekdays: t.weekdays);
   }
 
-  /// QUÉ HACE: Valida y guarda el nuevo colaborador y su geocerca en SQLite.
+  /// QUÉ HACE: Valida y guarda la persona, su rol y su geocerca en SQLite.
   Future<void> _save() async {
     if (_saving) return;
     if (_name.text.trim().isEmpty || _document.text.trim().isEmpty) {
@@ -144,7 +162,6 @@ class _WorkerDialogState extends ConsumerState<WorkerDialog> {
     }
     setState(() => (_saving = true, _error = null));
     try {
-      final schedule = _buildSchedule();
       if (_gpsLat != null && _gpsLng != null) {
         final zoneId = await ref.read(localAdminStoreProvider).saveZone({'name': 'Zona (${_name.text.trim().split(' ').first})', 'latitude': _gpsLat!, 'longitude': _gpsLng!, 'radius_m': 100.0});
         if (_crewId != null) {
@@ -152,7 +169,7 @@ class _WorkerDialogState extends ConsumerState<WorkerDialog> {
           await db.update('crews', {'zone_id': zoneId}, where: 'id=?', whereArgs: [_crewId]);
         }
       }
-      await ref.read(localPhotoRepositoryProvider).addWorker(_name.text.trim(), _document.text.trim(), _job.text.trim(), crewId: _crewId, schedule: schedule, authorizationReference: 'Afiliación por supervisor en campo');
+      await ref.read(localPhotoRepositoryProvider).addWorker(_name.text.trim(), _document.text.trim(), _job.text.trim(), crewId: _crewId, schedule: _buildSchedule(), authorizationReference: 'Afiliación por administrador');
       if (!mounted) return;
       ref.invalidate(localWorkersProvider);
       Navigator.pop(context, true);
@@ -162,24 +179,17 @@ class _WorkerDialogState extends ConsumerState<WorkerDialog> {
   }
 
   @override
-  void dispose() {
-    _name.dispose();
-    _document.dispose();
-    _job.dispose();
-    super.dispose();
-  }
+  void dispose() { _name.dispose(); _document.dispose(); _job.dispose(); super.dispose(); }
 
   @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_saving,
-      child: IosFloatingModal(
-        title: 'Registrar en Cuadrilla',
-        isSaving: _saving,
-        errorMessage: _error,
-        onSave: _save,
-        child: WorkerDialogFields(nameCtrl: _name, docCtrl: _document, jobCtrl: _job, selectedTemplate: _selectedTemplate, toleranceMode: _toleranceMode, crewName: _crewName, gpsLat: _gpsLat, gpsLng: _gpsLng, locating: _locating, onPickSchedule: _pickSchedule, onPickTolerance: _pickTolerance, onPickCrew: _pickCrew, onCaptureGps: _captureGps),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_saving,
+        child: IosFloatingModal(
+          title: 'Registrar Personal / Supervisor',
+          isSaving: _saving,
+          errorMessage: _error,
+          onSave: _save,
+          child: WorkerDialogFields(nameCtrl: _name, docCtrl: _document, jobCtrl: _job, selectedTemplate: _selectedTemplate, toleranceMode: _toleranceMode, crewName: _crewName, gpsLat: _gpsLat, gpsLng: _gpsLng, locating: _locating, onPickRole: _pickRole, onPickSchedule: _pickSchedule, onPickTolerance: _pickTolerance, onPickCrew: _pickCrew, onCaptureGps: _captureGps),
+        ),
+      );
 }

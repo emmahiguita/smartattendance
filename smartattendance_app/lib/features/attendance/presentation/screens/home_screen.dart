@@ -1,14 +1,16 @@
 // ============================================================================
 // ARCHIVO: home_screen.dart
-// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18 (Inicio, Reportes,
-//           Mapa, Perfil) con barra inferior flotante translúcida y
-//           orquestación de GPS + marcación directa protegida por identidad.
+// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18. Si el usuario es
+//           Administrador/Supervisor (`actor.isAdmin`), habilita la pestaña
+//           `Reportes` (Gestión RRHH). Si es Colaborador normal, oculta por
+//           completo el módulo administrativo y restringe la interfaz a marcar.
 // CÓMO FUNCIONA:
 // 1. Consulta la posición GPS real mediante `LocationService` y la geocerca
 //    activa en SQLite (`work_zones`), calculando distancia Haversine.
 // 2. Vincula la marcación al documento real del usuario autenticado (`user.cedula`)
-//    para impedir que un colaborador registre marcas a nombre de otro.
-// POR QUÉ: Cumple estética iOS y aislamiento estricto de identidad (< 195 líneas).
+//    e impide que un colaborador normal abra el directorio de personal.
+// POR QUÉ: Garantiza que los trabajadores normales solo marquen y no accedan a
+//          funciones del Administrador (< 195 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -50,6 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _refreshLocation();
   }
 
+  /// QUÉ HACE: Obtiene GPS real y calcula distancia Haversine a la geocerca.
   Future<void> _refreshLocation() async {
     if (mounted) setState(() => _loadingLocation = true);
     try {
@@ -78,30 +81,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// QUÉ HACE: Ejecuta la marcación biométrica vinculada a la cédula autenticada.
+  /// POR QUÉ: Si el usuario no es Admin, nunca abre el directorio de otros empleados.
   Future<void> _captureMark([String? requestedType]) async {
     try {
-      if (requestedType != null) {
-        final session = ref.read(sessionControllerProvider);
-        final user = session is SessionAuthenticated ? session.user : null;
-        final actor = ref.read(localActorProvider);
-        var workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
-        var target = (user != null)
-            ? workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull
-            : null;
-        if (target == null && user != null && RegExp(r'^\d{3,20}$').hasMatch(user.cedula.trim())) {
-          await ref.read(localPhotoRepositoryProvider).addWorker(user.fullName, user.cedula.trim(), user.cargo);
-          ref.invalidate(localWorkersProvider);
-          workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
-          target = workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull;
-        }
-        target ??= actor.isAdmin ? workers.firstOrNull : null;
-        if (target != null && mounted) {
-          await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target!, initialType: requestedType)));
-          if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); }
-          return;
-        }
+      final session = ref.read(sessionControllerProvider);
+      final user = session is SessionAuthenticated ? session.user : null;
+      final actor = ref.read(localActorProvider);
+      var workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
+      var target = (user != null)
+          ? workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull
+          : null;
+      if (target == null && user != null && RegExp(r'^\d{3,20}$').hasMatch(user.cedula.trim())) {
+        await ref.read(localPhotoRepositoryProvider).addWorker(user.fullName, user.cedula.trim(), user.cargo);
+        ref.invalidate(localWorkersProvider);
+        workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
+        target = workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull;
       }
-      if (mounted) await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => LocalAttendanceHome(initialType: requestedType)));
+      target ??= actor.isAdmin ? workers.firstOrNull : null;
+      if (target != null && (requestedType != null || !actor.isAdmin) && mounted) {
+        await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target!, initialType: requestedType ?? 'Ingreso')));
+        if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); }
+        return;
+      }
+      if (actor.isAdmin && mounted) {
+        await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => LocalAttendanceHome(initialType: requestedType)));
+      }
     } catch (e) {
       debugPrint('Error en captura de asistencia: $e');
     }
@@ -131,28 +136,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
+    final isAdmin = ref.watch(localActorProvider).isAdmin;
     final records = ref.watch(localDayHistoryProvider).valueOrNull ?? const [];
+    final navIdx = (!isAdmin && _currentNav == 1) ? 0 : _currentNav;
     final pages = [
       RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(localDayHistoryProvider);
-          await _refreshLocation();
-        },
+        onRefresh: () async { ref.invalidate(localDayHistoryProvider); await _refreshLocation(); },
         child: HomeDashboardBody(
-          user: user,
-          records: records,
-          latitude: _latitude,
-          longitude: _longitude,
-          accuracy: 12.0,
-          isLoadingLocation: _loadingLocation,
-          isInsideZone: _insideZone,
-          distanceMeters: _distance,
-          zoneName: _zoneName,
-          zoneLat: _zoneLat,
-          zoneLng: _zoneLng,
-          zoneRadius: _zoneRadius,
-          onRefreshLocation: _refreshLocation,
-          onSelectMark: _captureMark,
+          user: user, records: records, latitude: _latitude, longitude: _longitude, accuracy: 12.0,
+          isLoadingLocation: _loadingLocation, isInsideZone: _insideZone, distanceMeters: _distance,
+          zoneName: _zoneName, zoneLat: _zoneLat, zoneLng: _zoneLng, zoneRadius: _zoneRadius,
+          onRefreshLocation: _refreshLocation, onSelectMark: _captureMark,
         ),
       ),
       const AdminManagementScreen(),
@@ -162,8 +156,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: context.cBackground,
-      appBar: CorporateAppBar(user: user, currentNavIndex: _currentNav, onProfileTap: () => setState(() => _currentNav = 3)),
-      body: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: KeyedSubtree(key: ValueKey<int>(_currentNav), child: pages[_currentNav])),
+      appBar: CorporateAppBar(user: user, currentNavIndex: navIdx, onProfileTap: () => setState(() => _currentNav = 3)),
+      body: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: KeyedSubtree(key: ValueKey<int>(navIdx), child: pages[navIdx])),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
@@ -180,7 +174,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 child: Row(children: [
                   _navItem(0, CupertinoIcons.house, CupertinoIcons.house_fill, 'Inicio'),
-                  _navItem(1, CupertinoIcons.doc_text, CupertinoIcons.doc_text_fill, 'Reportes'),
+                  if (isAdmin) _navItem(1, CupertinoIcons.doc_text, CupertinoIcons.doc_text_fill, 'Reportes'),
                   _navItem(2, CupertinoIcons.map, CupertinoIcons.map_fill, 'Mapa'),
                   _navItem(3, CupertinoIcons.person, CupertinoIcons.person_fill, 'Perfil'),
                 ]),

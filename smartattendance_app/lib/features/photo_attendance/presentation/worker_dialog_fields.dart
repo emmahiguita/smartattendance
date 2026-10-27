@@ -1,14 +1,14 @@
 // ============================================================================
 // ARCHIVO: worker_dialog_fields.dart
-// QUÉ HACE: Grupos de campos Inset Grouped para el alta de colaborador:
-//           identificación, turno pactado, rango de marcación y captura GPS.
-// CÓMO FUNCIONA: Componentes desacoplados que renderizan los selectores y el
-//                botón de fijar GPS real del móvil del supervisor.
-// POR QUÉ: Mantiene la modularidad y cumple el límite estricto de < 200 líneas.
+// QUÉ HACE: Grupos de campos Inset Grouped para el alta de colaborador,
+//           supervisor o administrador: identificación, rol de acceso, turno,
+//           rango de marcación y captura GPS real.
+// CÓMO FUNCIONA: Renderiza selectores modales iOS para asignar el nivel de
+//                permiso (`Colaborador`, `Supervisor`, `Administrador`).
+// POR QUÉ: Mantiene la modularidad y cumple el límite estricto (< 160 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import '../../../../core/design_system/ios_modal_scaffold.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -26,6 +26,7 @@ class WorkerDialogFields extends StatelessWidget {
     required this.gpsLat,
     required this.gpsLng,
     required this.locating,
+    required this.onPickRole,
     required this.onPickSchedule,
     required this.onPickTolerance,
     required this.onPickCrew,
@@ -38,7 +39,7 @@ class WorkerDialogFields extends StatelessWidget {
   final String? crewName;
   final double? gpsLat, gpsLng;
   final bool locating;
-  final VoidCallback onPickSchedule, onPickTolerance, onPickCrew, onCaptureGps;
+  final VoidCallback onPickRole, onPickSchedule, onPickTolerance, onPickCrew, onCaptureGps;
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +47,11 @@ class WorkerDialogFields extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         IosFormGroup(
-          header: 'DATOS PERSONALES',
+          header: 'DATOS PERSONALES Y ROL DE ACCESO',
           children: [
             IosFormFieldRow(label: 'Nombre', placeholder: 'Nombre y apellidos', controller: nameCtrl, textCapitalization: TextCapitalization.words),
-            IosFormFieldRow(label: 'Cédula', placeholder: 'Número de documento', controller: docCtrl, keyboardType: TextInputType.number),
-            IosFormFieldRow(label: 'Cargo', placeholder: 'Puesto u ocupación', controller: jobCtrl),
+            IosFormFieldRow(label: 'Cédula', placeholder: 'Número de documento (para login)', controller: docCtrl, keyboardType: TextInputType.number),
+            WorkerSelectorRow(label: 'Rol / Acceso', value: jobCtrl.text.isEmpty ? 'Colaborador' : jobCtrl.text, onTap: onPickRole),
           ],
         ),
         const SizedBox(height: 12),
@@ -60,9 +61,7 @@ class WorkerDialogFields extends StatelessWidget {
             WorkerSelectorRow(
               label: 'Turno',
               value: selectedTemplate != null
-                  ? (selectedTemplate!.name.contains('(')
-                      ? selectedTemplate!.name
-                      : '${selectedTemplate!.name} (${selectedTemplate!.timeFormatted})')
+                  ? (selectedTemplate!.name.contains('(') ? selectedTemplate!.name : '${selectedTemplate!.name} (${selectedTemplate!.timeFormatted})')
                   : 'Seleccionar',
               onTap: onPickSchedule,
             ),
@@ -91,8 +90,8 @@ class WorkerDialogFields extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     onPressed: locating ? null : onCaptureGps,
                     child: locating
-                        ? const CupertinoActivityIndicator(radius: 7, color: Colors.white)
-                        : const Text('Fijar GPS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                        ? const CupertinoActivityIndicator(radius: 7, color: CupertinoColors.white)
+                        : const Text('Fijar GPS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: CupertinoColors.white)),
                   ),
                 ],
               ),
@@ -125,12 +124,7 @@ class WorkerSelectorRow extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Flexible(
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
-                    ),
+                    child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(width: 4),
                   Icon(CupertinoIcons.chevron_right, size: 13, color: context.cTextSecondary),

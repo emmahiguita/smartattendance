@@ -1,11 +1,11 @@
 // ============================================================================
 // ARCHIVO: worker_assignment_dialog.dart
-// QUÉ HACE: Ventana flotante Apple iOS (`IosFloatingModal`) para asignar equipo,
-//           geocerca con dirección real y horario pactado a un colaborador.
-// CÓMO FUNCIONA: Consulta `crewsWithZones`, permitiendo elegir cuadrilla/zona
-//                y plantilla horaria con un toque (`CupertinoActionSheet`).
-// POR QUÉ: Atiende la directiva: "ASIGNACIÓN DE ZONAS REAL CON DIRECCIÓN,
-//          FORMULARIO COMPLETO Y LIMPIO" (< 175 líneas).
+// QUÉ HACE: Ventana flotante Apple iOS (`IosFloatingModal`) para que el
+//           Administrador asigne Rol/Permiso (`Colaborador`, `Supervisor`,
+//           `Administrador`), Cuadrilla/Geocerca y Horario a una persona.
+// CÓMO FUNCIONA: Consulta `crewsWithZones` y `shiftTemplates`, permitiendo
+//                promover o cambiar el rol para que inicie sesión con ese nivel.
+// POR QUÉ: Permite delegar supervisores/administradores desde adentro (< 195 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -20,6 +20,7 @@ import '../domain/shift_template.dart';
 import '../domain/work_schedule.dart';
 import 'local_providers.dart';
 
+/// Modal administrativo para asignar Rol, Cuadrilla/Zona y Turno a un usuario.
 class WorkerAssignmentDialog extends ConsumerStatefulWidget {
   const WorkerAssignmentDialog({super.key, required this.worker});
   final LocalWorker worker;
@@ -33,6 +34,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
   List<ShiftTemplate> _templates = [];
   int? _team;
   WorkSchedule? _schedule;
+  late String _role = widget.worker.job.isNotEmpty ? widget.worker.job : 'Colaborador';
   bool _loading = true, _busy = false, _confirmed = true;
   String? _error;
 
@@ -42,6 +44,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     _load();
   }
 
+  /// QUÉ HACE: Carga cuadrillas, turnos y el rol actual del usuario desde SQLite.
   Future<void> _load() async {
     try {
       final store = ref.read(localAdminStoreProvider);
@@ -52,6 +55,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
       if (!mounted) return;
       _schedule = WorkSchedule.decode(worker['schedule_json'] as String?);
       _team = worker['crew_id'] as int?;
+      _role = (worker['job'] as String?)?.trim().isNotEmpty == true ? worker['job'] as String : 'Colaborador';
       _reference.text = worker['authorization_reference'] as String? ?? 'Autorización firmada en expediente RRHH';
       _teams = teams;
       _templates = templates;
@@ -62,6 +66,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     }
   }
 
+  /// QUÉ HACE: Persiste el rol, cuadrilla y horario en `workers` para login inmediato.
   Future<void> _save() async {
     if (!_confirmed) {
       setState(() => _error = 'Confirma la autorización de tratamiento de datos.');
@@ -69,7 +74,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     }
     setState(() => (_busy = true, _error = null));
     try {
-      await ref.read(localAdminStoreProvider).assignWorker(widget.worker.id, _team, _schedule, _reference.text);
+      await ref.read(localAdminStoreProvider).assignWorker(widget.worker.id, _team, _schedule, _reference.text, role: _role);
       ref.invalidate(localWorkersProvider);
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
@@ -79,13 +84,34 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     }
   }
 
+  /// QUÉ HACE: Permite al Administrador asignar nivel de acceso (Colaborador, Supervisor, Administrador).
+  Future<void> _pickRole() async {
+    const roles = [
+      ('Colaborador', 'Solo marca ingreso, almuerzo y salida (sin acceso a RRHH)'),
+      ('Supervisor', 'Inicia sesión con permisos de supervisión de cuadrilla y RRHH'),
+      ('Administrador', 'Inicia sesión con control total de horarios, zonas y reportes'),
+    ];
+    final selected = await showIosGlassFloatingMenu<String>(
+      context: context,
+      title: 'Rol y Nivel de Permisos',
+      subtitle: 'Define con qué permisos iniciará sesión este usuario',
+      actions: [
+        for (final r in roles)
+          IosGlassAction<String>(
+            label: r.$1,
+            subtitle: r.$2,
+            value: r.$1,
+            icon: r.$1 == 'Colaborador' ? CupertinoIcons.person : CupertinoIcons.shield_lefthalf_fill,
+          ),
+      ],
+    );
+    if (mounted && selected != null) setState(() => _role = selected);
+  }
+
+  /// QUÉ HACE: Abre el selector de cuadrilla y geocerca GPS.
   Future<void> _pickTeam() async {
     final actions = [
-      const IosGlassAction<int?>(
-        label: 'Sin equipo asignado (Zona Libre)',
-        value: null,
-        icon: CupertinoIcons.clear_circled,
-      ),
+      const IosGlassAction<int?>(label: 'Sin equipo asignado (Zona Libre)', value: null, icon: CupertinoIcons.clear_circled),
       for (final t in _teams)
         IosGlassAction<int?>(
           label: t['name'] as String,
@@ -94,41 +120,18 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
           icon: CupertinoIcons.person_2_fill,
         ),
     ];
-    final selected = await showIosGlassFloatingMenu<int?>(
-      context: context,
-      title: 'Equipo / Cuadrilla y Geocerca',
-      subtitle: 'Selecciona la cuadrilla y geocerca para este colaborador',
-      actions: actions,
-    );
-    if (!mounted || selected == _team) return;
-    setState(() => _team = selected);
+    final selected = await showIosGlassFloatingMenu<int?>(context: context, title: 'Equipo / Cuadrilla y Geocerca', subtitle: 'Selecciona la cuadrilla y geocerca para este colaborador', actions: actions);
+    if (mounted && selected != _team) setState(() => _team = selected);
   }
 
+  /// QUÉ HACE: Abre el selector de plantilla de horario.
   Future<void> _pickSchedule() async {
     final actions = [
-      for (final t in _templates)
-        IosGlassAction<WorkSchedule?>(
-          label: t.name,
-          subtitle: t.timeFormatted,
-          value: t.toSchedule(),
-          icon: CupertinoIcons.clock,
-        ),
-      const IosGlassAction<WorkSchedule?>(
-        label: 'Sin horario fijo',
-        subtitle: 'Horario flexible sin restricción horaria',
-        value: null,
-        icon: CupertinoIcons.slash_circle,
-        isDestructive: true,
-      ),
+      for (final t in _templates) IosGlassAction<WorkSchedule?>(label: t.name, subtitle: t.timeFormatted, value: t.toSchedule(), icon: CupertinoIcons.clock),
+      const IosGlassAction<WorkSchedule?>(label: 'Sin horario fijo', subtitle: 'Horario flexible sin restricción horaria', value: null, icon: CupertinoIcons.slash_circle, isDestructive: true),
     ];
-    final selected = await showIosGlassFloatingMenu<WorkSchedule?>(
-      context: context,
-      title: 'Horario Pactado',
-      subtitle: 'Selecciona la plantilla de turno a asignar',
-      actions: actions,
-    );
-    if (!mounted) return;
-    setState(() => _schedule = selected);
+    final selected = await showIosGlassFloatingMenu<WorkSchedule?>(context: context, title: 'Horario Pactado', subtitle: 'Selecciona la plantilla de turno a asignar', actions: actions);
+    if (mounted) setState(() => _schedule = selected);
   }
 
   @override
@@ -151,8 +154,9 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
       onSave: _save,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         IosFormGroup(
-          header: 'ASIGNACIÓN OPERATIVA Y HORARIO',
+          header: 'ROL, EQUIPO Y HORARIO ASIGNADO',
           children: [
+            _rowPicker(context, 'Rol / Acceso', _role, _pickRole),
             _rowPicker(context, 'Equipo / Zona', teamName, _pickTeam),
             _rowPicker(context, 'Horario', scheduleLabel, _pickSchedule),
             IosFormFieldRow(label: 'Soporte', placeholder: 'Referencia de autorización RRHH', controller: _reference),
@@ -175,18 +179,16 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     );
   }
 
-  Widget _rowPicker(BuildContext context, String label, String value, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        child: Row(children: [
-          SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary))),
-          Expanded(child: Text(value, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary))),
-          const SizedBox(width: 6),
-          Icon(CupertinoIcons.chevron_forward, size: 14, color: context.cTextSecondary),
-        ]),
-      ),
-    );
-  }
+  Widget _rowPicker(BuildContext context, String label, String value, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(children: [
+            SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary))),
+            Expanded(child: Text(value, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary))),
+            const SizedBox(width: 6),
+            Icon(CupertinoIcons.chevron_forward, size: 14, color: context.cTextSecondary),
+          ]),
+        ),
+      );
 }

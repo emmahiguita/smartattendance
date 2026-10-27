@@ -1,11 +1,11 @@
 // ============================================================================
 // ARCHIVO: profile_screen.dart
 // QUÉ HACE: Pantalla de Perfil Corporativo estilo Apple iOS Inset Grouped con
-//           avatar circular limpio, información de expediente (Cédula, Correo,
-//           Teléfono, Dirección) y acciones de cuenta.
+//           avatar circular, información de expediente y acciones según rol.
 // CÓMO FUNCIONA: Lee el usuario autenticado desde `sessionControllerProvider`
-//                y presenta dos secciones agrupadas estilo Ajustes de iOS.
-// POR QUÉ: Sustituye gradientes y sombras de neón por estilo iOS puro (< 170 líneas).
+//                y verifica `localActorProvider.isAdmin` para ocultar acciones
+//                exclusivas de administración a los colaboradores normales.
+// POR QUÉ: Evita que usuarios normales registren cuentas o escalen privilegios (< 140 líneas).
 // ============================================================================
 
 import 'dart:io';
@@ -20,6 +20,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/confirm_logout.dart';
+import '../../../photo_attendance/presentation/local_providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -38,6 +39,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
+    final isAdmin = ref.watch(localActorProvider).isAdmin;
     final img = _resolveImageProvider(user?.fotoUrl);
     final initial = (user?.nombre ?? '').isEmpty ? '?' : user!.nombre[0].toUpperCase();
 
@@ -75,7 +77,7 @@ class ProfileScreen extends ConsumerWidget {
           header: 'AJUSTES Y CUENTA',
           children: [
             _ActionRow(icon: CupertinoIcons.pencil, label: 'Editar Perfil', onTap: () => context.push(AppRoutes.profileEdit)),
-            _ActionRow(icon: CupertinoIcons.person_badge_plus, label: 'Registrar nuevo usuario', onTap: () => context.push(AppRoutes.register)),
+            if (isAdmin) _ActionRow(icon: CupertinoIcons.person_badge_plus, label: 'Registrar nuevo usuario', onTap: () => context.push(AppRoutes.register)),
             _ActionRow(icon: CupertinoIcons.slider_horizontal_3, label: 'Configuración de Aplicación', onTap: () => context.push(AppRoutes.settings)),
             _ActionRow(icon: CupertinoIcons.square_arrow_right, label: 'Cerrar Sesión', destructive: true, onTap: () => confirmLogout(context, ref)),
           ],
@@ -98,9 +100,7 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(label, style: TextStyle(fontSize: 13.5, color: context.cTextSecondary)),
           const Spacer(),
-          Flexible(
-            child: Text(value, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
-          ),
+          Flexible(child: Text(value, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.cTextPrimary))),
         ]),
       );
 }

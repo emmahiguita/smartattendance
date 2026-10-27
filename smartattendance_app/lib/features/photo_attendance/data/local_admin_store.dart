@@ -1,10 +1,10 @@
 // ============================================================================
 // ARCHIVO: local_admin_store.dart
 // QUÉ HACE: Fachada administrativa para geocercas GPS (`work_zones`), equipos
-//           (`crews`), asignaciones de personal y políticas de privacidad.
+//           (`crews`), asignaciones de personal/roles y políticas de privacidad.
 // CÓMO FUNCIONA: Exige `requireAdmin()` en toda mutación, aplica transacciones
 //                SQLite atómicas, valida coordenadas y delega turnos a `LocalShiftStore`.
-// POR QUÉ: Desacopla responsabilidades (SRP) y garantiza seguridad RBAC (< 185 líneas).
+// POR QUÉ: Desacopla responsabilidades (SRP) y garantiza seguridad RBAC (< 180 líneas).
 // ============================================================================
 
 import 'dart:convert';
@@ -81,7 +81,8 @@ class LocalAdminStore {
     id == null ? await db.insert('crews', crew) : await db.update('crews', crew, where: 'id=?', whereArgs: [id]);
   }
 
-  Future<void> assignWorker(int workerId, int? crewId, WorkSchedule? schedule, String authorizationReference) async {
+  /// QUÉ HACE: Asigna cuadrilla, horario y nivel de rol (Colaborador/Supervisor/Administrador).
+  Future<void> assignWorker(int workerId, int? crewId, WorkSchedule? schedule, String authorizationReference, {String? role}) async {
     requireAdmin();
     await ensureDefaultData();
     final privacy = await setting('privacy') ?? 'Política General SmartAttendance';
@@ -93,7 +94,14 @@ class LocalAdminStore {
     if (crewId != null && (await db.query('crews', where: 'id=?', whereArgs: [crewId])).isEmpty) {
       throw const FormatException('Selecciona un equipo existente.');
     }
-    await db.update('workers', {'crew_id': crewId, 'schedule_json': schedule?.encode(), 'authorization_reference': authRef, 'authorization_policy': privacy, 'authorization_at': DateTime.now().toUtc().toIso8601String()}, where: 'id=?', whereArgs: [workerId]);
+    await db.update('workers', {
+      'crew_id': crewId,
+      'schedule_json': schedule?.encode(),
+      if (role != null && role.trim().isNotEmpty) 'job': role.trim(),
+      'authorization_reference': authRef,
+      'authorization_policy': privacy,
+      'authorization_at': DateTime.now().toUtc().toIso8601String(),
+    }, where: 'id=?', whereArgs: [workerId]);
   }
 
   Future<Map<String, Object?>> workerConfig(int id) async {
