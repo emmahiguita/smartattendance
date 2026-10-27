@@ -60,7 +60,7 @@ dependencies:
   qr_flutter: ^4.1.0
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
-  google_mlkit_face_detection: ^0.14.0
+  google_mlkit_face_detection: ^0.11.0
   camera: ^0.12.0+2
 
 dev_dependencies:
