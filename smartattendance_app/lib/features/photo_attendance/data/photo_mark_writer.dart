@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../../core/location/traccar_service.dart';
 import '../../../../core/utils/attendance_type.dart';
 import '../domain/attendance_location.dart';
 import '../domain/local_actor.dart';
@@ -146,6 +147,13 @@ class PhotoMarkWriter {
         return photoRecordFromRow(row);
       });
       if (result.localPath != photo.path) await photo.delete();
+      const TraccarService().pushPosition(
+        deviceId: worker.document,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy,
+        zoneName: result.type,
+      );
       return result;
     } catch (_) {
       if (await photo.exists()) await photo.delete();

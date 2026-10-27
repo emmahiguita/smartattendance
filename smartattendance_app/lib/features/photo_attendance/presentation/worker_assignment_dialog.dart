@@ -189,11 +189,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
             borderRadius: BorderRadius.circular(10),
             padding: const EdgeInsets.symmetric(vertical: 10),
             onPressed: _busy ? null : _deleteUser,
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(CupertinoIcons.trash, size: 15, color: AppColors.systemRed),
-              SizedBox(width: 6),
-              Text('Eliminar Usuario / Dar de Baja', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed)),
-            ]),
+            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(CupertinoIcons.trash, size: 15, color: AppColors.systemRed), SizedBox(width: 6), Text('Eliminar Usuario / Dar de Baja', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed))]),
           ),
         ],
       ]),

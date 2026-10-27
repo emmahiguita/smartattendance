@@ -5,12 +5,13 @@
 //           `Reportes` (Gestión RRHH). Si es Colaborador normal, oculta por
 //           completo el módulo administrativo y restringe la interfaz a marcar.
 // CÓMO FUNCIONA:
-// 1. Consulta la posición GPS real mediante `LocationService` y la geocerca
-//    activa en SQLite (`work_zones`), calculando distancia Haversine.
-// 2. Vincula la marcación al documento real del usuario autenticado (`user.cedula`)
-//    e impide que un colaborador normal abra el directorio de personal.
-// POR QUÉ: Garantiza que los trabajadores normales solo marquen y no accedan a
-//          funciones del Administrador (< 195 líneas).
+// 1. Consulta la geocerca asignada específicamente a la cuadrilla del usuario
+//    autenticado (`workers -> crews -> work_zones`) junto con su dirección
+//    física real (`address`), con fallback a la geocerca principal.
+// 2. Sincroniza la telemetría GPS con `TraccarService` y vincula la marcación
+//    a la cédula autenticada (`user.cedula`).
+// POR QUÉ: Conecta al 100% la ubicación real asignada, el mapa y Traccar
+//          respetando el aislamiento de roles (< 195 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -20,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/location/location_service.dart';
+import '../../../../core/location/traccar_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
@@ -42,7 +44,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentNav = 0;
   double? _latitude, _longitude, _zoneLat, _zoneLng, _zoneRadius, _distance;
-  String? _zoneName;
+  String? _zoneName, _zoneAddress;
   bool _loadingLocation = true;
   bool? _insideZone;
 
@@ -52,15 +54,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _refreshLocation();
   }
 
-  /// QUÉ HACE: Obtiene GPS real y calcula distancia Haversine a la geocerca.
+  /// QUÉ HACE: Obtiene la geocerca asignada al colaborador, su dirección real y GPS.
   Future<void> _refreshLocation() async {
     if (mounted) setState(() => _loadingLocation = true);
     try {
+      final session = ref.read(sessionControllerProvider);
+      final cedula = session is SessionAuthenticated ? session.user.cedula.trim() : '';
       final db = await ref.read(localPhotoDatabaseProvider).database;
-      final rows = await db.query('work_zones', orderBy: 'id ASC', limit: 1);
+      var rows = <Map<String, Object?>>[];
+      if (cedula.isNotEmpty) {
+        rows = await db.rawQuery('''
+          SELECT z.* FROM workers w
+          JOIN crews c ON c.id = w.crew_id
+          JOIN work_zones z ON z.id = c.zone_id
+          WHERE w.document = ? LIMIT 1
+        ''', [cedula]);
+      }
+      if (rows.isEmpty) rows = await db.query('work_zones', orderBy: 'id ASC', limit: 1);
       if (rows.isNotEmpty) {
         final z = rows.first;
         _zoneName = (z['name'] ?? 'Geocerca Principal').toString();
+        _zoneAddress = (z['address'] ?? 'Dosquebradas, Risaralda').toString();
         _zoneLat = (z['latitude'] as num).toDouble();
         _zoneLng = (z['longitude'] as num).toDouble();
         _zoneRadius = (z['radius_m'] as num).toDouble();
@@ -75,23 +89,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _insideZone = _distance! <= _zoneRadius!;
         }
       });
+      if (loc != null) {
+        const TraccarService().pushPosition(deviceId: cedula, latitude: loc.lat, longitude: loc.lng, zoneName: _zoneName);
+      }
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loadingLocation = false);
     }
   }
 
-  /// QUÉ HACE: Ejecuta la marcación biométrica vinculada a la cédula autenticada.
-  /// POR QUÉ: Si el usuario no es Admin, nunca abre el directorio de otros empleados.
   Future<void> _captureMark([String? requestedType]) async {
     try {
       final session = ref.read(sessionControllerProvider);
       final user = session is SessionAuthenticated ? session.user : null;
       final actor = ref.read(localActorProvider);
       var workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
-      var target = (user != null)
-          ? workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull
-          : null;
+      var target = (user != null) ? workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull : null;
       if (target == null && user != null && RegExp(r'^\d{3,20}$').hasMatch(user.cedula.trim())) {
         await ref.read(localPhotoRepositoryProvider).addWorker(user.fullName, user.cedula.trim(), user.cargo);
         ref.invalidate(localWorkersProvider);
@@ -150,7 +163,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       const AdminManagementScreen(),
-      MapTabScreen(latitude: _latitude, longitude: _longitude, zoneLat: _zoneLat, zoneLng: _zoneLng, zoneRadius: _zoneRadius, zoneName: _zoneName, onRefresh: _refreshLocation),
+      MapTabScreen(latitude: _latitude, longitude: _longitude, zoneLat: _zoneLat, zoneLng: _zoneLng, zoneRadius: _zoneRadius, zoneName: _zoneName, zoneAddress: _zoneAddress, userDocument: user?.cedula, onRefresh: _refreshLocation),
       const ProfileScreen(),
     ];
 
