@@ -7,7 +7,7 @@
 // CÓMO FUNCIONA: Persiste cambios en `LocalAdminStore` sincronizando el acceso
 //                de inicio de sesión, y permite borrar la cuenta con confirmación.
 // POR QUÉ: Permite administrar y dar de baja supervisores, administradores y
-//          trabajadores desde adentro (< 195 líneas).
+//          trabajadores desde adentro (< 185 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -119,12 +119,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
       subtitle: 'Define con qué permisos iniciará sesión este usuario',
       actions: [
         for (final r in roles)
-          IosGlassAction<String>(
-            label: r.$1,
-            subtitle: r.$2,
-            value: r.$1,
-            icon: r.$1 == 'Colaborador' ? CupertinoIcons.person : CupertinoIcons.shield_lefthalf_fill,
-          ),
+          IosGlassAction<String>(label: r.$1, subtitle: r.$2, value: r.$1, icon: r.$1 == 'Colaborador' ? CupertinoIcons.person : CupertinoIcons.shield_lefthalf_fill),
       ],
     );
     if (mounted && selected != null) setState(() => _role = selected);
@@ -134,12 +129,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     final actions = [
       const IosGlassAction<int?>(label: 'Sin equipo asignado (Zona Libre)', value: null, icon: CupertinoIcons.clear_circled),
       for (final t in _teams)
-        IosGlassAction<int?>(
-          label: t['name'] as String,
-          subtitle: t['zone_name'] != null ? '${t['zone_name']}' : null,
-          value: t['id'] as int,
-          icon: CupertinoIcons.person_2_fill,
-        ),
+        IosGlassAction<int?>(label: t['name'] as String, subtitle: t['zone_name'] != null ? '${t['zone_name']}' : null, value: t['id'] as int, icon: CupertinoIcons.person_2_fill),
     ];
     final selected = await showIosGlassFloatingMenu<int?>(context: context, title: 'Equipo / Cuadrilla y Geocerca', subtitle: 'Selecciona la cuadrilla y geocerca', actions: actions);
     if (mounted && selected != _team) setState(() => _team = selected);
@@ -155,10 +145,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
   }
 
   @override
-  void dispose() {
-    _reference.dispose();
-    super.dispose();
-  }
+  void dispose() { _reference.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
