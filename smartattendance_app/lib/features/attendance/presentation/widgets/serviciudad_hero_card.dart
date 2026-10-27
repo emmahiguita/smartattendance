@@ -4,13 +4,15 @@
 //           (`Inicio`, `Salida Almuerzo`, `Regreso Almuerzo`, `Salida`) y el
 //           Marcador de Horas Extras Asignadas cuando `assignedOvertimeMinutes > 0`.
 // CÓMO FUNCIONA:
-// 1. Habilita únicamente el botón correspondiente al paso actual (`nextTipo`).
+// 1. Determina `nextTipo` evaluando en orden estricto las 4 etapas del día
+//    (`entrada` -> `salida_almuerzo` -> `regreso_almuerzo` -> `salida`) para
+//    que siempre quede habilitada la etapa pendiente inmediata.
 // 2. Si el colaborador tiene Horas Extras Asignadas (`assignedOvertimeMinutes > 0`),
 //    muestra el marcador oficial de Horas Extras, indicando que el sistema las
 //    contabiliza automáticamente al cumplir el horario asignado o al marcar la
 //    Salida al término de las horas extras.
 // POR QUÉ: Cumple la regla de negocio de Horas Extras Asignadas + secuencia
-//          estricta de jornada (< 175 líneas).
+//          estricta de jornada (< 170 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -54,12 +56,17 @@ class ServiciudadHeroCard extends StatelessWidget {
       return l.year == now.year && l.month == now.month && l.day == now.day;
     }).toList()..sort((a, b) => a.hora.compareTo(b.hora));
 
-    final lastMark = today.isNotEmpty ? today.last.tipo.toLowerCase() : '';
-    final nextTipo = MarkSequence.next(lastMark);
     final entrada = today.where((r) => r.tipo.toLowerCase() == 'entrada').firstOrNull;
     final salidaAlm = today.where((r) => r.tipo.toLowerCase() == 'salida_almuerzo').firstOrNull;
     final regresoAlm = today.where((r) => r.tipo.toLowerCase() == 'regreso_almuerzo').firstOrNull;
     final salida = today.where((r) => r.tipo.toLowerCase() == 'salida').firstOrNull;
+
+    final nextTipo = entrada == null
+        ? 'entrada'
+        : (salidaAlm == null
+            ? 'salida_almuerzo'
+            : (regresoAlm == null ? 'regreso_almuerzo' : (salida == null ? 'salida' : '')));
+
     final hasExtra = assignedOvertimeMinutes > 0;
     final extraHours = assignedOvertimeMinutes ~/ 60;
     final extraColor = salida != null ? AppColors.success : const Color(0xFFF59E0B);

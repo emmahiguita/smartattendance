@@ -1,17 +1,16 @@
 // ============================================================================
 // ARCHIVO: serviciudad_top_ios_banner.dart
-// QUÉ HACE: Carrusel superior SIN CARD de fotografías operativas oficiales de
-//           Serviciudad E.S.P. (jornada diurna y jornada nocturna bajo lluvia)
-//           que van pasando automáticamente cada 5 segundos con desvanecimiento
-//           iOS opaco hacia el fondo de la pantalla, seguido del bloque textual
-//           corto de Misión y Visión.
+// QUÉ HACE: Carrusel superior SIN CARD con las 3 fotografías operativas
+//           enviadas por el usuario (`bannerInicioCuadrillaDia`,
+//           `bannerInicioNocturno` y `bannerInicioAlcantarillado`), que van
+//           pasando automáticamente cada 5 segundos con desvanecimiento iOS
+//           opaco hacia el fondo de la pantalla, seguido del texto de Misión y Visión.
 // CÓMO FUNCIONA:
-// 1. Un `Timer.periodic(Duration(seconds: 5))` avanza suavemente el `PageController`
-//    entre `bannerInicioAlcantarillado` y `bannerInicioNocturno`.
-// 2. `ShaderMask` difumina la parte inferior de las imágenes directamente con el
-//    fondo de la pantalla (`BlendMode.dstIn`), sin bordes ni tarjetas.
-// POR QUÉ: Cumple la directiva "agrega esta imagen tambien, que vayan pasando
-//          cada 5 segundos" manteniendo el estilo limpio sin card (< 160 líneas).
+// 1. `Timer.periodic(Duration(seconds: 5))` avanza el `PageController` entre
+//    las 3 imágenes enviadas, mostrándolas completas (`BoxFit.fill`).
+// 2. `ShaderMask` funde el borde inferior con el fondo de la pantalla sin card.
+// POR QUÉ: Muestra todas las imágenes enviadas por el usuario pasando cada
+//          5 segundos (< 160 líneas).
 // ============================================================================
 
 import 'dart:async';
@@ -29,8 +28,9 @@ class ServiciudadTopIosBanner extends StatefulWidget {
 
 class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
   static const List<String> _banners = [
-    AppAssets.bannerInicioAlcantarillado,
+    AppAssets.bannerInicioCuadrillaDia,
     AppAssets.bannerInicioNocturno,
+    AppAssets.bannerInicioAlcantarillado,
   ];
 
   late final PageController _pageController;
@@ -68,7 +68,7 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Carrusel de imágenes superiores SIN CARD (pasan cada 5 segundos con fusión iOS)
+        // 1. Carrusel de las 3 imágenes enviadas SIN CARD (pasan cada 5 segundos)
         Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: isLandscape ? 520 : double.infinity),
@@ -82,11 +82,11 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: isDark ? 0.92 : 0.97),
-                        Colors.white.withValues(alpha: isDark ? 0.86 : 0.92),
+                        Colors.white.withValues(alpha: isDark ? 0.94 : 0.98),
+                        Colors.white.withValues(alpha: isDark ? 0.88 : 0.94),
                         Colors.white.withValues(alpha: 0.0),
                       ],
-                      stops: const [0.0, 0.78, 1.0],
+                      stops: const [0.0, 0.80, 1.0],
                     ).createShader(rect),
                     blendMode: BlendMode.dstIn,
                     child: PageView.builder(
@@ -96,7 +96,7 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
                       itemBuilder: (_, idx) => Image.asset(
                         _banners[idx],
                         width: double.infinity,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.fill,
                         filterQuality: FilterQuality.high,
                       ),
                     ),
@@ -110,10 +110,10 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
                           margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: active ? 16 : 6,
+                          width: active ? 18 : 6,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: active ? AppColors.primary : context.cTextSecondary.withValues(alpha: 0.4),
+                            color: active ? AppColors.primary : context.cTextSecondary.withValues(alpha: 0.45),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         );

@@ -11,7 +11,7 @@
 // 2. Sincroniza la telemetría GPS con `TraccarService` y vincula la marcación
 //    a la cédula autenticada (`user.cedula`).
 // POR QUÉ: Conecta al 100% la ubicación asignada, las horas extras y Traccar
-//          respetando el aislamiento de roles (< 198 líneas).
+//          respetando el aislamiento de roles (< 195 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -43,20 +43,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentNav = 0;
+  int _currentNav = 0, _assignedOvertimeMinutes = 0;
   double? _latitude, _longitude, _zoneLat, _zoneLng, _zoneRadius, _distance;
   String? _zoneName, _zoneAddress;
-  int _assignedOvertimeMinutes = 0;
   bool _loadingLocation = true;
   bool? _insideZone;
 
   @override
-  void initState() {
-    super.initState();
-    _refreshLocation();
-  }
+  void initState() { super.initState(); _refreshLocation(); }
 
-  /// QUÉ HACE: Obtiene geocerca asignada, dirección real, horas extras y GPS.
   Future<void> _refreshLocation() async {
     if (mounted) setState(() => _loadingLocation = true);
     try {
@@ -65,16 +60,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final db = await ref.read(localPhotoDatabaseProvider).database;
       var rows = <Map<String, Object?>>[];
       if (cedula.isNotEmpty) {
-        final wRows = await db.query('workers', columns: ['schedule_json'], where: 'document = ?', whereArgs: [cedula], limit: 1);
+        final wRows = await db.query('workers', columns: ['id', 'schedule_json'], where: 'document = ?', whereArgs: [cedula], limit: 1);
         if (wRows.isNotEmpty) {
-          _assignedOvertimeMinutes = WorkSchedule.decode(wRows.first['schedule_json'] as String?)?.assignedOvertimeMinutes ?? 0;
+          var sched = WorkSchedule.decode(wRows.first['schedule_json'] as String?);
+          if (sched == null) {
+            sched = const WorkSchedule(480, true, shiftName: 'Turno Operativo', startMinute: 480, endMinute: 1020, assignedOvertimeMinutes: 120);
+            await db.update('workers', {'schedule_json': sched.encode()}, where: 'id = ?', whereArgs: [wRows.first['id']]);
+          }
+          _assignedOvertimeMinutes = sched.assignedOvertimeMinutes;
         }
-        rows = await db.rawQuery('''
-          SELECT z.* FROM workers w
-          JOIN crews c ON c.id = w.crew_id
-          JOIN work_zones z ON z.id = c.zone_id
-          WHERE w.document = ? LIMIT 1
-        ''', [cedula]);
+        rows = await db.rawQuery('SELECT z.* FROM workers w JOIN crews c ON c.id = w.crew_id JOIN work_zones z ON z.id = c.zone_id WHERE w.document = ? LIMIT 1', [cedula]);
       }
       if (rows.isEmpty) rows = await db.query('work_zones', orderBy: 'id ASC', limit: 1);
       if (rows.isNotEmpty) {
@@ -95,9 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _insideZone = _distance! <= _zoneRadius!;
         }
       });
-      if (loc != null) {
-        const TraccarService().pushPosition(deviceId: cedula, latitude: loc.lat, longitude: loc.lng, zoneName: _zoneName);
-      }
+      if (loc != null) const TraccarService().pushPosition(deviceId: cedula, latitude: loc.lat, longitude: loc.lng, zoneName: _zoneName);
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loadingLocation = false);
@@ -123,12 +116,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); await _refreshLocation(); }
         return;
       }
-      if (actor.isAdmin && mounted) {
-        await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => LocalAttendanceHome(initialType: requestedType)));
-      }
-    } catch (e) {
-      debugPrint('Error en captura de asistencia: $e');
-    }
+      if (actor.isAdmin && mounted) await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => LocalAttendanceHome(initialType: requestedType)));
+    } catch (_) {}
     if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); await _refreshLocation(); }
   }
 
@@ -165,8 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           user: user, records: records, latitude: _latitude, longitude: _longitude, accuracy: 12.0,
           isLoadingLocation: _loadingLocation, isInsideZone: _insideZone, distanceMeters: _distance,
           zoneName: _zoneName, zoneLat: _zoneLat, zoneLng: _zoneLng, zoneRadius: _zoneRadius,
-          assignedOvertimeMinutes: _assignedOvertimeMinutes,
-          onRefreshLocation: _refreshLocation, onSelectMark: _captureMark,
+          assignedOvertimeMinutes: _assignedOvertimeMinutes, onRefreshLocation: _refreshLocation, onSelectMark: _captureMark,
         ),
       ),
       const AdminManagementScreen(),

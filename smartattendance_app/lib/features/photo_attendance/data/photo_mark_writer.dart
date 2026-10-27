@@ -80,16 +80,23 @@ class PhotoMarkWriter {
 
         final employee = await gate.check(tx, worker.id, location);
 
-        // Consulta la última marca registrada en el DÍA DE HOY para este colaborador
+        // Consulta todas las marcas registradas en el DÍA DE HOY para este colaborador
         final todayMarks = await tx.rawQuery('''
           SELECT m.*, j.status FROM photo_marks m
           JOIN journeys j ON j.id = m.journey_id
           WHERE m.worker_id = ? AND j.work_date = ? AND j.status != 'void'
-          ORDER BY m.captured_at DESC, m.uuid DESC LIMIT 1
+          ORDER BY m.captured_at DESC, m.uuid DESC
         ''', [worker.id, todayDate]);
 
         final priorToday = todayMarks.isEmpty ? null : todayMarks.first;
-        final priorTodayType = priorToday?['type'] as String?;
+        final doneTypes = todayMarks.map((m) => (m['type'] as String? ?? '').toLowerCase()).toSet();
+        final String? priorTodayType = doneTypes.contains('salida')
+            ? 'salida'
+            : (doneTypes.contains('regreso_almuerzo')
+                ? 'regreso_almuerzo'
+                : (doneTypes.contains('salida_almuerzo')
+                    ? 'salida_almuerzo'
+                    : (doneTypes.contains('entrada') ? 'entrada' : null)));
 
         // Valida estrictamente la secuencia: entrada -> salida_almuerzo -> regreso_almuerzo -> salida
         MarkSequence.validate(priorTodayType, type);
