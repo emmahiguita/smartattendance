@@ -2,11 +2,11 @@
 // ARCHIVO: serviciudad_status_grid.dart
 // QUÉ HACE: Barra de estado transparente, compacta y no redundante.
 // CÓMO FUNCIONA: Muestra en una sola fila minimalista y transparente:
-//                1. Estado de jornada en vivo (bullet + En curso / En almuerzo).
-//                2. Tiempo laborado acumulado.
+//                1. Estado de jornada en vivo (bullet + En curso / Finalizada).
+//                2. Tiempo laborado acumulado (sumando Horas Extras Asignadas
+//                   cuando el colaborador cumple su horario o cierra salida).
 //                3. Geocerca GPS con acceso al mapa interactivo.
-// POR QUÉ: Atiende la directiva: "DEPURA ESA CARD DEBE SER TRANSPARENTE TODO,
-//          CORRIGE COMPONENTES NO DEBEN SER REDUNDANTES" (< 130 líneas).
+// POR QUÉ: Integra el conteo automático de Horas Extras Asignadas (< 165 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -28,6 +28,7 @@ class ServiciudadStatusGrid extends StatelessWidget {
     this.zoneLat,
     this.zoneLng,
     this.zoneRadius,
+    this.assignedOvertimeMinutes = 0,
   });
 
   final List<AttendanceEntity> records;
@@ -39,6 +40,7 @@ class ServiciudadStatusGrid extends StatelessWidget {
   final double? zoneLat;
   final double? zoneLng;
   final double? zoneRadius;
+  final int assignedOvertimeMinutes;
 
   void _openMap(BuildContext context) {
     if (latitude == null || longitude == null) return;
@@ -65,6 +67,7 @@ class ServiciudadStatusGrid extends StatelessWidget {
     final lastMark = today.isNotEmpty ? today.last.tipo.toLowerCase() : '';
     final entrada = today.where((r) => r.tipo.toLowerCase() == 'entrada').firstOrNull;
     final salida = today.where((r) => r.tipo.toLowerCase() == 'salida').firstOrNull;
+    final extraDur = Duration(minutes: assignedOvertimeMinutes);
 
     final String statusText;
     final Color statusColor;
@@ -72,23 +75,23 @@ class ServiciudadStatusGrid extends StatelessWidget {
 
     if (entrada != null) {
       if (salida != null) {
-        statusText = 'Jornada finalizada';
+        statusText = assignedOvertimeMinutes > 0 ? 'Finalizada (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'Jornada finalizada';
         statusColor = AppColors.primary;
-        final diff = salida.hora.difference(entrada.hora);
-        tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60)}m';
+        final diff = salida.hora.difference(entrada.hora) + extraDur;
+        tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
       } else if (lastMark == 'salida_almuerzo') {
         statusText = 'En almuerzo';
         statusColor = const Color(0xFFF59E0B);
         final diff = today.last.hora.difference(entrada.hora);
         tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
       } else {
-        statusText = 'En curso';
+        statusText = assignedOvertimeMinutes > 0 ? 'En curso (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'En curso';
         statusColor = AppColors.success;
         final diff = now.difference(entrada.hora.toLocal());
         tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
       }
     } else {
-      statusText = 'Por iniciar';
+      statusText = assignedOvertimeMinutes > 0 ? 'Por iniciar (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'Por iniciar';
       statusColor = context.cTextSecondary;
     }
 
@@ -108,21 +111,11 @@ class ServiciudadStatusGrid extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor),
-          ),
+          Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor)),
           const SizedBox(width: 6),
-          Text(
-            statusText,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor),
-          ),
+          Text(statusText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
           const SizedBox(width: 6),
-          Text(
-            '•  $tiempoTrabajado',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.cTextPrimary),
-          ),
+          Text('•  $tiempoTrabajado', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
           const Spacer(),
           Flexible(
             child: InkWell(
@@ -138,11 +131,7 @@ class ServiciudadStatusGrid extends StatelessWidget {
                     Flexible(
                       child: Text(
                         zoneLabel,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
+                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.primary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

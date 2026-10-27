@@ -1,12 +1,15 @@
 // ============================================================================
 // ARCHIVO: work_schedule.dart
 // QUÉ HACE: Entidad de dominio para la jornada laboral pactada, plantillas de
-//           turnos y ventana/rango de horas permitido para marcar.
-// CÓMO FUNCIONA: Serializa a JSON para SQLite (`schedule_json`), calcula
-//                horas diarias y evalúa si la hora actual está dentro del
-//                rango permitido configurado por el supervisor (`markStart/End`).
-// POR QUÉ: Permite al supervisor limitar de qué hora a qué hora puede marcar
-//          el colaborador sin inventar cálculos rígidos (< 115 líneas).
+//           turnos, ventana permitida para marcar y Horas Extras Asignadas
+//           (`assignedOvertimeMinutes`).
+// CÓMO FUNCIONA:
+// 1. Serializa a JSON para SQLite (`schedule_json`), incluyendo `overtimeMinutes`.
+// 2. Si el colaborador tiene `assignedOvertimeMinutes > 0`, extiende de forma
+//    automática el límite de ventana de salida para permitirle marcar al
+//    terminar sus horas extras o al cumplir su turno base.
+// POR QUÉ: Soporta horas extras pre-asignadas que se contabilizan al cumplir
+//          el horario pactado o al marcar salida de extras (< 145 líneas).
 // ============================================================================
 
 import 'dart:convert';
@@ -23,6 +26,7 @@ class WorkSchedule {
     this.markStartMinute,
     this.markEndMinute,
     this.weekdays = const [1, 2, 3, 4, 5],
+    this.assignedOvertimeMinutes = 0,
   });
 
   final int dailyMinutes;
@@ -34,6 +38,30 @@ class WorkSchedule {
   final int? markStartMinute;
   final int? markEndMinute;
   final List<int> weekdays;
+  final int assignedOvertimeMinutes;
+
+  bool get hasAssignedOvertime => assignedOvertimeMinutes > 0;
+
+  String get overtimeFormatted {
+    if (assignedOvertimeMinutes <= 0) return 'Sin horas extras';
+    final h = assignedOvertimeMinutes ~/ 60;
+    final m = assignedOvertimeMinutes % 60;
+    return m > 0 ? '+${h}h ${m}m Extras' : '+${h}h Extras';
+  }
+
+  WorkSchedule copyWith({int? assignedOvertimeMinutes}) => WorkSchedule(
+        dailyMinutes,
+        deductLunch,
+        nightStartMinute: nightStartMinute,
+        nightEndMinute: nightEndMinute,
+        shiftName: shiftName,
+        startMinute: startMinute,
+        endMinute: endMinute,
+        markStartMinute: markStartMinute,
+        markEndMinute: markEndMinute,
+        weekdays: weekdays,
+        assignedOvertimeMinutes: assignedOvertimeMinutes ?? this.assignedOvertimeMinutes,
+      );
 
   String get timeWindowFormatted {
     if (startMinute == null || endMinute == null) {
@@ -49,23 +77,23 @@ class WorkSchedule {
   }
 
   String get markWindowFormatted {
-    if (markStartMinute == null || markEndMinute == null) {
-      return timeWindowFormatted;
-    }
+    if (markStartMinute == null || markEndMinute == null) return timeWindowFormatted;
+    final effectiveEnd = (markEndMinute! + assignedOvertimeMinutes) % 1440;
     final sH = (markStartMinute! ~/ 60).toString().padLeft(2, '0');
     final sM = (markStartMinute! % 60).toString().padLeft(2, '0');
-    final eH = (markEndMinute! ~/ 60).toString().padLeft(2, '0');
-    final eM = (markEndMinute! % 60).toString().padLeft(2, '0');
+    final eH = (effectiveEnd ~/ 60).toString().padLeft(2, '0');
+    final eM = (effectiveEnd % 60).toString().padLeft(2, '0');
     return '$sH:$sM a $eH:$eM';
   }
 
   bool isTimeWithinMarkWindow(DateTime wallTime) {
     if (markStartMinute == null || markEndMinute == null) return true;
     final currentMinute = wallTime.hour * 60 + wallTime.minute;
-    if (markStartMinute! <= markEndMinute!) {
-      return currentMinute >= markStartMinute! && currentMinute <= markEndMinute!;
+    final effectiveEnd = (markEndMinute! + assignedOvertimeMinutes) % 1440;
+    if (markStartMinute! <= effectiveEnd) {
+      return currentMinute >= markStartMinute! && currentMinute <= effectiveEnd;
     } else {
-      return currentMinute >= markStartMinute! || currentMinute <= markEndMinute!;
+      return currentMinute >= markStartMinute! || currentMinute <= effectiveEnd;
     }
   }
 
@@ -80,6 +108,7 @@ class WorkSchedule {
         if (markStartMinute != null) 'markStart': markStartMinute,
         if (markEndMinute != null) 'markEnd': markEndMinute,
         'weekdays': weekdays,
+        'overtimeMinutes': assignedOvertimeMinutes,
       });
 
   static WorkSchedule? decode(String? text) {
@@ -95,10 +124,8 @@ class WorkSchedule {
       endMinute: data['end'] as int?,
       markStartMinute: data['markStart'] as int?,
       markEndMinute: data['markEnd'] as int?,
-      weekdays: (data['weekdays'] as List<dynamic>?)
-              ?.map((e) => e as int)
-              .toList() ??
-          const [1, 2, 3, 4, 5],
+      weekdays: (data['weekdays'] as List<dynamic>?)?.map((e) => e as int).toList() ?? const [1, 2, 3, 4, 5],
+      assignedOvertimeMinutes: data['overtimeMinutes'] as int? ?? 0,
     );
   }
 }

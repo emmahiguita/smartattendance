@@ -5,13 +5,13 @@
 //           `Reportes` (Gestión RRHH). Si es Colaborador normal, oculta por
 //           completo el módulo administrativo y restringe la interfaz a marcar.
 // CÓMO FUNCIONA:
-// 1. Consulta la geocerca asignada específicamente a la cuadrilla del usuario
-//    autenticado (`workers -> crews -> work_zones`) junto con su dirección
-//    física real (`address`), con fallback a la geocerca principal.
+// 1. Consulta la geocerca asignada a la cuadrilla del usuario autenticado
+//    (`workers -> crews -> work_zones`), su dirección física real y sus Horas
+//    Extras Asignadas (`assignedOvertimeMinutes`).
 // 2. Sincroniza la telemetría GPS con `TraccarService` y vincula la marcación
 //    a la cédula autenticada (`user.cedula`).
-// POR QUÉ: Conecta al 100% la ubicación real asignada, el mapa y Traccar
-//          respetando el aislamiento de roles (< 195 líneas).
+// POR QUÉ: Conecta al 100% la ubicación asignada, las horas extras y Traccar
+//          respetando el aislamiento de roles (< 198 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -25,6 +25,7 @@ import '../../../../core/location/traccar_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
+import '../../../photo_attendance/domain/work_schedule.dart';
 import '../../../photo_attendance/presentation/local_attendance_home.dart';
 import '../../../photo_attendance/presentation/local_day_history.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
@@ -45,6 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentNav = 0;
   double? _latitude, _longitude, _zoneLat, _zoneLng, _zoneRadius, _distance;
   String? _zoneName, _zoneAddress;
+  int _assignedOvertimeMinutes = 0;
   bool _loadingLocation = true;
   bool? _insideZone;
 
@@ -54,7 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _refreshLocation();
   }
 
-  /// QUÉ HACE: Obtiene la geocerca asignada al colaborador, su dirección real y GPS.
+  /// QUÉ HACE: Obtiene geocerca asignada, dirección real, horas extras y GPS.
   Future<void> _refreshLocation() async {
     if (mounted) setState(() => _loadingLocation = true);
     try {
@@ -63,6 +65,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final db = await ref.read(localPhotoDatabaseProvider).database;
       var rows = <Map<String, Object?>>[];
       if (cedula.isNotEmpty) {
+        final wRows = await db.query('workers', columns: ['schedule_json'], where: 'document = ?', whereArgs: [cedula], limit: 1);
+        if (wRows.isNotEmpty) {
+          _assignedOvertimeMinutes = WorkSchedule.decode(wRows.first['schedule_json'] as String?)?.assignedOvertimeMinutes ?? 0;
+        }
         rows = await db.rawQuery('''
           SELECT z.* FROM workers w
           JOIN crews c ON c.id = w.crew_id
@@ -114,7 +120,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       target ??= actor.isAdmin ? workers.firstOrNull : null;
       if (target != null && (requestedType != null || !actor.isAdmin) && mounted) {
         await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target!, initialType: requestedType ?? 'entrada')));
-        if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); }
+        if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); await _refreshLocation(); }
         return;
       }
       if (actor.isAdmin && mounted) {
@@ -123,7 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       debugPrint('Error en captura de asistencia: $e');
     }
-    if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); }
+    if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); await _refreshLocation(); }
   }
 
   Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
@@ -132,7 +138,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _currentNav = index),
+        onTap: () { setState(() => _currentNav = index); if (index == 0) _refreshLocation(); },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -159,6 +165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           user: user, records: records, latitude: _latitude, longitude: _longitude, accuracy: 12.0,
           isLoadingLocation: _loadingLocation, isInsideZone: _insideZone, distanceMeters: _distance,
           zoneName: _zoneName, zoneLat: _zoneLat, zoneLng: _zoneLng, zoneRadius: _zoneRadius,
+          assignedOvertimeMinutes: _assignedOvertimeMinutes,
           onRefreshLocation: _refreshLocation, onSelectMark: _captureMark,
         ),
       ),

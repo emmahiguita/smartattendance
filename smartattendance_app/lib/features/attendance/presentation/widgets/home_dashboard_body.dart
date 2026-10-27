@@ -1,13 +1,12 @@
 // ============================================================================
 // ARCHIVO: home_dashboard_body.dart
-// QUÉ HACE: Cuerpo principal de Inicio con la imagen institucional superior
-//           SIN CARD (`ServiciudadTopIosBanner`), seguida del texto de Misión
+// QUÉ HACE: Cuerpo principal de Inicio con el carrusel institucional superior
+//           SIN CARD (`ServiciudadTopIosBanner`), seguido del texto de Misión
 //           y Visión, saludo al colaborador, los 4 botones compactos de
-//           marcación y el estado de geocerca GPS.
+//           marcación con Marcador de Horas Extras Asignadas y el estado GPS.
 // CÓMO FUNCIONA: Renderiza `ServiciudadTopIosBanner` de borde a borde en la
-//                parte superior y aplica margen horizontal limpio (`16px`) a
-//                los bloques inferiores.
-// POR QUÉ: Cumple Clean Architecture y el límite estricto de < 115 líneas.
+//                parte superior y propaga `assignedOvertimeMinutes` a las tarjetas.
+// POR QUÉ: Cumple Clean Architecture y el límite estricto de < 120 líneas.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -30,6 +29,7 @@ class HomeDashboardBody extends StatelessWidget {
   final double? zoneLat;
   final double? zoneLng;
   final double? zoneRadius;
+  final int assignedOvertimeMinutes;
   final VoidCallback onRefreshLocation;
   final ValueChanged<String?>? onSelectMark;
 
@@ -58,6 +58,7 @@ class HomeDashboardBody extends StatelessWidget {
     this.zoneLat,
     this.zoneLng,
     this.zoneRadius,
+    this.assignedOvertimeMinutes = 0,
     this.address,
     this.coords,
     this.hasFix,
@@ -90,6 +91,7 @@ class HomeDashboardBody extends StatelessWidget {
                 const SizedBox(height: 12),
                 ServiciudadHeroCard(
                   records: records,
+                  assignedOvertimeMinutes: assignedOvertimeMinutes,
                   onTap: (tipo) => onSelectMark?.call(tipo),
                 ),
                 const SizedBox(height: 10),
@@ -103,6 +105,7 @@ class HomeDashboardBody extends StatelessWidget {
                   zoneLat: zoneLat,
                   zoneLng: zoneLng,
                   zoneRadius: zoneRadius,
+                  assignedOvertimeMinutes: assignedOvertimeMinutes,
                 ),
               ],
             ),
