@@ -1,104 +1,108 @@
+// ============================================================================
+// ARCHIVO: home_dashboard_body.dart
+// QUÉ HACE: Cuerpo principal de Inicio 100% limpio, transparente y no redundante.
+// CÓMO FUNCIONA: Orquesta de forma directa, pequeña y transparente:
+//                1. Logo Oficial 3D flotante interactivo (sin card ni cajas).
+//                2. Encabezado institucional limpio con saludo al colaborador.
+//                3. Los 4 botones pequeños y transparentes de marcación:
+//                   Inicio, Salida Almuerzo, Regreso y Salida.
+//                4. Barra de estado transparente con geocerca GPS y tiempo.
+// POR QUÉ: Atiende la directiva: "DEPURA ESA CARD DEBE SER TRANSPARENTE TODO,
+//          EL BOTON DE INICIO, SALIDA REGRESO A ALMORZAR Y SALIDA DEBE SER
+//          PEQUEÑO, CORRIGE COMPONENTES NO DEBEN SER REDUNDANTES" (< 100 líneas).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import '../../domain/entities/attendance_entity.dart';
-import 'dashboard_staff_status.dart';
-import 'day_summary_card.dart';
 import 'home_header.dart';
-import 'live_location_card.dart';
-import 'smart_punch_card.dart';
+import 'serviciudad_3d_logo_hero.dart';
+import 'serviciudad_hero_card.dart';
+import 'serviciudad_status_grid.dart';
 
-/// Organiza la portada móvil con una sola ruta de marcación y datos existentes.
-/// El componente no crea empleados ni registros: delega esas acciones a sus
-/// pantallas y proveedores locales para mantener responsabilidades claras.
 class HomeDashboardBody extends StatelessWidget {
+  final dynamic user;
+  final List<AttendanceEntity> records;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final bool isLoadingLocation;
+  final bool? isInsideZone;
+  final double? distanceMeters;
+  final String? zoneName;
+  final double? zoneLat;
+  final double? zoneLng;
+  final double? zoneRadius;
+  final VoidCallback onRefreshLocation;
+  final ValueChanged<String?>? onSelectMark;
+
+  // Parámetros de compatibilidad
+  final String? address;
+  final String? coords;
+  final bool? hasFix;
+  final String? nextTipo;
+  final bool? registering;
+  final VoidCallback? onRegisterAttendance;
+  final VoidCallback? onOpenStaff;
+
   const HomeDashboardBody({
     super.key,
     required this.user,
-    required this.address,
-    required this.coords,
-    this.latitude,
-    this.longitude,
-    required this.hasFix,
+    required this.records,
     required this.isLoadingLocation,
     required this.onRefreshLocation,
-    required this.records,
-    this.nextTipo,
-    this.registering = false,
-    required this.onRegisterAttendance,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
     this.onSelectMark,
+    this.isInsideZone,
+    this.distanceMeters,
+    this.zoneName,
+    this.zoneLat,
+    this.zoneLng,
+    this.zoneRadius,
+    this.address,
+    this.coords,
+    this.hasFix,
+    this.nextTipo,
+    this.registering,
+    this.onRegisterAttendance,
     this.onOpenStaff,
   });
 
-  final dynamic user;
-  final String address, coords;
-  final double? latitude, longitude;
-  final bool hasFix, isLoadingLocation;
-  // Parámetros conservados para consumidores previos; la marca ya se resuelve
-  // en el directorio de cada trabajador, no en el resumen agregado del panel.
-  final String? nextTipo;
-  final bool registering;
-  final VoidCallback onRefreshLocation, onRegisterAttendance;
-  final ValueChanged<String>? onSelectMark;
-  final VoidCallback? onOpenStaff;
-  final List<AttendanceEntity> records;
-
   @override
   Widget build(BuildContext context) {
-    final location = LiveLocationCard(
-      address: address,
-      coords: coords,
-      latitude: latitude,
-      longitude: longitude,
-      hasFix: hasFix,
-      isLoading: isLoadingLocation,
-      onRefresh: onRefreshLocation,
+    return SingleChildScrollView(
+      key: const PageStorageKey('home-clean-scroll'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Serviciudad3DLogoHero(height: 130),
+          const SizedBox(height: 6),
+          HomeHeader(
+            user: user,
+            onOpenDirectory: onOpenStaff ?? () => onSelectMark?.call(null),
+          ),
+          const SizedBox(height: 12),
+          ServiciudadHeroCard(
+            records: records,
+            onTap: (tipo) => onSelectMark?.call(tipo),
+          ),
+          const SizedBox(height: 10),
+          ServiciudadStatusGrid(
+            records: records,
+            isInsideZone: isInsideZone,
+            zoneName: zoneName,
+            latitude: latitude,
+            longitude: longitude,
+            accuracy: accuracy,
+            zoneLat: zoneLat,
+            zoneLng: zoneLng,
+            zoneRadius: zoneRadius,
+          ),
+        ],
+      ),
     );
-    final team = DashboardStaffStatus(
-      onOpenAll: onOpenStaff ?? onRegisterAttendance,
-    );
-    // El resumen solo informa; la tarjeta superior es el único acceso de marcación.
-    final journey = DaySummaryCard(records: records);
-    final punch = SmartPunchCard(onTap: onRegisterAttendance);
-
-    return LayoutBuilder(builder: (context, size) {
-      // En horizontal/tablet se separa el flujo de marcación del estado del equipo.
-      if (size.maxWidth >= 700) {
-        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-              child: _column([
-            HomeHeader(user: user),
-            punch,
-            journey,
-          ])),
-          Expanded(child: _column([team, location])),
-        ]);
-      }
-
-      // En teléfono, todo queda en una lista vertical que se adapta a la altura.
-      return SingleChildScrollView(
-        key: const PageStorageKey('home-dashboard'),
-        padding: EdgeInsets.zero,
-        child: _column([
-          HomeHeader(user: user),
-          punch,
-          team,
-          journey,
-          location,
-        ]),
-      );
-    });
   }
-
-  /// Mantiene separación constante entre tarjetas en móvil y pantalla ancha.
-  Widget _column(List<Widget> children) => Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              if (i > 0) const SizedBox(height: 12),
-              children[i],
-            ],
-          ],
-        ),
-      );
 }

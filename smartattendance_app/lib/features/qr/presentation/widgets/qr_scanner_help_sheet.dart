@@ -1,5 +1,6 @@
 // lib/features/qr/presentation/widgets/qr_scanner_help_sheet.dart
 import 'package:flutter/material.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -22,46 +23,24 @@ class QrScannerHelpSheet extends StatelessWidget {
 
   /// Método estático de conveniencia para abrir la hoja modal.
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+    return showIosFloatingGlassSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const QrScannerHelpSheet(),
+      title: 'Cómo escanear tu asistencia',
+      subtitle: 'Instrucciones para el uso correcto del QR',
+      child: const QrScannerHelpSheet(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: BoxDecoration(
-        color: context.cSurface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Indicador de arrastre superior (Material 3 handle)
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const Text(
-              'Cómo escanear tu asistencia',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const _HelpRow(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 6),
+          const _HelpRow(
               icon: Icons.qr_code_scanner,
               text: 'Apunta la cámara al código QR generado por tu supervisor o terminal.',
             ),
@@ -93,8 +72,7 @@ class QrScannerHelpSheet extends StatelessWidget {
                 child: const Text('Entendido', style: TextStyle(fontWeight: FontWeight.w600)),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

@@ -1,69 +1,120 @@
-// lib/features/attendance/presentation/widgets/home_header.dart
-import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
-import 'live_clock_widget.dart';
+// ============================================================================
+// ARCHIVO: home_header.dart
+// QUÉ HACE: Encabezado institucional limpio con saludo personalizado, cargo,
+//           fecha oficial y avatar de colaborador.
+// CÓMO FUNCIONA: Muestra la información del colaborador y fecha sin duplicar
+//                el logo oficial que ya preside majestuosamente en 3D arriba.
+// POR QUÉ: Atiende la directiva: "elimina componentes zombies y redundantes,
+//          hazlo limpio y profesional" (< 120 líneas).
+// ============================================================================
 
-/// ============================================================================
-/// COMPONENTE: HomeHeader (Estilo Apple iOS)
-/// ============================================================================
-/// QUÉ HACE:
-/// Muestra el saludo al colaborador, su cargo, documento de identidad y
-/// el reloj digital con cifras tabulares en tiempo real.
-///
-/// CÓMO FUNCIONA:
-/// Diseñado con estética limpia Apple HIG: tipografía con peso marcado,
-/// sin botones redundantes de "Marcar" (la marcación se hace directamente
-/// tocando las tarjetas de jornada: Entrada, Almuerzo, Regreso, Salida).
-///
-/// POR QUÉ:
-/// Elimina duplicidad de controles y redundancias visuales cumpliendo SOLID (< 200 líneas).
-/// ============================================================================
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
+
 class HomeHeader extends StatelessWidget {
+  final dynamic user;
+  final VoidCallback? onOpenDirectory;
+
   const HomeHeader({
     super.key,
     required this.user,
+    this.onOpenDirectory,
   });
 
-  final dynamic user;
+  String _formatDate() {
+    final now = DateTime.now();
+    try {
+      final df = DateFormat("EEEE, d 'de' MMMM", 'es_ES');
+      final formatted = df.format(now);
+      return formatted[0].toUpperCase() + formatted.substring(1);
+    } catch (_) {
+      return '${now.day}/${now.month}/${now.year}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
+    final fullName = (user?.fullName as String? ?? 'Colaborador');
+    final firstName = fullName.split(' ').first;
+    final cargo = (user?.cargo as String? ?? 'Operativo');
+    final dateStr = _formatDate();
+    final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'C';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+          child: Text(
+            initial,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.08),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: const Text(
+                      'SERVICIUDAD E.S.P.',
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    cargo,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: context.cTextSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
               Text(
-                'Hola, ${user?.fullName ?? 'Colaborador'}',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                  color: context.cTextPrimary,
-                  letterSpacing: -0.4,
+                '¡Hola, $firstName!',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.3,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Text(
-                '${user?.cargo ?? 'Colaborador'} · C.C. ${user?.cedula ?? '---'}',
+                dateStr,
                 style: TextStyle(
-                  fontSize: 12.5,
-                  color: isDark
-                      ? const Color(0xFF8E8E93)
-                      : const Color(0xFF6C6C70),
+                  fontSize: 11,
+                  color: context.cTextSecondary,
                   fontWeight: FontWeight.w500,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
-              const LiveClockWidget(),
             ],
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/auth/session_controller.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -79,11 +80,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   /// Abre el preview de exportación con resumen, selector de formato y tabla.
   Future<void> _exportExcel() async {
-    final path = await showModalBottomSheet<String>(
+    final path = await showIosFloatingGlassSheet<String>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ExportPreviewSheet(
+      title: 'Exportar Asistencias',
+      subtitle: 'Histórico consolidado de colaboradores',
+      maxHeightFactor: 0.85,
+      child: ExportPreviewSheet(
         fechaDesde: _exportFrom,
         fechaHasta: _exportTo,
       ),

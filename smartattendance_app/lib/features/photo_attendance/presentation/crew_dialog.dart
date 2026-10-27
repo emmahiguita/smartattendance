@@ -1,8 +1,22 @@
+// ============================================================================
+// ARCHIVO: crew_dialog.dart
+// QUÉ HACE: Ventana flotante estilo iOS Inset Grouped para crear o editar un
+//           Equipo de Trabajo / Cuadrilla (`crews`) con supervisor, geocerca
+//           asociada y rango de vigencia.
+// CÓMO FUNCIONA: Utiliza `IosFloatingModal` e `IosFormGroup` con selectores
+//                limpios de geocerca y fechas de inicio/fin.
+// POR QUÉ: Reemplaza el antiguo `AlertDialog` Material por un formulario iOS
+//          coherente y libre de ruido visual (< 175 líneas).
+// ============================================================================
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/ios_modal_scaffold.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import 'local_providers.dart';
 
-/// Configura un equipo, sus responsables, fechas y una geocerca opcional.
 class CrewDialog extends ConsumerStatefulWidget {
   const CrewDialog({super.key, this.crew, required this.zones});
   final Map<String, Object?>? crew;
@@ -23,6 +37,10 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
   void initState() {
     super.initState();
     final team = widget.crew;
+    final today = DateTime.now().toIso8601String().split('T').first;
+    final nextYear = DateTime.now().add(const Duration(days: 365)).toIso8601String().split('T').first;
+    _from = today;
+    _until = nextYear;
     if (team == null) return;
     _name.text = team['name'] as String;
     _supervisor.text = team['supervisor_document'] as String;
@@ -45,7 +63,7 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
     final date = await showDatePicker(
       context: context,
       initialDate: DateTime.tryParse(current ?? '') ?? DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
     if (date == null || !mounted) return;
@@ -54,14 +72,15 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
   }
 
   Future<void> _save() async {
-    if (_from == null || _until == null) {
-      setState(() => _error = 'Selecciona el período del equipo.');
+    if (_name.text.trim().isEmpty || _supervisor.text.trim().isEmpty) {
+      setState(() => _error = 'Completa el nombre del equipo y cédula del supervisor.');
       return;
     }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+    if (_from == null || _until == null) {
+      setState(() => _error = 'Selecciona el período de vigencia.');
+      return;
+    }
+    setState(() => (_busy = true, _error = null));
     try {
       await ref.read(localAdminStoreProvider).saveCrew({
         'name': _name.text.trim(),
@@ -73,90 +92,161 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
       }, id: widget.crew?['id'] as int?);
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
-      if (mounted) {
-        setState(() => _error = error is FormatException
-            ? error.message
-            : 'No se pudo guardar el equipo.');
-      }
+      if (mounted) setState(() => _error = error is FormatException ? error.message : 'No se pudo guardar el equipo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  Future<void> _delete() async {
+    final id = widget.crew?['id'] as int?;
+    if (id == null) return;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Eliminar Cuadrilla'),
+        content: Text('¿Deseas eliminar la cuadrilla "${_name.text}"?'),
+        actions: [
+          CupertinoDialogAction(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => (_busy = true, _error = null));
+      try {
+        await ref.read(localAdminStoreProvider).deleteCrew(id);
+        if (mounted) Navigator.pop(context, true);
+      } catch (e) {
+        if (mounted) setState(() => _error = e is FormatException ? e.message : 'No se pudo eliminar el equipo.');
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => PopScope(
-        canPop: !_busy,
-        child: AlertDialog(
-          title: Text(widget.crew == null ? 'Crear equipo' : 'Editar equipo'),
-          content: SizedBox(
-            width: 440,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _name,
-                    maxLength: 100,
-                    decoration:
-                        const InputDecoration(labelText: 'Nombre del equipo'),
-                  ),
-                  TextField(
-                    controller: _supervisor,
-                    keyboardType: TextInputType.number,
-                    maxLength: 20,
-                    decoration: const InputDecoration(
-                        labelText: 'Cédula del supervisor o encargado'),
-                  ),
-                  TextField(
-                    controller: _alternate,
-                    keyboardType: TextInputType.number,
-                    maxLength: 20,
-                    decoration: const InputDecoration(
-                        labelText: 'Responsable adicional (opcional)'),
-                  ),
-                  DropdownButtonFormField<int>(
-                    initialValue: _zone,
-                    isExpanded: true,
-                    decoration:
-                        const InputDecoration(labelText: 'Geocerca (opcional)'),
-                    items: [
-                      const DropdownMenuItem<int>(
-                          value: null, child: Text('Sin geocerca')),
-                      for (final zone in widget.zones)
-                        DropdownMenuItem(
-                            value: zone['id'] as int,
-                            child: Text(zone['name'] as String)),
-                    ],
-                    onChanged:
-                        _busy ? null : (value) => setState(() => _zone = value),
-                  ),
-                  Wrap(spacing: 8, children: [
-                    TextButton(
-                        onPressed: _busy ? null : () => _pickDate(true),
-                        child: Text('Desde: ${_from ?? 'Elegir'}')),
-                    TextButton(
-                        onPressed: _busy ? null : () => _pickDate(false),
-                        child: Text('Hasta: ${_until ?? 'Elegir'}')),
-                  ]),
-                  if (_zone == null)
-                    const Text(
-                        'Sin geocerca, las marcas guardan GPS si está disponible, pero no restringen la ubicación.'),
-                  if (_error != null)
-                    Text(_error!,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error)),
-                ],
-              ),
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_busy,
+      child: IosFloatingModal(
+        title: widget.crew == null ? 'Nuevo Equipo' : 'Editar Equipo',
+        isSaving: _busy,
+        errorMessage: _error,
+        onSave: _save,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            IosFormGroup(
+              header: 'Datos de la Cuadrilla',
+              children: [
+                IosFormFieldRow(
+                  label: 'Equipo',
+                  placeholder: 'Ej. Cuadrilla Norte',
+                  controller: _name,
+                  textCapitalization: TextCapitalization.words,
+                ),
+                IosFormFieldRow(
+                  label: 'Supervisor',
+                  placeholder: 'Cédula del encargado',
+                  controller: _supervisor,
+                  keyboardType: TextInputType.number,
+                ),
+                IosFormFieldRow(
+                  label: 'Suplente',
+                  placeholder: 'Cédula adicional (opcional)',
+                  controller: _alternate,
+                  keyboardType: TextInputType.number,
+                ),
+              ],
             ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: _busy ? null : () => Navigator.pop(context),
-                child: const Text('Cancelar')),
-            FilledButton(
-                onPressed: _busy ? null : _save,
-                child: Text(_busy ? 'Guardando…' : 'Guardar')),
+            const SizedBox(height: 12),
+            IosFormGroup(
+              header: 'Geocerca y Vigencia',
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 104,
+                        child: Text('Geocerca', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
+                      ),
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int?>(
+                            value: _zone,
+                            isExpanded: true,
+                            style: TextStyle(fontSize: 13, color: context.cTextPrimary),
+                            items: [
+                              const DropdownMenuItem<int?>(value: null, child: Text('Libre (sin restricción)')),
+                              for (final z in widget.zones)
+                                DropdownMenuItem<int?>(
+                                  value: z['id'] as int,
+                                  child: Text(
+                                    (z['address'] as String?)?.isNotEmpty == true
+                                        ? '${z['name']} (${z['address']})'
+                                        : z['name'] as String,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: _busy ? null : (v) => setState(() => _zone = v),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: _busy ? null : () => _pickDate(true),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Válido desde', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
+                        Text(_from ?? 'Seleccionar', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      ],
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: _busy ? null : () => _pickDate(false),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Válido hasta', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
+                        Text(_until ?? 'Seleccionar', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (widget.crew != null) ...[
+              const SizedBox(height: 16),
+              CupertinoButton(
+                color: AppColors.systemRed.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                onPressed: _busy ? null : _delete,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(CupertinoIcons.trash, size: 15, color: AppColors.systemRed),
+                    SizedBox(width: 6),
+                    Text('Eliminar Cuadrilla', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed)),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
-      );
+      ),
+    );
+  }
 }

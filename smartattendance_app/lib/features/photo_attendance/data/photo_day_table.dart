@@ -29,6 +29,7 @@ class PhotoDayTable {
     'GPS inicio almuerzo',
     'GPS regreso almuerzo',
     'GPS salida',
+    'Zona / Sede Asignada',
     ...JourneyReport.headers,
     'Encargados de las marcaciones',
   ];
@@ -54,6 +55,7 @@ class PhotoDayTable {
                 ? 'Sin GPS guardado'
                 : '${gps.description} | GPS: ${ColombiaClock.wall(gps.fixedAt).toIso8601String()}';
           }).join('\n'),
+        day.zoneName ?? 'Sede Principal Operativa',
         ...JourneyReport.cells(day),
         day.records
             .map((r) =>

@@ -1,31 +1,38 @@
-// lib/features/attendance/presentation/widgets/bulk_shift_assignment_dialog.dart
+// ============================================================================
+// ARCHIVO: bulk_shift_assignment_dialog.dart
+// QUÉ HACE: Ventana flotante estilo Apple iOS (`IosFloatingModal`) para asignar
+//           una plantilla de turno (`ShiftTemplate`) en bloque a múltiples
+//           colaboradores desde el calendario de Horarios.
+// CÓMO FUNCIONA: Usa `CupertinoSearchTextField` y listas `IosFormGroup` con
+//                selección múltiple para aplicar turnos masivos en SQLite.
+// POR QUÉ: Sustituye el `AlertDialog` Material por una ventana flotante iOS
+//          limpia y cumple SRP (< 170 líneas).
+// ============================================================================
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
+import '../../../../core/design_system/ios_modal_scaffold.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
 import '../../../photo_attendance/domain/shift_template.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
 
-/// Diálogo para asignar una jornada/turno de forma masiva o rápida a varios colaboradores.
 class BulkShiftAssignmentDialog extends ConsumerStatefulWidget {
   const BulkShiftAssignmentDialog({super.key, required this.workers});
   final List<LocalWorker> workers;
 
-  static Future<bool?> show(BuildContext context, {required List<LocalWorker> workers}) {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => BulkShiftAssignmentDialog(workers: workers),
-    );
-  }
+  static Future<bool?> show(BuildContext context, {required List<LocalWorker> workers}) =>
+      showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => BulkShiftAssignmentDialog(workers: workers));
 
   @override
   ConsumerState<BulkShiftAssignmentDialog> createState() => _BulkShiftAssignmentDialogState();
 }
 
 class _BulkShiftAssignmentDialogState extends ConsumerState<BulkShiftAssignmentDialog> {
-  final Set<int> _selectedWorkerIds = {};
+  final Set<int> _selectedIds = {};
   ShiftTemplate? _selectedTemplate;
   bool _saving = false;
   String? _error;
@@ -34,214 +41,115 @@ class _BulkShiftAssignmentDialogState extends ConsumerState<BulkShiftAssignmentD
   @override
   void initState() {
     super.initState();
-    // Por defecto seleccionar a los que no tienen jornada
     for (final w in widget.workers) {
-      if (w.schedule == null) {
-        _selectedWorkerIds.add(w.id);
-      }
+      if (w.schedule == null) _selectedIds.add(w.id);
     }
-    // Si todos ya tienen, seleccionar a todos
-    if (_selectedWorkerIds.isEmpty) {
-      _selectedWorkerIds.addAll(widget.workers.map((w) => w.id));
-    }
+    if (_selectedIds.isEmpty) _selectedIds.addAll(widget.workers.map((w) => w.id));
   }
 
   Future<void> _assign() async {
-    if (_selectedTemplate == null) {
-      setState(() => _error = 'Selecciona el turno que deseas asignar.');
+    if (_selectedTemplate == null || _selectedIds.isEmpty) {
+      setState(() => _error = 'Selecciona un turno y al menos un colaborador.');
       return;
     }
-    if (_selectedWorkerIds.isEmpty) {
-      setState(() => _error = 'Selecciona al menos un colaborador.');
-      return;
-    }
-
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-
+    setState(() => (_saving = true, _error = null));
     try {
-      final store = ref.read(localAdminStoreProvider);
-      await store.assignShiftToWorkers(
-        workerIds: _selectedWorkerIds.toList(),
-        template: _selectedTemplate!,
-      );
+      await ref.read(localAdminStoreProvider).assignShiftToWorkers(workerIds: _selectedIds.toList(), template: _selectedTemplate!);
       ref.invalidate(localWorkersProvider);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e is FormatException ? e.message : 'Error al asignar la jornada.';
-          _saving = false;
-        });
-      }
+      if (mounted) setState(() => (_error = e is FormatException ? e.message : 'Error al asignar turnos.', _saving = false));
     }
+  }
+
+  Future<void> _pickTemplate(List<ShiftTemplate> templates) async {
+    final actions = [
+      for (final t in templates)
+        IosGlassAction<ShiftTemplate>(
+          label: t.name,
+          subtitle: t.timeFormatted,
+          value: t,
+          icon: CupertinoIcons.clock,
+        ),
+    ];
+    final selected = await showIosGlassFloatingMenu<ShiftTemplate>(
+      context: context,
+      title: 'Seleccionar Turno Oficial',
+      subtitle: 'Turno a asignar masivamente a los seleccionados',
+      actions: actions,
+    );
+    if (!mounted || selected == null) return;
+    setState(() => _selectedTemplate = selected);
   }
 
   @override
   Widget build(BuildContext context) {
-    final templatesAsync = ref.watch(shiftTemplatesProvider);
-    final filteredWorkers = widget.workers.where((w) {
+    final templates = ref.watch(shiftTemplatesProvider).valueOrNull ?? const [];
+    if (templates.isNotEmpty) _selectedTemplate ??= templates.first;
+    final filtered = widget.workers.where((w) {
       if (_search.isEmpty) return true;
-      final term = _search.toLowerCase();
-      return w.name.toLowerCase().contains(term) ||
-          w.document.contains(term) ||
-          w.job.toLowerCase().contains(term);
+      final t = _search.toLowerCase();
+      return w.name.toLowerCase().contains(t) || w.document.contains(t);
     }).toList();
 
-    return AlertDialog(
-      title: const Text('Asignación de Turnos'),
-      content: SizedBox(
-        width: 480,
-        height: 480,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return IosFloatingModal(
+      title: 'Asignar en Bloque',
+      saveLabel: 'Aplicar (${_selectedIds.length})',
+      isSaving: _saving,
+      errorMessage: _error,
+      onSave: _assign,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        IosFormGroup(
+          header: 'TURNO A ASIGNAR',
           children: [
-            if (_error != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                ),
-                child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
-              ),
-              const SizedBox(height: 10),
-            ],
-            // 1. Selector de turno
-            const Text('1. Turno a asignar:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            templatesAsync.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, __) => const Text('Error al cargar turnos'),
-              data: (templates) {
-                if (templates.isEmpty) {
-                  return const Text('No hay turnos disponibles. Crea uno primero.');
-                }
-                _selectedTemplate ??= templates.first;
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: context.cBorder),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<ShiftTemplate>(
-                      isExpanded: true,
-                      value: _selectedTemplate,
-                      items: templates.map((t) {
-                        final label = t.name.contains('(') ? t.name : '${t.name} (${t.timeFormatted})';
-                        return DropdownMenuItem(
-                          value: t,
-                          child: Text(
-                            label,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _selectedTemplate = val),
+            InkWell(
+              onTap: () => _pickTemplate(templates),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                child: Row(children: [
+                  const Icon(CupertinoIcons.clock_fill, size: 16, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _selectedTemplate != null ? '${_selectedTemplate!.name} (${_selectedTemplate!.timeFormatted})' : 'Sin plantillas disponibles',
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.cTextPrimary),
                     ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 14),
-            // 2. Selección de trabajadores
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '2. Colaboradores (${_selectedWorkerIds.length}):',
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
-                  onPressed: () {
-                    setState(() {
-                      if (_selectedWorkerIds.length == widget.workers.length) {
-                        _selectedWorkerIds.clear();
-                      } else {
-                        _selectedWorkerIds.addAll(widget.workers.map((w) => w.id));
-                      }
-                    });
-                  },
-                  child: Text(
-                    _selectedWorkerIds.length == widget.workers.length ? 'Desmarcar todos' : 'Todos',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: 'Filtrar personal...',
-                prefixIcon: Icon(Icons.search, size: 16),
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              onChanged: (val) => setState(() => _search = val),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.cBorder),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ListView.separated(
-                  itemCount: filteredWorkers.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final w = filteredWorkers[index];
-                    final isChecked = _selectedWorkerIds.contains(w.id);
-                    final hasSchedule = w.schedule != null;
-                    return CheckboxListTile(
-                      dense: true,
-                      value: isChecked,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedWorkerIds.add(w.id);
-                          } else {
-                            _selectedWorkerIds.remove(w.id);
-                          }
-                        });
-                      },
-                      title: Text(w.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      subtitle: Text(
-                        hasSchedule ? 'Turno: ${w.schedule!.shiftName ?? w.schedule!.timeWindowFormatted}' : 'Sin jornada',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: hasSchedule ? AppColors.primary : Colors.amber.shade800,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                  const Text('Cambiar', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                ]),
               ),
             ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Cancelar'),
+        const SizedBox(height: 12),
+        CupertinoSearchTextField(
+          placeholder: 'Filtrar colaboradores…',
+          style: TextStyle(fontSize: 13, color: context.cTextPrimary),
+          onChanged: (v) => setState(() => _search = v),
         ),
-        FilledButton(
-          onPressed: _saving ? null : _assign,
-          child: _saving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text('Asignar a ${_selectedWorkerIds.length} personas'),
+        const SizedBox(height: 10),
+        IosFormGroup(
+          header: 'COLABORADORES (${_selectedIds.length} SELECCIONADOS)',
+          children: [
+            for (final w in filtered)
+              InkWell(
+                onTap: () => setState(() => _selectedIds.contains(w.id) ? _selectedIds.remove(w.id) : _selectedIds.add(w.id)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  child: Row(children: [
+                    Icon(
+                      _selectedIds.contains(w.id) ? CupertinoIcons.check_mark_circled_solid : CupertinoIcons.circle,
+                      size: 19,
+                      color: _selectedIds.contains(w.id) ? AppColors.primary : context.cTextSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(w.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.cTextPrimary))),
+                  ]),
+                ),
+              ),
+          ],
         ),
-      ],
+      ]),
     );
   }
 }

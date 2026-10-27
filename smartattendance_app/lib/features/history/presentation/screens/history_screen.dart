@@ -1,6 +1,7 @@
 // lib/features/history/presentation/screens/history_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../attendance/presentation/widgets/export_preview_sheet.dart';
 import '../../../photo_attendance/presentation/local_day_history.dart';
@@ -29,12 +30,12 @@ class HistoryScreen extends ConsumerWidget {
     final now = DateTime.now();
     final firstDayOfMonth = DateTime(now.year, now.month, 1);
 
-    showModalBottomSheet<void>(
+    showIosFloatingGlassSheet<void>(
       context: context,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ExportPreviewSheet(
+      title: 'Exportar Historial',
+      subtitle: 'Consolidado de registros mensuales',
+      maxHeightFactor: 0.85,
+      child: ExportPreviewSheet(
         fechaDesde: firstDayOfMonth,
         fechaHasta: now,
       ),

@@ -10,6 +10,9 @@ class LocalWorker {
       required this.document,
       required this.job,
       this.schedule,
+      this.crewId,
+      this.crewName,
+      this.zoneName,
       this.lastMark,
       this.lastMarkAt,
       this.lastWorkDate,
@@ -19,6 +22,9 @@ class LocalWorker {
   final String document;
   final String job;
   final WorkSchedule? schedule;
+  final int? crewId;
+  final String? crewName;
+  final String? zoneName;
   final String? lastMark;
   final DateTime? lastMarkAt;
 
@@ -63,7 +69,8 @@ abstract interface class LocalAttendanceRepository {
   Future<List<PhotoDay>> days(
       {int skip = 0, int limit = 20, String search = ''});
   Future<List<LocalWorker>> workers();
-  Future<void> addWorker(String name, String document, String job);
+  Future<void> addWorker(String name, String document, String job,
+      {int? crewId, WorkSchedule? schedule, String? authorizationReference});
   Future<PhotoRecord> capture(LocalWorker worker, String type, String imagePath,
       {required AttendanceLocation location, String? captureId});
   Future<List<PhotoRecord>> history(
@@ -80,12 +87,14 @@ class PhotoDay {
       this.reviewedBy,
       this.reviewedAt,
       this.reviewNote,
-      this.status = 'open'});
+      this.status = 'open',
+      this.zoneName});
   final List<PhotoRecord> records;
   final WorkSchedule? schedule;
   final int? approvedSeconds;
   final String? reviewedBy, reviewedAt, reviewNote;
   final String status;
+  final String? zoneName;
   String get id => worker.journeyId ?? worker.uuid;
   WorkTotals get totals => WorkTotals(records, schedule);
   PhotoRecord get worker => records.first;

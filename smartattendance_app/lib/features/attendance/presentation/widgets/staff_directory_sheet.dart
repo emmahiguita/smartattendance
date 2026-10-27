@@ -1,6 +1,7 @@
 // lib/features/attendance/presentation/widgets/staff_directory_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/work_schedule.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
@@ -27,11 +28,12 @@ class StaffDirectorySheet extends ConsumerStatefulWidget {
   const StaffDirectorySheet({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
+    return showIosFloatingGlassSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const StaffDirectorySheet(),
+      title: 'Directorio de Personal',
+      subtitle: 'Colaboradores registrados y estado en tiempo real',
+      maxHeightFactor: 0.85,
+      child: const StaffDirectorySheet(),
     );
   }
 
@@ -48,40 +50,9 @@ class _StaffDirectorySheetState extends ConsumerState<StaffDirectorySheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final today = ColombiaClock.day(DateTime.now());
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Directorio de Personal',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: context.cTextPrimary),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
+    return Column(
+      children: [
+        const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Container(
@@ -143,7 +114,6 @@ class _StaffDirectorySheetState extends ConsumerState<StaffDirectorySheet> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 }

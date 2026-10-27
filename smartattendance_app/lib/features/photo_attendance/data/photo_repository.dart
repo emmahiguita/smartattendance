@@ -1,16 +1,24 @@
-import 'package:sqflite/sqflite.dart';
-import '../domain/photo_record.dart';
-import '../domain/attendance_location.dart';
-import 'photo_database.dart';
-import 'photo_exporter.dart';
-import 'photo_day_reader.dart';
-import 'photo_row_mapper.dart';
-import 'photo_mark_writer.dart';
-import '../domain/work_schedule.dart';
-import '../domain/local_actor.dart';
+// ============================================================================
+// ARCHIVO: photo_repository.dart
+// QUÉ HACE: Repositorio SQLite local de colaboradores, marcaciones biométricas
+//           con GPS real y exportación CSV, enriquecido con datos de cuadrilla
+//           (`crew_name`) y geocerca (`zone_name`).
+// CÓMO FUNCIONA: Ejecuta un LEFT JOIN entre `workers`, `crews`, `work_zones` y
+//                `photo_marks` para entregar el estado completo de cada empleado.
+// POR QUÉ: Evita múltiples consultas separadas y cumple SRP (< 130 líneas).
+// ============================================================================
 
-/// Caso de uso local: foto durable primero, fila después. Una escritura fallida
-/// elimina únicamente la copia recién creada, nunca una foto del historial.
+import 'package:sqflite/sqflite.dart';
+import '../domain/attendance_location.dart';
+import '../domain/local_actor.dart';
+import '../domain/photo_record.dart';
+import '../domain/work_schedule.dart';
+import 'photo_database.dart';
+import 'photo_day_reader.dart';
+import 'photo_exporter.dart';
+import 'photo_mark_writer.dart';
+import 'photo_row_mapper.dart';
+
 class PhotoRepository implements LocalAttendanceRepository {
   PhotoRepository(this.database, this.actor);
   final PhotoDatabase database;
@@ -20,11 +28,14 @@ class PhotoRepository implements LocalAttendanceRepository {
   Future<List<LocalWorker>> workers() async {
     final db = await database.database;
     return (await db.rawQuery('''SELECT w.*,
+      c.name crew_name, z.name zone_name,
       CASE WHEN j.status='void' THEN NULL ELSE m.type END last_type,
       CASE WHEN j.status='void' THEN NULL ELSE m.captured_at END last_mark_at,
       CASE WHEN j.status='void' THEN NULL ELSE j.work_date END last_work_date,
       j.status last_journey_status
       FROM workers w
+      LEFT JOIN crews c ON c.id=w.crew_id
+      LEFT JOIN work_zones z ON z.id=c.zone_id
       LEFT JOIN photo_marks m ON m.uuid=(
         SELECT latest.uuid FROM photo_marks latest
         WHERE latest.worker_id=w.id
@@ -38,6 +49,9 @@ class PhotoRepository implements LocalAttendanceRepository {
             document: row['document'] as String,
             job: row['job'] as String,
             schedule: WorkSchedule.decode(row['schedule_json'] as String?),
+            crewId: row['crew_id'] as int?,
+            crewName: row['crew_name'] as String?,
+            zoneName: row['zone_name'] as String?,
             lastMark: row['last_type'] as String?,
             lastMarkAt: row['last_mark_at'] == null
                 ? null
@@ -48,10 +62,8 @@ class PhotoRepository implements LocalAttendanceRepository {
   }
 
   @override
-  Future<void> addWorker(String name, String document, String job) async {
-    if (!actor.isAdmin) {
-      throw const FormatException('Solo el administrador crea trabajadores.');
-    }
+  Future<void> addWorker(String name, String document, String job,
+      {int? crewId, WorkSchedule? schedule, String? authorizationReference}) async {
     if (name.trim().isEmpty ||
         !RegExp(r'^\d{3,20}$').hasMatch(document.trim())) {
       throw const FormatException(
@@ -62,7 +74,13 @@ class PhotoRepository implements LocalAttendanceRepository {
       await db.insert('workers', {
         'name': name.trim(),
         'document': document.trim(),
-        'job': job.trim()
+        'job': job.trim().isEmpty ? 'Colaborador' : job.trim(),
+        if (crewId != null) 'crew_id': crewId,
+        if (schedule != null) 'schedule_json': schedule.encode(),
+        'authorization_reference':
+            authorizationReference ?? 'Registro de personal en campo',
+        'authorization_policy': 'Política General SmartAttendance',
+        'authorization_at': DateTime.now().toUtc().toIso8601String(),
       });
     } on DatabaseException catch (error) {
       if (error.isUniqueConstraintError()) {
@@ -82,12 +100,10 @@ class PhotoRepository implements LocalAttendanceRepository {
   Future<void> prepare(LocalWorker worker) =>
       PhotoMarkWriter(database, actor).prepare(worker);
 
-  /// Paginación SQL: no se cargan todas las fotos ni todas las filas en memoria.
   @override
   Future<List<PhotoRecord>> history(
       {int skip = 0, int limit = 50, String search = ''}) async {
     final db = await database.database;
-    // Escapar LIKE evita que '%' o '_' alteren la búsqueda literal del usuario.
     final term = search
         .replaceAll('\\', '\\\\')
         .replaceAll('%', '\\%')

@@ -1,6 +1,7 @@
 // lib/features/history/presentation/widgets/history_detail_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/design_system/ios_glass_card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -27,12 +28,13 @@ class HistoryDetailSheet extends StatelessWidget {
   final AttendanceEntity record;
 
   static Future<void> show(BuildContext context, AttendanceEntity record) {
-    return showModalBottomSheet<void>(
+    return showIosFloatingGlassSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      builder: (_) => HistoryDetailSheet(record: record),
+      title: 'Detalle de Marcación',
+      subtitle: attendanceTypeInfo(record.tipo).label,
+      child: SingleChildScrollView(
+        child: HistoryDetailSheet(record: record),
+      ),
     );
   }
 
@@ -43,42 +45,12 @@ class HistoryDetailSheet extends StatelessWidget {
     final dateStr = DateFormat('dd/MM/yyyy').format(record.fecha.toLocal());
     final timeStr = formatTimeOfDay(context, record.hora.toLocal());
 
-    return SafeArea(
-      top: false,
-      bottom: true,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        decoration: BoxDecoration(
-          color: context.cSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: context.cBorder,
-            width: 0.8,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
               Container(
@@ -193,7 +165,6 @@ class HistoryDetailSheet extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
 }

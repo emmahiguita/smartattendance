@@ -1,31 +1,26 @@
-// lib/features/attendance/presentation/widgets/corporate_app_bar.dart
+// ============================================================================
+// ARCHIVO: corporate_app_bar.dart
+// QUÉ HACE: Barra superior institucional sobria con identidad tipográfica
+//           monocromática, subtítulo contextual de sección, campana de
+//           recordatorios reales de jornada y acceso al perfil.
+// CÓMO FUNCIONA: Observa `localDayHistoryProvider` para mostrar un indicador
+//                discreto si existen recordatorios pendientes y navega al
+//                perfil al tocar el avatar de iniciales.
+// POR QUÉ: Elimina colores "vibe coder" (texto bicolor cian/blanco e iconos
+//          saturados) a favor de una cabecera ejecutiva limpia (< 160 líneas).
+// ============================================================================
+
 import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/notifications/journey_reminders.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/widgets/control_ai_logo.dart';
-import '../../../auth/domain/entities/user_entity.dart';
 import '../../../photo_attendance/presentation/local_day_history.dart';
 import '../../domain/entities/attendance_entity.dart';
 import 'notifications_sheet.dart';
 
-/// ============================================================================
-/// COMPONENTE: CorporateAppBar (Estilo Apple iOS Glass)
-/// ============================================================================
-/// QUÉ HACE:
-/// Barra superior institucional con efecto Frosted Glass (cristal esmerilado):
-/// logotipo oficial, subtítulo de sección, campana de notificaciones real y avatar.
-///
-/// CÓMO FUNCIONA:
-/// Difumina el contenido con [ImageFilter.blur] en [flexibleSpace].
-/// Conecta la campana de notificaciones al modal reactivo [showJourneyNotificationsSheet].
-///
-/// POR QUÉ:
-/// Cumple con las directrices Apple HIG y el principio de Responsabilidad Única (SRP):
-/// estética sobria, notificaciones reales y menos de 200 líneas de código.
-/// ============================================================================
 class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const CorporateAppBar({
     super.key,
@@ -43,118 +38,116 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = context.isDark;
-    String computeInitials() {
-      if (user == null) return 'U';
-      if (user is UserEntity) return (user as UserEntity).initials;
-      try {
-        final val = user.initials;
-        if (val is String && val.isNotEmpty) return val;
-      } catch (_) {}
-      try {
-        final n = (user.nombre as String? ?? '').trim();
-        if (n.isNotEmpty) return n[0].toUpperCase();
-      } catch (_) {}
-      return 'U';
-    }
-    final initials = computeInitials();
-
-    final sectionTitle = switch (currentNavIndex) {
-      1 => 'Historial Operativo',
-      2 => 'Gestión RRHH',
-      3 => 'Perfil del Colaborador',
-      _ => 'Panel de Asistencia',
-    };
-
-    final records = ref.watch(localDayHistoryProvider).valueOrNull ?? const <AttendanceEntity>[];
+    final records = ref.watch(localDayHistoryProvider).valueOrNull ??
+        const <AttendanceEntity>[];
     final hasPendingReminders = computeJourneyReminders(records).isNotEmpty;
 
     return AppBar(
-      backgroundColor: isDark ? const Color(0x99000000) : const Color(0xB3FFFFFF),
+      backgroundColor: context.cBackground.withValues(alpha: context.isDark ? 0.82 : 0.90),
       elevation: 0,
       scrolledUnderElevation: 0,
       flexibleSpace: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(color: Colors.transparent),
         ),
       ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(0.8),
+        child: Container(
+          height: 0.8,
+          color: context.cBorder.withValues(alpha: context.isDark ? 0.55 : 0.75),
+        ),
+      ),
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const ControlAiLogo(size: 32, iconOnly: true),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RichText(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: 'Buen',
-                        style: TextStyle(color: isDark ? Colors.white : const Color(0xFF0A2540)),
-                      ),
-                      const TextSpan(
-                        text: 'Tiempo',
-                        style: TextStyle(color: Color(0xFF00838F)),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  sectionTitle,
-                  style: TextStyle(
-                    color: context.cTextSecondary,
-                    fontSize: 11,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          Container(
+            padding: const EdgeInsets.all(5.5),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: context.isDark ? 0.25 : 0.12),
+              shape: BoxShape.circle,
             ),
+            child: const Icon(CupertinoIcons.building_2_fill, size: 14, color: AppColors.primary),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'SERVICIUDAD E.S.P.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: context.cTextPrimary,
+                ),
+              ),
+              Text(
+                'Dosquebradas · Risaralda',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w500,
+                  color: context.cTextSecondary,
+                ),
+              ),
+            ],
           ),
         ],
       ),
       actions: [
-        IconButton(
-          tooltip: 'Notificaciones de jornada',
-          icon: Badge(
-            isLabelVisible: hasPendingReminders,
-            smallSize: 8,
-            backgroundColor: AppColors.systemOrange,
-            child: Icon(
-              Icons.notifications_none_rounded,
-              size: 22,
-              color: context.cTextPrimary,
+        GestureDetector(
+          onTap: () => showJourneyNotificationsSheet(context, ref),
+          child: Container(
+            width: 36,
+            height: 36,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: context.cSurface.withValues(alpha: context.isDark ? 0.6 : 0.85),
+              shape: BoxShape.circle,
+              border: Border.all(color: context.cBorder.withValues(alpha: 0.6), width: 0.8),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(Icons.notifications_rounded, size: 18, color: context.cTextPrimary),
+                if (hasPendingReminders)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          onPressed: () => showJourneyNotificationsSheet(context, ref),
         ),
-        const SizedBox(width: 2),
         GestureDetector(
           onTap: onProfileTap,
-          child: CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
+          child: Container(
+            width: 36,
+            height: 36,
+            margin: const EdgeInsets.only(right: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.cTextSecondary.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+              border: Border.all(color: context.cBorder.withValues(alpha: 0.6), width: 0.8),
+            ),
+            child: Icon(
+              CupertinoIcons.person_fill,
+              size: 19,
+              color: context.cTextSecondary,
             ),
           ),
         ),
-        const SizedBox(width: AppDesignTokens.mobileHorizontalPadding),
       ],
     );
   }

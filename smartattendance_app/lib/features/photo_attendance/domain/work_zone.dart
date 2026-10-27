@@ -1,14 +1,24 @@
 import 'dart:math' as math;
 import 'attendance_location.dart';
 
-/// Geocerca circular local, independiente del visor. El margen de precisión
-/// debe quedar dentro: un punto dudoso en el borde no autoriza la marcación.
+/// Geocerca circular local con soporte para dirección física real.
+/// El margen de precisión debe quedar dentro: un punto dudoso en el borde
+/// no autoriza la marcación.
 class WorkZone {
   const WorkZone(
-      this.id, this.name, this.latitude, this.longitude, this.radius);
+    this.id,
+    this.name,
+    this.latitude,
+    this.longitude,
+    this.radius, [
+    this.address,
+  ]);
+
   final int id;
   final String name;
   final double latitude, longitude, radius;
+  final String? address;
+
   bool contains(AttendanceLocation location) {
     const radians = math.pi / 180;
     final a = math.pow(
@@ -22,9 +32,11 @@ class WorkZone {
   }
 
   static WorkZone fromRow(Map<String, Object?> row) => WorkZone(
-      row['id'] as int,
-      row['name'] as String,
-      (row['latitude'] as num).toDouble(),
-      (row['longitude'] as num).toDouble(),
-      (row['radius_m'] as num).toDouble());
+        row['id'] as int,
+        row['name'] as String,
+        (row['latitude'] as num).toDouble(),
+        (row['longitude'] as num).toDouble(),
+        (row['radius_m'] as num).toDouble(),
+        row['address'] as String?,
+      );
 }

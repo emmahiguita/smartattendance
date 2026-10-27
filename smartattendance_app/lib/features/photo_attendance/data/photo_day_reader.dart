@@ -20,8 +20,13 @@ class PhotoDayReader {
     final filter =
         'WHERE ${actor.visibleWorkers('worker_id')}${search.isEmpty ? '' : " AND (name LIKE ? ESCAPE '\\' OR document LIKE ? ESCAPE '\\')"}';
     final rows = await db.rawQuery('''SELECT m.*, j.schedule_json, j.status,
-      j.approved_seconds, j.reviewed_by, j.reviewed_at, j.review_note
-      FROM photo_marks m JOIN journeys j ON j.id=m.journey_id JOIN (
+      j.approved_seconds, j.reviewed_by, j.reviewed_at, j.review_note,
+      z.name zone_name
+      FROM photo_marks m JOIN journeys j ON j.id=m.journey_id
+      LEFT JOIN workers w ON w.id=m.worker_id
+      LEFT JOIN crews c ON c.id=w.crew_id
+      LEFT JOIN work_zones z ON z.id=c.zone_id
+      JOIN (
         SELECT journey_id, MAX(captured_at) latest FROM photo_marks $filter
         GROUP BY journey_id ORDER BY latest DESC, journey_id LIMIT ? OFFSET ?
       ) g ON g.journey_id=m.journey_id
@@ -43,7 +48,8 @@ class PhotoDayReader {
           approvedSeconds: info['approved_seconds'] as int?,
           reviewedBy: info['reviewed_by'] as String?,
           reviewedAt: info['reviewed_at'] as String?,
-          reviewNote: info['review_note'] as String?);
+          reviewNote: info['review_note'] as String?,
+          zoneName: info['zone_name'] as String?);
     }).toList();
   }
 }

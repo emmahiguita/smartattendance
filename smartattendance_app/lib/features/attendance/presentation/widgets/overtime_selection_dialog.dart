@@ -1,8 +1,8 @@
 // lib/features/attendance/presentation/widgets/overtime_selection_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/router/app_router.dart';
-import '../../../../core/theme/app_theme.dart';
 import 'overtime_option_card.dart';
 
 /// ============================================================================
@@ -28,66 +28,23 @@ class OvertimeSelectionDialog extends StatelessWidget {
     BuildContext context, {
     Future<void> Function(String tipo)? onDirectRegister,
   }) {
-    return showModalBottomSheet<void>(
+    return showIosFloatingGlassSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) =>
-          OvertimeSelectionDialog(onDirectRegister: onDirectRegister),
+      title: 'Registro de Horas Extras',
+      subtitle: 'Selecciona la acción a marcar',
+      child: OvertimeSelectionDialog(onDirectRegister: onDirectRegister),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: context.cSurface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD97706).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.more_time_rounded,
-                      color: Color(0xFFD97706)),
-                ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Registro de Horas Extras',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('Selecciona la acción a marcar',
-                        style: TextStyle(color: Colors.grey, fontSize: 13)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            // Opción 1: Entrada Hora Extra
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Opción 1: Entrada Hora Extra
             OvertimeOptionCard(
               title: 'Entrada Hora Extra',
               subtitle: 'Comienzo de labor adicional autorizada',
@@ -125,8 +82,7 @@ class OvertimeSelectionDialog extends StatelessWidget {
                   : null,
             ),
             const SizedBox(height: 12),
-          ],
-        ),
+        ],
       ),
     );
   }

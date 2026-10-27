@@ -16,7 +16,7 @@ class PhotoDatabase {
   Future<Database> _open() async {
     return openDatabase(
         p.join(await getDatabasesPath(), 'local_photo_attendance.db'),
-        version: 6,
+        version: 8,
         onConfigure: (db) async => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: (db, _) async {
           await db.execute('''CREATE TABLE workers (
@@ -28,6 +28,9 @@ class PhotoDatabase {
           await _indexes(db);
           await JourneyMigration.apply(db);
           await _createShiftTemplates(db);
+          try {
+            await db.execute('ALTER TABLE work_zones ADD COLUMN address TEXT');
+          } catch (_) {}
         },
         onUpgrade: (db, old, _) async {
           if (old < 2) {
@@ -45,6 +48,18 @@ class PhotoDatabase {
           if (old < 4) await JourneyMigration.apply(db);
           if (old < 5) await JourneyMigration.allowUnzonedTeams(db);
           if (old < 6) await _createShiftTemplates(db);
+          if (old < 7) {
+            try {
+              await db.execute('ALTER TABLE work_zones ADD COLUMN address TEXT');
+            } catch (_) {}
+          }
+          if (old < 8) {
+            try {
+              await db.execute('ALTER TABLE shift_templates ADD COLUMN enable_mark_window INTEGER NOT NULL DEFAULT 0');
+              await db.execute('ALTER TABLE shift_templates ADD COLUMN mark_start_minute INTEGER');
+              await db.execute('ALTER TABLE shift_templates ADD COLUMN mark_end_minute INTEGER');
+            } catch (_) {}
+          }
         });
   }
 
@@ -58,7 +73,10 @@ class PhotoDatabase {
       deduct_lunch INTEGER NOT NULL DEFAULT 1,
       night_start_minute INTEGER NOT NULL DEFAULT 1140,
       night_end_minute INTEGER NOT NULL DEFAULT 360,
-      weekdays TEXT NOT NULL DEFAULT '[1,2,3,4,5]'
+      weekdays TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
+      enable_mark_window INTEGER NOT NULL DEFAULT 0,
+      mark_start_minute INTEGER,
+      mark_end_minute INTEGER
     )''');
   }
 

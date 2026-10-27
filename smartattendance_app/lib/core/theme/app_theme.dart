@@ -1,308 +1,131 @@
+// ============================================================================
+// ARCHIVO: app_theme.dart
+// QUÉ HACE: Configuración temática Titanium Enterprise para Flutter (Modo Claro
+//           Nieve #F5F7FA / Blanco y Modo Oscuro Grafito #101821 / #192431).
+// CÓMO FUNCIONA: Construye `ThemeData` con botones con radio 12-14px, tarjetas 16px,
+//                separadores metálicos y extensión `ThemeColorsX` reactiva.
+// POR QUÉ: Satisface la identidad Titanium Enterprise con contraste óptimo,
+//          accesibilidad y controles de al menos 48x48 dp (< 160 líneas).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 export '../design_system/design_system.dart';
 
-// enterprise_colors.dart se conserva como referencia histórica.
-// AppTheme ahora usa AppColors (fuente única de verdad).
-
-/// Tema de la aplicación: Light + Dark mode
-/// Paleta corporativa SmartAttendance — unificada con AppColors.
 class AppTheme {
-  // ── LIGHT THEME ──────────────────────────────────────────────
-  static ThemeData get lightTheme {
+  static ThemeData get lightTheme => _buildTheme(false);
+  static ThemeData get darkTheme => _buildTheme(true);
+
+  static ThemeData _buildTheme(bool isDark) {
+    final bg = isDark ? AppColors.darkBackground : AppColors.background;
+    final surf = isDark ? AppColors.darkSurface : AppColors.surface;
+    final txt = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final txtSec = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final sep = isDark ? AppColors.darkBorder : AppColors.separator;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      colorScheme: ColorScheme(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+        primary: primary,
+        onPrimary: Colors.white,
         secondary: AppColors.accentIndigo,
-        surface: AppColors.surface,
-        onSurface: AppColors.textPrimary,
-        error: AppColors.systemRed,
+        onSecondary: Colors.white,
+        error: AppColors.error,
         onError: Colors.white,
+        surface: surf,
+        onSurface: txt,
       ),
-      scaffoldBackgroundColor: AppColors.background,
-      textTheme: _buildTextTheme(false),
-      appBarTheme: _buildAppBarTheme(false),
-      elevatedButtonTheme: _buildElevatedButtonTheme(false),
-      outlinedButtonTheme: _buildOutlinedButtonTheme(false),
-      inputDecorationTheme: _buildInputDecorationTheme(false),
-      // Navegación inferior (Inicio/Perfil): iconos 24dp coloreados por
-      // estado — seleccionado en primary, inactivo en gris. Funciona en
-      // light y dark (los colores vienen del colorScheme del tema).
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.transparent,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Color(0xFF94A3B8),
-        selectedIconTheme: IconThemeData(size: 24, color: AppColors.primary),
-        unselectedIconTheme: IconThemeData(size: 24, color: Color(0xFF94A3B8)),
-        selectedLabelStyle:
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        unselectedLabelStyle:
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-      ),
-      // Separadores profesionales: un solo divisor sutil para todos los
-      // Divider sin color explícito (evita líneas claras "horribles").
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFFE2E8F0),
-        thickness: 1,
-        space: 1,
-      ),
-    );
-  }
-
-  // ── DARK THEME ───────────────────────────────────────────────
-  static ThemeData get darkTheme {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.primary,
-        secondary: AppColors.accentIndigo,
-        surface: Color(0xFF1E293B),
-        onSurface: Colors.white,
-        error: AppColors.systemRed,
-        onError: Colors.white,
-      ),
-      scaffoldBackgroundColor: const Color(0xFF0F172A),
-      textTheme: _buildTextTheme(true),
-      appBarTheme: _buildAppBarTheme(true),
-      elevatedButtonTheme: _buildElevatedButtonTheme(true),
-      outlinedButtonTheme: _buildOutlinedButtonTheme(true),
-      inputDecorationTheme: _buildInputDecorationTheme(true),
-      // Navegación inferior en dark: iconos claros inactivos sobre superficie
-      // oscura (mismo mapeo que light, colores adaptados al brillo).
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.transparent,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Color(0xFF64748B),
-        selectedIconTheme: IconThemeData(size: 24, color: AppColors.primary),
-        unselectedIconTheme: IconThemeData(size: 24, color: Color(0xFF64748B)),
-        selectedLabelStyle:
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        unselectedLabelStyle:
-            TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-      ),
-      // Separadores profesionales en dark: gris pizarra, nunca blanco.
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFF334155),
-        thickness: 1,
-        space: 1,
-      ),
-    );
-  }
-
-  // ── TYPOGRAPHY ───────────────────────────────────────────────
-  static TextTheme _buildTextTheme(bool isDark) {
-    final textColor = isDark ? Colors.white : AppColors.textPrimary;
-    final secondaryColor =
-        isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-
-    return TextTheme(
-      displayLarge: TextStyle(
-        fontSize: 32,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.64,
-        color: textColor,
-      ),
-      displayMedium: TextStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.56,
-        color: textColor,
-      ),
-      headlineLarge: TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.48,
-        color: textColor,
-      ),
-      headlineMedium: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.4,
-        color: textColor,
-      ),
-      titleLarge: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.36,
-        color: textColor,
-      ),
-      titleMedium: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.32,
-        color: textColor,
-      ),
-      bodyLarge: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        letterSpacing: -0.32,
-        color: textColor,
-      ),
-      bodyMedium: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        letterSpacing: -0.28,
-        color: textColor,
-      ),
-      bodySmall: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        letterSpacing: -0.24,
-        color: secondaryColor,
-      ),
-      labelLarge: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.1,
-        color: textColor,
-      ),
-      labelSmall: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.12,
-        color: secondaryColor,
-      ),
-    );
-  }
-
-  // ── APP BAR THEME ────────────────────────────────────────────
-  static AppBarTheme _buildAppBarTheme(bool isDark) {
-    return AppBarTheme(
-      backgroundColor: isDark ? const Color(0xFF1E293B) : AppColors.surface,
-      elevation: 0,
-      centerTitle: true,
-      iconTheme: const IconThemeData(color: AppColors.primary),
-      titleTextStyle: TextStyle(
-        // Bug fix: antes ambos ramos del ternario eran iguales (textPrimary),
-        // lo que dejaba el título invisible en dark mode.
-        color: isDark ? const Color(0xFFF1F5F9) : AppColors.textPrimary,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.36,
-      ),
-      surfaceTintColor: Colors.transparent,
-    );
-  }
-
-  // ── BUTTON THEMES ────────────────────────────────────────────
-  static ElevatedButtonThemeData _buildElevatedButtonTheme(bool isDark) {
-    return ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      scaffoldBackgroundColor: bg,
+      textTheme: _buildTextTheme(isDark),
+      appBarTheme: AppBarTheme(
+        backgroundColor: bg,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-        textStyle: const TextStyle(
-          fontSize: 16,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: primary),
+        titleTextStyle: TextStyle(
+          color: txt,
+          fontSize: 16.5,
           fontWeight: FontWeight.w600,
-          letterSpacing: -0.32,
+          letterSpacing: -0.35,
+        ),
+        surfaceTintColor: Colors.transparent,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          minimumSize: const Size.fromHeight(DesignTokens.buttonHeight),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.2),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primary,
+          minimumSize: const Size.fromHeight(DesignTokens.buttonHeight),
+          side: BorderSide(color: sep, width: DesignTokens.borderWidth),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
+          textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark ? const Color(0xFF1E2B3A) : const Color(0xFFFFFFFF),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton), borderSide: BorderSide(color: sep, width: DesignTokens.borderWidth)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton), borderSide: BorderSide(color: sep, width: DesignTokens.borderWidth)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton), borderSide: BorderSide(color: primary, width: 1.4)),
+        hintStyle: TextStyle(color: txtSec, fontSize: 13.5),
+      ),
+      dividerTheme: DividerThemeData(color: sep, thickness: DesignTokens.borderWidth, space: 1),
     );
   }
 
-  static OutlinedButtonThemeData _buildOutlinedButtonTheme(bool isDark) {
-    return OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.primary,
-        side: const BorderSide(color: AppColors.primary, width: 1.5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-        textStyle: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.32,
-        ),
-      ),
-    );
-  }
-
-  // ── INPUT DECORATION ─────────────────────────────────────────
-  static InputDecorationTheme _buildInputDecorationTheme(bool isDark) {
-    return InputDecorationTheme(
-      filled: true,
-      // Bug fix: antes usaba backgroundSecondary (gris claro) también en dark.
-      fillColor: isDark ? const Color(0xFF0F172A) : AppColors.surface,
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        borderSide: BorderSide(
-            color: isDark ? const Color(0xFF334155) : AppColors.borderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        borderSide: BorderSide(
-            color: isDark ? const Color(0xFF334155) : AppColors.borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        borderSide: const BorderSide(color: AppColors.systemRed, width: 1.5),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-        borderSide: const BorderSide(color: AppColors.systemRed, width: 2),
-      ),
-      // Bug fix: hint y label usaban el mismo color en ambos modos.
-      hintStyle: TextStyle(
-        color: isDark ? const Color(0xFF64748B) : AppColors.textTertiary,
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-      ),
-      labelStyle: TextStyle(
-        color: isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      ),
+  static TextTheme _buildTextTheme(bool isDark) {
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final secondaryColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    return TextTheme(
+      displayLarge: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.6, color: textColor),
+      displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: textColor),
+      headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.45, color: textColor),
+      headlineMedium: TextStyle(fontSize: 19, fontWeight: FontWeight.w600, letterSpacing: -0.38, color: textColor),
+      titleLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.34, color: textColor),
+      titleMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.3, color: textColor),
+      bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, letterSpacing: -0.25, color: textColor),
+      bodyMedium: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400, letterSpacing: -0.2, color: textColor),
+      bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, letterSpacing: -0.15, color: secondaryColor),
+      labelLarge: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: textColor),
+      labelSmall: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: secondaryColor),
     );
   }
 }
 
-/// Colores CONTEXTUALES de la aplicación — resuelven según el brillo activo.
-///
-/// Los widgets deben usar `context.cTextPrimary` (etc.) en vez de las
-/// constantes de [AppColors] para texto y fondos: así el dark mode es real
-/// y no hay texto oscuro sobre fondo oscuro. [AppColors] queda para colores
-/// de marca y semánticos (primary, verde/rojo/ámbar), que sirven en ambos modos.
 extension ThemeColorsX on BuildContext {
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
 
-  Color get cTextPrimary =>
-      isDark ? const Color(0xFFF1F5F9) : AppColors.textPrimary;
-  Color get cTextSecondary =>
-      isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-  Color get cTextTertiary =>
-      isDark ? const Color(0xFF64748B) : AppColors.textTertiary;
-  Color get cSurface => isDark ? const Color(0xFF1E293B) : AppColors.surface;
-  Color get cBackground =>
-      isDark ? const Color(0xFF0F172A) : AppColors.background;
-  Color get cBackgroundSecondary =>
-      isDark ? const Color(0xFF1E293B) : AppColors.backgroundSecondary;
-  Color get cBorder => isDark ? const Color(0xFF334155) : AppColors.borderColor;
-  Color get cGray => isDark ? const Color(0xFF94A3B8) : AppColors.systemGray;
-  Color get cGray2 => isDark ? const Color(0xFF64748B) : AppColors.systemGray2;
-  Color get cGray4 => isDark ? const Color(0xFF334155) : AppColors.systemGray4;
-  Color get cGray5 => isDark ? const Color(0xFF1E293B) : AppColors.systemGray5;
-  Color get cWhite => isDark ? const Color(0xFFF8FAFC) : Colors.white;
+  Color get cTextPrimary => isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  Color get cTextSecondary => isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+  Color get cTextTertiary => isDark ? const Color(0xFF657486) : AppColors.textTertiary;
+  Color get cSurface => isDark ? AppColors.darkSurface : AppColors.surface;
+  Color get cBackground => isDark ? AppColors.darkBackground : AppColors.background;
+  Color get cBackgroundSecondary => isDark ? const Color(0xFF192431) : AppColors.silver;
+  Color get cBorder => isDark ? AppColors.darkBorder : AppColors.borderColor;
+  Color get cGray => isDark ? AppColors.darkTextSecondary : AppColors.titanium;
+  Color get cGray2 => isDark ? const Color(0xFF657486) : AppColors.systemGray2;
+  Color get cGray4 => isDark ? AppColors.darkBorder : AppColors.systemGray4;
+  Color get cGray5 => isDark ? const Color(0xFF1E2B3A) : AppColors.systemGray5;
+  Color get cWhite => isDark ? const Color(0xFFE2ECF5) : Colors.white;
 
-  /// Gradiente de fondo del dashboard — versión oscura en dark mode
-  /// (AppColors.gradientBackground es claro fijo y rompía el contraste).
-  LinearGradient get cGradientBackground => isDark
-      ? const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-        )
-      : AppColors.gradientBackground;
+  LinearGradient get cGradientBackground => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [cBackground, cBackground],
+      );
 }

@@ -1,7 +1,16 @@
+// ============================================================================
+// ARCHIVO: work_schedule.dart
+// QUÉ HACE: Entidad de dominio para la jornada laboral pactada, plantillas de
+//           turnos y ventana/rango de horas permitido para marcar.
+// CÓMO FUNCIONA: Serializa a JSON para SQLite (`schedule_json`), calcula
+//                horas diarias y evalúa si la hora actual está dentro del
+//                rango permitido configurado por el supervisor (`markStart/End`).
+// POR QUÉ: Permite al supervisor limitar de qué hora a qué hora puede marcar
+//          el colaborador sin inventar cálculos rígidos (< 115 líneas).
+// ============================================================================
+
 import 'dart:convert';
 
-/// Jornada pactada por el administrador. No supone que todos trabajan ocho horas.
-/// El objetivo diario es una referencia para tiempo adicional, no una nómina.
 class WorkSchedule {
   const WorkSchedule(
     this.dailyMinutes,
@@ -11,6 +20,8 @@ class WorkSchedule {
     this.shiftName,
     this.startMinute,
     this.endMinute,
+    this.markStartMinute,
+    this.markEndMinute,
     this.weekdays = const [1, 2, 3, 4, 5],
   });
 
@@ -20,6 +31,8 @@ class WorkSchedule {
   final String? shiftName;
   final int? startMinute;
   final int? endMinute;
+  final int? markStartMinute;
+  final int? markEndMinute;
   final List<int> weekdays;
 
   String get timeWindowFormatted {
@@ -35,6 +48,27 @@ class WorkSchedule {
     return '$sH:$sM - $eH:$eM';
   }
 
+  String get markWindowFormatted {
+    if (markStartMinute == null || markEndMinute == null) {
+      return timeWindowFormatted;
+    }
+    final sH = (markStartMinute! ~/ 60).toString().padLeft(2, '0');
+    final sM = (markStartMinute! % 60).toString().padLeft(2, '0');
+    final eH = (markEndMinute! ~/ 60).toString().padLeft(2, '0');
+    final eM = (markEndMinute! % 60).toString().padLeft(2, '0');
+    return '$sH:$sM a $eH:$eM';
+  }
+
+  bool isTimeWithinMarkWindow(DateTime wallTime) {
+    if (markStartMinute == null || markEndMinute == null) return true;
+    final currentMinute = wallTime.hour * 60 + wallTime.minute;
+    if (markStartMinute! <= markEndMinute!) {
+      return currentMinute >= markStartMinute! && currentMinute <= markEndMinute!;
+    } else {
+      return currentMinute >= markStartMinute! || currentMinute <= markEndMinute!;
+    }
+  }
+
   String encode() => jsonEncode({
         'minutes': dailyMinutes,
         'deduct': deductLunch,
@@ -43,6 +77,8 @@ class WorkSchedule {
         if (shiftName != null) 'name': shiftName,
         if (startMinute != null) 'start': startMinute,
         if (endMinute != null) 'end': endMinute,
+        if (markStartMinute != null) 'markStart': markStartMinute,
+        if (markEndMinute != null) 'markEnd': markEndMinute,
         'weekdays': weekdays,
       });
 
@@ -57,6 +93,8 @@ class WorkSchedule {
       shiftName: data['name'] as String?,
       startMinute: data['start'] as int?,
       endMinute: data['end'] as int?,
+      markStartMinute: data['markStart'] as int?,
+      markEndMinute: data['markEnd'] as int?,
       weekdays: (data['weekdays'] as List<dynamic>?)
               ?.map((e) => e as int)
               .toList() ??
@@ -65,12 +103,9 @@ class WorkSchedule {
   }
 }
 
-/// Calendario de presentación colombiano. Las fechas originales siguen en UTC.
 abstract final class ColombiaClock {
-  static DateTime wall(DateTime date) =>
-      date.toUtc().subtract(const Duration(hours: 5));
-  static String day(DateTime date) =>
-      wall(date).toIso8601String().split('T').first;
+  static DateTime wall(DateTime date) => date.toUtc().subtract(const Duration(hours: 5));
+  static String day(DateTime date) => wall(date).toIso8601String().split('T').first;
   static String hour(DateTime date) {
     final d = wall(date);
     return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

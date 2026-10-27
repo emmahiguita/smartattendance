@@ -1,180 +1,119 @@
-// lib/core/theme/app_colors.dart
-//
-// FUENTE ÚNICA DE VERDAD para todos los colores de la aplicación.
-// Paleta corporativa SmartAttendance — basada en la especificación del PDF.
-//
-// ANTES: 2 sistemas paralelos (app_colors + enterprise_colors) → 3 azules distintos.
-// AHORA: 1 sistema único. enterprise_colors.dart se conserva como referencia histórica.
+// ============================================================================
+// ARCHIVO: app_colors.dart
+// QUÉ HACE: Paleta cromática y tokens del sistema de diseño Titanium Enterprise
+//           (Nieve #F5F7FA, Plata #DCE2E9, Titanio #8C9BAB, Grafito #263445,
+//           Azul Acero #315E86) con soporte dual Modo Claro y Modo Oscuro.
+// CÓMO FUNCIONA: Define constantes semánticas de color, gradientes metálicos
+//                sutiles y tokens de espaciado/radio (tarjetas 16px, botones 12px).
+// POR QUÉ: Materializa la Especificación Maestra Titanium Enterprise garantizando
+//          contraste corporativo, accesibilidad y cero distracción (< 140 líneas).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 
 // ignore_for_file: non_constant_identifier_names
 
 abstract final class AppColors {
-  // ══════════════════════════════════════════════════════════════════
-  //  COLORES PRIMARIOS — Paleta corporativa (PDF spec)
-  // ══════════════════════════════════════════════════════════════════
+  // ── Núcleo Metálico Serviciudad Titanium Enterprise ──
+  static const Color primary = Color(0xFF005A9C); // Azul Serviciudad oficial
+  static const Color primaryDark = Color(0xFF003F73); // Azul marino profundo
+  static const Color accent = Color(0xFF1598D3); // Celeste agua institucional
+  static const Color graphite = Color(0xFF263445); // Grafito / Titanio oscuro
+  static const Color silver = Color(0xFFDCE2E9); // Plata satinada
+  static const Color titanium = Color(0xFF8C9BAB); // Titanio neutro
+  static const Color snow = Color(0xFFF5F7FA); // Nieve (Fondo claro)
 
-  /// Azul corporativo principal — Blue 600 (#2563EB)
-  /// Uso: botones primarios, iconos activos, links, bordes de foco.
-  static const Color primary = Color(0xFF2563EB);
-
-  /// Azul corporativo oscuro — Blue 700 (#1D4ED8)
-  /// Uso: gradiente del botón "Marcar Asistencia", estados pressed.
-  static const Color primaryDark = Color(0xFF1D4ED8);
-
-  /// Índigo premium — Indigo 500 (#6366F1)
-  /// Uso: tarjeta "Escanear QR", accents secundarios.
-  static const Color accentIndigo = Color(0xFF6366F1);
-
-  /// Índigo oscuro — Indigo 600 (#4F46E5)
-  /// Uso: gradiente de tarjeta QR (estado pressed).
-  static const Color accentIndigoDark = Color(0xFF4F46E5);
-
-  // ══════════════════════════════════════════════════════════════════
-  //  COLORES SEMÁNTICOS — Estados del sistema (PDF spec)
-  // ══════════════════════════════════════════════════════════════════
-
-  /// Verde Emerald 500 — Éxito, entrada registrada, historial.
-  static const Color systemGreen = Color(0xFF10B981);
-
-  /// Verde Emerald 600 — Gradiente oscuro de tarjeta Historial.
-  static const Color systemGreenDark = Color(0xFF059669);
-
-  /// Rojo Red 500 — Error, salida registrada, destructive actions.
-  static const Color systemRed = Color(0xFFEF4444);
-
-  /// Rojo Red 600 — Estado pressed de acciones destructivas.
-  static const Color systemRedDark = Color(0xFFDC2626);
-
-  /// Ámbar Amber 500 — Advertencias, inicio/fin de almuerzo.
-  static const Color systemOrange = Color(0xFFF59E0B);
-
-  /// Alias semántico: systemBlue == primary (un único azul en toda la app).
+  // ── Semántica de Negocio y Estados ──
+  static const Color success = Color(0xFF18794E); // Verde empresarial
+  static const Color successDark = Color(0xFF125C3B);
+  static const Color warning = Color(0xFFA66414); // Ámbar supervisión
+  static const Color error = Color(0xFFB93838); // Rojo alerta
+  static const Color errorDark = Color(0xFF8F2828);
+  static const Color systemGreen = success;
+  static const Color systemGreenDark = successDark;
+  static const Color systemRed = error;
+  static const Color systemRedDark = errorDark;
+  static const Color systemOrange = warning;
   static const Color systemBlue = primary;
+  static const Color accentIndigo = Color(0xFF2A4D6E);
+  static const Color accentIndigoDark = Color(0xFF1E3A56);
 
-  // ══════════════════════════════════════════════════════════════════
-  //  GRISES DEL SISTEMA — Jerarquía visual (Slate de Tailwind)
-  // ══════════════════════════════════════════════════════════════════
-
-  /// Slate 500 — Texto secundario, iconos inactivos.
-  static const Color systemGray = Color(0xFF64748B);
-
-  /// Slate 400 — Placeholders, timestamps.
-  static const Color systemGray2 = Color(0xFF94A3B8);
-
-  /// Slate 300 — Bordes sutiles, separadores.
-  static const Color systemGray3 = Color(0xFFCBD5E1);
-
-  /// Slate 200 — Bordes de cards, dividers.
-  static const Color systemGray4 = Color(0xFFE2E8F0);
-
-  /// Slate 100 — Fondo de chips inactivos.
-  static const Color systemGray5 = Color(0xFFF1F5F9);
-
-  /// Slate 50 — Fondo de sección agrupada.
-  static const Color systemGray6 = Color(0xFFF8FAFC);
-
-  // ══════════════════════════════════════════════════════════════════
-  //  FONDOS Y SUPERFICIES
-  // ══════════════════════════════════════════════════════════════════
-
-  /// Fondo principal — Light Slate (#F8FAFC).
-  static const Color background = Color(0xFFF8FAFC);
-
-  /// Fondo secundario (secciones agrupadas) — Slate 100.
-  static const Color backgroundSecondary = Color(0xFFF1F5F9);
-
-  /// Superficie de cards y modales — Blanco puro.
+  // ── Superficies y Fondos Modo Claro ──
+  static const Color background = Color(0xFFF6F8FB); // Hielo titanio claro
+  static const Color backgroundSecondary = silver; // #DCE2E9
   static const Color surface = Color(0xFFFFFFFF);
-
-  /// Borde de card/input — Slate 200.
-  static const Color borderColor = Color(0xFFE2E8F0);
-
-  // ══════════════════════════════════════════════════════════════════
-  //  TIPOGRAFÍA
-  // ══════════════════════════════════════════════════════════════════
-
-  /// Texto principal — Slate 900 (#0F172A).
-  static const Color textPrimary = Color(0xFF0F172A);
-
-  /// Texto secundario — Slate 600 (#475569).
-  static const Color textSecondary = Color(0xFF475569);
-
-  /// Texto terciario — Slate 500 (#64748B).
-  static const Color textTertiary = Color(0xFF64748B);
-
-  // ══════════════════════════════════════════════════════════════════
-  //  SEPARADORES
-  // ══════════════════════════════════════════════════════════════════
-
-  /// Separador estándar — Slate 200.
+  static const Color borderColor = Color(0xFFE2E8F0); // Borde metálico sutil
   static const Color separator = Color(0xFFE2E8F0);
 
-  // ══════════════════════════════════════════════════════════════════
-  //  ALIAS DE COMPATIBILIDAD (nombres legacy que usaba el código existente)
-  // ══════════════════════════════════════════════════════════════════
+  // ── Tipografía Modo Claro ──
+  static const Color textPrimary = Color(0xFF0F172A); // Slate 900 alta legibilidad
+  static const Color textSecondary = Color(0xFF475569); // Slate 600 sobrio
+  static const Color textTertiary = Color(0xFF64748B); // Slate 500
 
+  // ── Modo Oscuro (Executive Obsidian Slate) ──
+  static const Color darkBackground = Color(0xFF0B1320); // Obsidiana ejecutiva pura
+  static const Color darkSurface = Color(0xFF131F33); // Superficie slate de alta gama
+  static const Color darkBorder = Color(0xFF1E314D); // Borde titanio sutil
+  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Blanco cristal
+  static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
+
+  // ── Grises Auxiliares y Compatibilidad ──
+  static const Color systemGray = titanium;
+  static const Color systemGray2 = Color(0xFF7E8D9D);
+  static const Color systemGray3 = Color(0xFFA5B2BF);
+  static const Color systemGray4 = Color(0xFFC8D1DC);
+  static const Color systemGray5 = Color(0xFFE3E8EE);
+  static const Color systemGray6 = Color(0xFFF0F3F7);
   static const Color secondary = accentIndigo;
   static const Color onSurface = textPrimary;
   static const Color onSurfaceVariant = textSecondary;
   static const Color outline = borderColor;
   static const Color outlineVariant = systemGray4;
-  static const Color error = systemRed;
   static const Color surfaceContainerLow = surface;
   static const Color surfaceContainerHighest = systemGray6;
-  static const Color primaryFixed = Color(0xFFEFF6FF); // Blue 50
-  static const Color secondaryContainer = Color(0xFFEFF6FF);
-  static const Color errorContainer = Color(0xFFFEF2F2); // Red 50
+  static const Color primaryFixed = Color(0xFFE2ECF5);
+  static const Color secondaryContainer = Color(0xFFE2ECF5);
+  static const Color errorContainer = Color(0xFFFDE8E8);
 
-  // ══════════════════════════════════════════════════════════════════
-  //  GRADIENTES PREDEFINIDOS (constantes reutilizables en toda la app)
-  // ══════════════════════════════════════════════════════════════════
-
-  /// Gradiente de la tarjeta "Escanear QR" — Índigo.
-  static const LinearGradient gradientQR = LinearGradient(
-    colors: [accentIndigo, accentIndigoDark],
+  // ── Gradientes Metálicos Sutiles ──
+  static const LinearGradient metallicSteelGradient = LinearGradient(
+    colors: [primary, Color(0xFF234462)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
-
-  /// Gradiente de la tarjeta "Marcar Asistencia" — Azul corporativo.
-  static const LinearGradient gradientAttendance = LinearGradient(
-    colors: [primary, primaryDark],
-  );
-
-  /// Gradiente de la tarjeta "Historial" — Emerald.
-  static const LinearGradient gradientHistory = LinearGradient(
-    colors: [systemGreen, systemGreenDark],
-  );
-
-  /// Gradiente de fondo del Dashboard.
-  static const LinearGradient gradientBackground = LinearGradient(
+  static const LinearGradient silverSheenGradient = LinearGradient(
+    colors: [Color(0xFFFFFFFF), silver],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [background, Color(0xFFEEF4FF)],
+  );
+  static const LinearGradient gradientAttendance = metallicSteelGradient;
+  static const LinearGradient gradientQR = LinearGradient(
+    colors: [primary, accentIndigo],
+  );
+  static const LinearGradient gradientHistory = LinearGradient(
+    colors: [success, Color(0xFF125C3B)],
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  TOKENS DE DISEÑO — Radios, espaciado y sombras
-// ══════════════════════════════════════════════════════════════════════
-
 abstract final class DesignTokens {
-  // ── Border Radius ──
-  static const double radiusXS = 8.0;
-  static const double radiusSmall = 12.0;
-  static const double radiusButton = 12.0;
-  static const double radiusMedium = 16.0;
-  static const double radiusCard = 16.0;
-  static const double radiusLarge = 20.0;
-  static const double radiusPanel = 20.0;
-  static const double radiusXL = 24.0;
-  static const double radiusPanelLarge = 24.0;
+  // ── Radios Titanium Enterprise ──
+  static const double radiusXS = 6.0;
+  static const double radiusSmall = 8.0;
+  static const double radiusButton = 12.0; // 12-14 px especificado
+  static const double radiusMedium = 12.0;
+  static const double radiusCard = 16.0; // 16 px especificado
+  static const double radiusPanel = 16.0;
+  static const double radiusLarge = 18.0;
+  static const double radiusXL = 22.0;
+  static const double radiusPanelLarge = 22.0;
   static const double radiusPill = 999.0;
 
-  // ── Border Width & Touch Target ──
-  static const double borderWidth = 1.0;
-  static const double minTouchTargetSize = 48.0;
+  // ── Dimensiones y Accesibilidad ──
+  static const double borderWidth = 0.8;
+  static const double buttonHeight = 52.0; // 50-54 px especificado
+  static const double minTouchTargetSize = 48.0; // >= 48x48 dp especificado
 
-  // ── Spacing ──
+  // ── Sistema de Espaciado (8pt con pasos de 4pt) ──
   static const double spaceXS = 4.0;
   static const double space4 = 4.0;
   static const double spaceS = 8.0;
@@ -190,24 +129,9 @@ abstract final class DesignTokens {
   static const double space40 = 40.0;
   static const double spaceXXL = 48.0;
 
-  // ── Padding estándar ──
-  static const EdgeInsets screenPadding = EdgeInsets.symmetric(horizontal: 20);
-  static const EdgeInsets cardPadding = EdgeInsets.all(20);
+  static const EdgeInsets screenPadding = EdgeInsets.symmetric(horizontal: 16);
+  static const EdgeInsets cardPadding = EdgeInsets.all(16);
 
-  // ── Sombras ──
-  static List<BoxShadow> get cardShadow => [
-        BoxShadow(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ];
-
-  static List<BoxShadow> cardShadowColored(Color color) => [
-        BoxShadow(
-          color: color.withValues(alpha: 0.28),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
-        ),
-      ];
+  static List<BoxShadow> get cardShadow => const [];
+  static List<BoxShadow> cardShadowColored(Color color) => const [];
 }

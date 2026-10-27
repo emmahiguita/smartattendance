@@ -1,4 +1,13 @@
-// lib/features/photo_attendance/domain/shift_template.dart
+// ============================================================================
+// ARCHIVO: shift_template.dart
+// QUÉ HACE: Entidad de dominio para plantillas de turno laboral configuradas por
+//           el Administrador. Soporta horarios base y ventanas de marcación.
+// CÓMO FUNCIONA: Serializa a SQLite (`shift_templates`) y genera instancias de
+//                `WorkSchedule` con restricciones de tiempo para marcar.
+// POR QUÉ: Permite al Administrador habilitar o deshabilitar libremente los
+//          horarios y ventanas de marcación según necesidades de la empresa.
+// ============================================================================
+
 import 'dart:convert';
 import 'work_schedule.dart';
 
@@ -14,6 +23,9 @@ class ShiftTemplate {
     this.nightStartMinute = 1140,
     this.nightEndMinute = 360,
     this.weekdays = const [1, 2, 3, 4, 5],
+    this.enableMarkWindow = false,
+    this.markStartMinute,
+    this.markEndMinute,
   });
 
   final int? id;
@@ -25,6 +37,9 @@ class ShiftTemplate {
   final int nightStartMinute;
   final int nightEndMinute;
   final List<int> weekdays;
+  final bool enableMarkWindow;
+  final int? markStartMinute;
+  final int? markEndMinute;
 
   String get timeFormatted {
     final sH = (startMinute ~/ 60).toString().padLeft(2, '0');
@@ -38,6 +53,17 @@ class ShiftTemplate {
     final hours = dailyMinutes ~/ 60;
     final mins = dailyMinutes % 60;
     return mins > 0 ? '${hours}h ${mins}m' : '${hours}h';
+  }
+
+  String get markWindowSummary {
+    if (!enableMarkWindow || markStartMinute == null || markEndMinute == null) {
+      return 'Marcación libre (Sin restricción horaria)';
+    }
+    final sH = (markStartMinute! ~/ 60).toString().padLeft(2, '0');
+    final sM = (markStartMinute! % 60).toString().padLeft(2, '0');
+    final eH = (markEndMinute! ~/ 60).toString().padLeft(2, '0');
+    final eM = (markEndMinute! % 60).toString().padLeft(2, '0');
+    return 'Marcar permitido: $sH:$sM a $eH:$eM';
   }
 
   String get weekdaysSummary {
@@ -58,6 +84,8 @@ class ShiftTemplate {
         shiftName: name,
         startMinute: startMinute,
         endMinute: endMinute,
+        markStartMinute: enableMarkWindow ? markStartMinute : null,
+        markEndMinute: enableMarkWindow ? markEndMinute : null,
         nightStartMinute: nightStartMinute,
         nightEndMinute: nightEndMinute,
         weekdays: weekdays,
@@ -73,6 +101,9 @@ class ShiftTemplate {
         'night_start_minute': nightStartMinute,
         'night_end_minute': nightEndMinute,
         'weekdays': jsonEncode(weekdays),
+        'enable_mark_window': enableMarkWindow ? 1 : 0,
+        'mark_start_minute': markStartMinute,
+        'mark_end_minute': markEndMinute,
       };
 
   factory ShiftTemplate.fromMap(Map<String, Object?> map) {
@@ -93,6 +124,9 @@ class ShiftTemplate {
       nightStartMinute: map['night_start_minute'] as int? ?? 1140,
       nightEndMinute: map['night_end_minute'] as int? ?? 360,
       weekdays: parsedWeekdays,
+      enableMarkWindow: (map['enable_mark_window'] as int? ?? 0) == 1,
+      markStartMinute: map['mark_start_minute'] as int?,
+      markEndMinute: map['mark_end_minute'] as int?,
     );
   }
 }

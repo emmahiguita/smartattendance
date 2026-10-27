@@ -1,275 +1,131 @@
-// lib/features/profile/presentation/screens/profile_screen.dart
-import 'dart:io';
+// ============================================================================
+// ARCHIVO: profile_screen.dart
+// QUÉ HACE: Pantalla de Perfil Corporativo estilo Apple iOS Inset Grouped con
+//           avatar circular limpio, información de expediente (Cédula, Correo,
+//           Teléfono, Dirección) y acciones de cuenta.
+// CÓMO FUNCIONA: Lee el usuario autenticado desde `sessionControllerProvider`
+//                y presenta dos secciones agrupadas estilo Ajustes de iOS.
+// POR QUÉ: Sustituye gradientes y sombras de neón por estilo iOS puro (< 170 líneas).
+// ============================================================================
 
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/design_system/ios_modal_scaffold.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/confirm_logout.dart';
-import '../../../auth/domain/entities/user_entity.dart';
 
-/// Módulo Perfil — información real del empleado + acciones de cuenta.
-/// Embebible como tab del home o como pantalla independiente.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  /// Primera letra del nombre para el avatar. Seguro ante usuario null.
-  static String _initial(String? nombre) {
-    final n = nombre ?? '';
-    return n.isEmpty ? '?' : n[0].toUpperCase();
-  }
-
-  /// Avatar con foto real si existe (local o remota), o inicial si no hay.
-  static Widget _buildAvatar(UserEntity? user) {
-    final raw = user?.fotoUrl;
-    final ImageProvider? image = _resolveImageProvider(raw);
-
-    final child = image == null
-        ? Text(user != null ? _initial(user.nombre) : '?',
-            style: const TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w800,
-                color: Colors.white))
-        : null;
-
-    return CircleAvatar(
-      radius: 44,
-      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-      backgroundImage: image,
-      child: child,
-    );
-  }
-
-  /// Resuelve el ImageProvider: FileImage para paths locales,
-  /// NetworkImage para URLs remotas (relativas o absolutas).
   static ImageProvider? _resolveImageProvider(String? raw) {
     if (raw == null || raw.isEmpty) return null;
-    // Archivo local (guardado offline)
     if (raw.startsWith('/') || raw.startsWith('file://')) {
-      final path = raw.replaceFirst('file://', '');
-      final file = File(path);
-      if (file.existsSync()) return FileImage(file);
-      return null;
+      final file = File(raw.replaceFirst('file://', ''));
+      return file.existsSync() ? FileImage(file) : null;
     }
-    // URL remota (incluye rutas relativas prefijadas con AppConfig)
     final fullUrl = AppConfig.fullPhotoUrl(raw);
-    if (fullUrl.isNotEmpty) return NetworkImage(fullUrl);
-    return null;
-  }
-
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    await confirmLogout(context, ref);
+    return fullUrl.isNotEmpty ? NetworkImage(fullUrl) : null;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
+    final img = _resolveImageProvider(user?.fotoUrl);
+    final initial = (user?.nombre ?? '').isEmpty ? '?' : user!.nombre[0].toUpperCase();
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          // Avatar con iniciales (foto de perfil: fase futura)
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppColors.gradientAttendance,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.systemBlue.withValues(alpha: 0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+          decoration: BoxDecoration(color: context.cSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: context.cBorder, width: 0.5)),
+          child: Column(children: [
+            CircleAvatar(
+              radius: 36,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+              backgroundImage: img,
+              child: img == null ? Text(initial, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary)) : null,
             ),
-            child: Center(
-              child: _buildAvatar(user),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            user?.fullName ?? 'Empleado',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            user?.cargo ?? 'Empleado',
-            style: TextStyle(fontSize: 14, color: context.cGray),
-          ),
-          const SizedBox(height: 32),
-
-          // Datos reales del usuario
-          Container(
-            decoration: BoxDecoration(
-              color: context.cSurface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Column(
-              children: [
-                _InfoRow(
-                    icon: Icons.badge,
-                    label: 'Cédula',
-                    value: user?.cedula ?? '---'),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _InfoRow(
-                  icon: Icons.alternate_email,
-                  label: 'Correo',
-                  value: (user == null || user.correo.isEmpty)
-                      ? '---'
-                      : user.correo,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _InfoRow(
-                  icon: Icons.calendar_month,
-                  label: 'Fecha de Nacimiento',
-                  value: (user == null ||
-                          user.fechaNacimiento == null ||
-                          user.fechaNacimiento!.isEmpty)
-                      ? 'Sin registrar'
-                      : user.fechaNacimiento!,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _InfoRow(
-                  icon: Icons.call,
-                  label: 'Teléfono',
-                  value: (user == null ||
-                          user.telefono == null ||
-                          user.telefono!.isEmpty)
-                      ? 'Sin registrar'
-                      : user.telefono!,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _InfoRow(
-                  icon: Icons.location_on,
-                  label: 'Dirección',
-                  value: (user == null ||
-                          user.direccion == null ||
-                          user.direccion!.isEmpty)
-                      ? 'Sin registrar'
-                      : user.direccion!,
-                ),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                _InfoRow(
-                    icon: Icons.label,
-                    label: 'ID de empleado',
-                    value: user?.id.toString() ?? '---'),
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                const _InfoRow(
-                    icon: Icons.memory,
-                    label: 'Plataforma',
-                    value: 'CONTROL AI'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Acciones
-          _ActionTile(
-            icon: Icons.edit,
-            label: 'Editar Perfil',
-            onTap: () => context.push(AppRoutes.profileEdit),
-          ),
-          _ActionTile(
-            icon: Icons.settings,
-            label: 'Configuración',
-            onTap: () => context.push(AppRoutes.settings),
-          ),
-          _ActionTile(
-            icon: Icons.logout,
-            label: 'Cerrar Sesión',
-            destructive: true,
-            onTap: () => _confirmLogout(context, ref),
-          ),
-        ],
-      ),
+            const SizedBox(height: 10),
+            Text(user?.fullName ?? 'Colaborador', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: context.cTextPrimary, letterSpacing: -0.3)),
+            const SizedBox(height: 2),
+            Text(user?.cargo ?? 'Colaborador Operativo', style: TextStyle(fontSize: 12.5, color: context.cTextSecondary)),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        IosFormGroup(
+          header: 'INFORMACIÓN DE EXPEDIENTE',
+          children: [
+            _InfoRow(CupertinoIcons.person_crop_rectangle, 'Cédula', user?.cedula ?? '---'),
+            _InfoRow(CupertinoIcons.mail, 'Correo', (user == null || user.correo.isEmpty) ? '---' : user.correo),
+            _InfoRow(CupertinoIcons.phone, 'Teléfono', (user?.telefono?.isNotEmpty ?? false) ? user!.telefono! : 'Sin registrar'),
+            _InfoRow(CupertinoIcons.location, 'Dirección', (user?.direccion?.isNotEmpty ?? false) ? user!.direccion! : 'Sin registrar'),
+          ],
+        ),
+        const SizedBox(height: 16),
+        IosFormGroup(
+          header: 'AJUSTES Y CUENTA',
+          children: [
+            _ActionRow(icon: CupertinoIcons.pencil, label: 'Editar Perfil', onTap: () => context.push(AppRoutes.profileEdit)),
+            _ActionRow(icon: CupertinoIcons.person_badge_plus, label: 'Registrar nuevo usuario', onTap: () => context.push(AppRoutes.register)),
+            _ActionRow(icon: CupertinoIcons.slider_horizontal_3, label: 'Configuración de Aplicación', onTap: () => context.push(AppRoutes.settings)),
+            _ActionRow(icon: CupertinoIcons.square_arrow_right, label: 'Cerrar Sesión', destructive: true, onTap: () => confirmLogout(context, ref)),
+          ],
+        ),
+      ]),
     );
   }
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow(
-      {required this.icon, required this.label, required this.value});
-
   final IconData icon;
-  final String label;
-  final String value;
+  final String label, value;
+  const _InfoRow(this.icon, this.label, this.value);
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppColors.systemBlue),
-            const SizedBox(width: 12),
-            Text(label, style: TextStyle(fontSize: 14, color: context.cGray)),
-            const Spacer(),
-            Flexible(
-              child: Text(value,
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: context.cTextPrimary)),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(children: [
+          Icon(icon, size: 17, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(fontSize: 13.5, color: context.cTextSecondary)),
+          const Spacer(),
+          Flexible(
+            child: Text(value, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
+          ),
+        ]),
       );
 }
 
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.destructive = false,
-  });
-
+class _ActionRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool destructive;
+  const _ActionRow({required this.icon, required this.label, required this.onTap, this.destructive = false});
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? AppColors.systemRed : AppColors.systemBlue;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: context.cSurface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4)),
-        ],
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: color),
-        title: Text(label,
-            style: TextStyle(
-                color: destructive ? AppColors.systemRed : context.cTextPrimary,
-                fontWeight: FontWeight.w600)),
-        trailing: Icon(Icons.chevron_right, color: context.cGray, size: 20),
-        onTap: onTap,
+    final color = destructive ? AppColors.systemRed : AppColors.primary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: TextStyle(color: destructive ? AppColors.systemRed : context.cTextPrimary, fontWeight: FontWeight.w600, fontSize: 13.5))),
+          Icon(CupertinoIcons.chevron_forward, color: context.cTextSecondary, size: 14),
+        ]),
       ),
     );
   }

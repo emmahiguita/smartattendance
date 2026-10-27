@@ -4,14 +4,16 @@ import 'package:go_router/go_router.dart';
 import '../auth/session_controller.dart';
 import '../../features/attendance/presentation/screens/confirmation_screen.dart';
 import '../../features/attendance/presentation/screens/home_screen.dart';
-import '../../features/photo_attendance/presentation/local_settings_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/photo_attendance/presentation/local_attendance_home.dart';
-import '../../features/photo_attendance/presentation/local_operator_screen.dart';
 import '../../features/photo_attendance/presentation/local_start_screen.dart';
 import '../../features/photo_attendance/presentation/photo_history_screen.dart';
+import '../../features/profile/presentation/screens/edit_profile_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 
-/// Nombres de rutas conservados para no romper enlaces de componentes previos.
-/// El flujo activo es local: no abre APIs ni afirma autenticación biométrica.
+/// Nombres de rutas corporativas oficiales de Serviciudad E.S.P.
 abstract final class AppRoutes {
   static const splash = '/';
   static const login = '/login';
@@ -28,8 +30,6 @@ abstract final class AppRoutes {
   static const messages = '/messages';
 }
 
-/// Conserva el mismo Home visual en teléfonos y horizontal. No cambia a un
-/// dashboard remoto solo por superar cierto ancho de pantalla.
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
       initialLocation: AppRoutes.splash,
@@ -53,8 +53,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const LocalStartScreen()),
         GoRoute(
             path: AppRoutes.login,
-            builder: (_, __) => const LocalOperatorScreen()),
-        GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
+            builder: (_, __) => const LoginScreen()),
+        GoRoute(
+            path: AppRoutes.register,
+            builder: (_, __) => const RegisterScreen()),
+        GoRoute(
+            path: AppRoutes.forgotPassword,
+            builder: (_, __) => const ForgotPasswordScreen()),
+        GoRoute(
+            path: AppRoutes.home,
+            builder: (_, __) => const HomeScreen()),
         GoRoute(
             path: AppRoutes.confirmation,
             builder: (_, state) => ConfirmationScreen(
@@ -66,11 +74,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const PhotoHistoryScreen()),
         GoRoute(
             path: AppRoutes.settings,
-            builder: (_, __) => const LocalSettingsScreen()),
+            builder: (_, __) => const SettingsScreen()),
         GoRoute(
             path: AppRoutes.profileEdit,
-            builder: (_, __) => const LocalOperatorScreen()),
-        // Las rutas antiguas conducen a seleccionar trabajador, nunca al simulador.
+            builder: (_, __) => const EditProfileScreen()),
         for (final path in [
           AppRoutes.facialRecognition,
           AppRoutes.employeeToday,
@@ -80,12 +87,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: path,
               builder: (_, state) => LocalAttendanceHome(
                   initialType: state.uri.queryParameters['tipo'])),
-        for (final path in [AppRoutes.register, AppRoutes.forgotPassword])
-          GoRoute(path: path, builder: (_, __) => const LocalOperatorScreen()),
       ],
       errorBuilder: (_, __) => const Scaffold(
-          body:
-              Center(child: Text('Pantalla no disponible en el modo local.'))));
+          body: Center(child: Text('Pantalla no encontrada.'))));
 
   ref.listen<SessionState>(sessionControllerProvider, (_, next) {
     final path = router.routerDelegate.currentConfiguration.uri.path;

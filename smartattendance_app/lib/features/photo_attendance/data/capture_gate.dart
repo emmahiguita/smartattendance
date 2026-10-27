@@ -1,29 +1,20 @@
-// lib/features/photo_attendance/data/capture_gate.dart
+// ============================================================================
+// ARCHIVO: capture_gate.dart
+// QUÉ HACE: Aplica las reglas y restricciones del Administrador y Supervisor:
+//           1. Existencia del colaborador en base local.
+//           2. Validación de geocerca GPS real en la zona asignada.
+//           3. Validación del rango/ventana de horario permitida para marcar.
+// CÓMO FUNCIONA: Consulta workers con join a crews y work_zones. Si el supervisor
+//                configuró un rango de horas, valida `isTimeWithinMarkWindow`.
+// POR QUÉ: Garantiza control de asistencia verídico sin simulación (< 90 líneas).
+// ============================================================================
+
 import 'package:sqflite/sqflite.dart';
 import '../domain/attendance_location.dart';
 import '../domain/local_actor.dart';
+import '../domain/work_schedule.dart';
 import '../domain/work_zone.dart';
 
-/// ============================================================================
-/// SERVICIO DE CONTROL: CaptureGate (aplica las reglas del ADMINISTRADOR)
-/// ============================================================================
-/// QUÉ HACE:
-/// 1. [employee]: comprueba que el trabajador exista y trae sus datos
-///    (nombre, cargo, cuadrilla y zona asignada por el administrador).
-/// 2. [check]: además verifica la GEOCERCA: si el administrador asignó una
-///    zona a la cuadrilla del trabajador, la posición GPS real debe caer
-///    dentro del radio de esa zona.
-///
-/// CÓMO FUNCIONA:
-/// Un solo SELECT con LEFT JOIN workers → crews → work_zones. Si no hay zona
-/// asignada, no se restringe (el admin no puso esa regla). Si la hay, se usa
-/// [WorkZone.contains] (distancia Haversine + margen de precisión del GPS).
-///
-/// POR QUÉ:
-/// Antes la consulta traía latitud/longitud/radio de la zona pero NUNCA los
-/// usaba: la geocerca configurada por el administrador no tenía efecto
-/// (componente sin lógica). La app no inventa reglas: solo aplica las suyas.
-/// ============================================================================
 class CaptureGate {
   const CaptureGate(this.actor);
   final LocalActor actor;
@@ -43,15 +34,26 @@ class CaptureGate {
     return rows.first;
   }
 
-  /// Igual que [employee] y además exige estar dentro de la zona asignada.
+  /// Verifica geocerca asignada Y ventana horaria permitida para marcar.
   Future<Map<String, Object?>> check(
     DatabaseExecutor db,
     int workerId,
     AttendanceLocation gps,
   ) async {
     final row = await employee(db, workerId);
+
+    // 1. Verificación de ventana horaria configurada por el supervisor
+    final scheduleJson = row['schedule_json'] as String?;
+    final schedule = WorkSchedule.decode(scheduleJson);
+    if (schedule != null && !schedule.isTimeWithinMarkWindow(ColombiaClock.wall(DateTime.now()))) {
+      throw FormatException(
+          'Fuera del rango horario permitido para marcar (${schedule.markWindowFormatted}). '
+          'Consulta con tu supervisor.');
+    }
+
+    // 2. Verificación de Geocerca GPS real
     final zoneId = row['zone_id'];
-    if (zoneId == null) return row; // El admin no asignó zona: sin restricción.
+    if (zoneId == null) return row; // Sin zona asignada: sin restricción geográfica.
 
     final zone = WorkZone(
       zoneId as int,
@@ -62,7 +64,7 @@ class CaptureGate {
     );
     if (!zone.contains(gps)) {
       throw FormatException(
-          'Estás fuera de la zona "${zone.name}" asignada por el administrador '
+          'Estás fuera de la zona "${zone.name}" asignada '
           '(precisión GPS ${gps.accuracy.toStringAsFixed(0)} m).');
     }
     return row;

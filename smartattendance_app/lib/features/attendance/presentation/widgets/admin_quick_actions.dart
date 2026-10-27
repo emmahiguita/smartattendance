@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -90,12 +91,12 @@ class AdminQuickActions extends ConsumerWidget {
 
   Future<void> _exportExcel(BuildContext context, WidgetRef ref) async {
     if (kIsWeb) return;
-    final path = await showModalBottomSheet<String>(
+    final path = await showIosFloatingGlassSheet<String>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) =>
-          const ExportPreviewSheet(fechaDesde: null, fechaHasta: null),
+      title: 'Exportar Reportes',
+      subtitle: 'Consolidado general de asistencias',
+      maxHeightFactor: 0.85,
+      child: const ExportPreviewSheet(fechaDesde: null, fechaHasta: null),
     );
     if (path != null && context.mounted) {
       ref.read(exportPreviewViewModelProvider.notifier).reset();

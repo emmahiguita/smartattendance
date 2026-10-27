@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/config/server_config_provider.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
 import '../../../../core/location/location_service.dart';
 import '../../../../core/notifications/journey_reminders.dart';
@@ -402,38 +403,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _showTermsModal(BuildContext context) {
-    showModalBottomSheet<void>(
+    showIosFloatingGlassSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: context.cSurface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      title: 'Términos y Privacidad',
+      subtitle: 'Políticas y protección de datos institucionales',
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Términos y Privacidad',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.cTextPrimary),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            Expanded(
+            Flexible(
               child: SingleChildScrollView(
                 child: Text(
                   'SmartAttendance es la plataforma de registro de jornada laboral de tu organización.\n\n'
@@ -442,19 +422,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   '3. Seguridad de Acceso: El token de sesión y las credenciales permanecen encriptados localmente mediante enclaves seguros (Keystore / Keychain).\n\n'
                   'Para más información o consultas, contacta al departamento de Talento Humano de tu organización.',
                   style: TextStyle(
-                      fontSize: 14, height: 1.5, color: context.cTextSecondary),
+                    fontSize: 13.5,
+                    height: 1.5,
+                    color: context.cTextSecondary,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(ctx),
-                style:
-                    FilledButton.styleFrom(backgroundColor: AppColors.primary),
-                child: const Text('Entendido'),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
               ),
+              child: const Text('Entendido', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),

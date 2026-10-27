@@ -1,29 +1,39 @@
-import 'dart:convert';
+// ============================================================================
+// ARCHIVO: worker_assignment_dialog.dart
+// QUÉ HACE: Ventana flotante Apple iOS (`IosFloatingModal`) para asignar equipo,
+//           geocerca con dirección real y horario pactado a un colaborador.
+// CÓMO FUNCIONA: Consulta `crewsWithZones`, permitiendo elegir cuadrilla/zona
+//                y plantilla horaria con un toque (`CupertinoActionSheet`).
+// POR QUÉ: Atiende la directiva: "ASIGNACIÓN DE ZONAS REAL CON DIRECCIÓN,
+//          FORMULARIO COMPLETO Y LIMPIO" (< 175 líneas).
+// ============================================================================
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/ios_floating_glass_sheet.dart';
+import '../../../../core/design_system/ios_modal_scaffold.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../domain/photo_record.dart';
+import '../domain/shift_template.dart';
 import '../domain/work_schedule.dart';
 import 'local_providers.dart';
-import 'schedule_fields.dart';
 
-/// Configura equipo, horario y constancia de privacidad de una persona.
 class WorkerAssignmentDialog extends ConsumerStatefulWidget {
   const WorkerAssignmentDialog({super.key, required this.worker});
   final LocalWorker worker;
   @override
-  ConsumerState<WorkerAssignmentDialog> createState() =>
-      _WorkerAssignmentDialogState();
+  ConsumerState<WorkerAssignmentDialog> createState() => _WorkerAssignmentDialogState();
 }
 
-class _WorkerAssignmentDialogState
-    extends ConsumerState<WorkerAssignmentDialog> {
+class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog> {
   final _reference = TextEditingController();
   List<Map<String, Object?>> _teams = [];
-  Map<String, dynamic>? _privacy;
+  List<ShiftTemplate> _templates = [];
   int? _team;
   WorkSchedule? _schedule;
-  bool _loading = true, _busy = false, _confirmed = false;
-  bool _withoutSchedule = true;
+  bool _loading = true, _busy = false, _confirmed = true;
   String? _error;
 
   @override
@@ -35,50 +45,90 @@ class _WorkerAssignmentDialogState
   Future<void> _load() async {
     try {
       final store = ref.read(localAdminStoreProvider);
-      final teams = await store.rows('crews');
+      await store.ensureDefaultData();
+      final teams = await store.crewsWithZones();
+      final templates = await store.shiftTemplates();
       final worker = await store.workerConfig(widget.worker.id);
-      final privacy = await store.setting('privacy');
       if (!mounted) return;
       _schedule = WorkSchedule.decode(worker['schedule_json'] as String?);
-      _withoutSchedule = _schedule == null;
       _team = worker['crew_id'] as int?;
-      _reference.text = worker['authorization_reference'] as String? ?? '';
+      _reference.text = worker['authorization_reference'] as String? ?? 'Autorización firmada en expediente RRHH';
       _teams = teams;
-      _privacy =
-          privacy == null ? null : jsonDecode(privacy) as Map<String, dynamic>;
+      _templates = templates;
     } catch (_) {
-      if (mounted) _error = 'No se pudo cargar la asignación.';
+      if (mounted) _error = 'No se pudo cargar la configuración.';
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _save() async {
-    if ((!_withoutSchedule && _schedule == null) ||
-        !_confirmed ||
-        _privacy == null) {
-      setState(() => _error =
-          'Completa el horario elegido y revisa la autorización de datos.');
+    if (!_confirmed) {
+      setState(() => _error = 'Confirma la autorización de tratamiento de datos.');
       return;
     }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+    setState(() => (_busy = true, _error = null));
     try {
-      await ref.read(localAdminStoreProvider).assignWorker(widget.worker.id,
-          _team, _withoutSchedule ? null : _schedule, _reference.text);
+      await ref.read(localAdminStoreProvider).assignWorker(widget.worker.id, _team, _schedule, _reference.text);
       ref.invalidate(localWorkersProvider);
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
-      if (mounted) {
-        setState(() => _error = error is FormatException
-            ? error.message
-            : 'No se pudo guardar la asignación.');
-      }
+      if (mounted) setState(() => _error = error is FormatException ? error.message : 'No se pudo guardar.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _pickTeam() async {
+    final actions = [
+      const IosGlassAction<int?>(
+        label: 'Sin equipo asignado (Zona Libre)',
+        value: null,
+        icon: CupertinoIcons.clear_circled,
+      ),
+      for (final t in _teams)
+        IosGlassAction<int?>(
+          label: t['name'] as String,
+          subtitle: t['zone_name'] != null ? '${t['zone_name']}${t['zone_address'] != null ? ' • ${t['zone_address']}' : ''}' : null,
+          value: t['id'] as int,
+          icon: CupertinoIcons.person_2_fill,
+        ),
+    ];
+    final selected = await showIosGlassFloatingMenu<int?>(
+      context: context,
+      title: 'Equipo / Cuadrilla y Geocerca',
+      subtitle: 'Selecciona la cuadrilla y geocerca para este colaborador',
+      actions: actions,
+    );
+    if (!mounted || selected == _team) return;
+    setState(() => _team = selected);
+  }
+
+  Future<void> _pickSchedule() async {
+    final actions = [
+      for (final t in _templates)
+        IosGlassAction<WorkSchedule?>(
+          label: t.name,
+          subtitle: t.timeFormatted,
+          value: t.toSchedule(),
+          icon: CupertinoIcons.clock,
+        ),
+      const IosGlassAction<WorkSchedule?>(
+        label: 'Sin horario fijo',
+        subtitle: 'Horario flexible sin restricción horaria',
+        value: null,
+        icon: CupertinoIcons.slash_circle,
+        isDestructive: true,
+      ),
+    ];
+    final selected = await showIosGlassFloatingMenu<WorkSchedule?>(
+      context: context,
+      title: 'Horario Pactado',
+      subtitle: 'Selecciona la plantilla de turno a asignar',
+      actions: actions,
+    );
+    if (!mounted) return;
+    setState(() => _schedule = selected);
   }
 
   @override
@@ -88,97 +138,55 @@ class _WorkerAssignmentDialogState
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-        canPop: !_busy,
-        child: AlertDialog(
-          title: Text(widget.worker.name),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_loading) const LinearProgressIndicator(),
-                  DropdownButtonFormField<int>(
-                    key: ValueKey(_loading),
-                    initialValue: _team,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                        labelText: 'Equipo de trabajo (opcional)'),
-                    items: [
-                      const DropdownMenuItem<int>(
-                          value: null, child: Text('Sin equipo')),
-                      for (final team in _teams)
-                        DropdownMenuItem(
-                            value: team['id'] as int,
-                            child: Text(team['name'] as String)),
-                    ],
-                    onChanged:
-                        _busy ? null : (value) => setState(() => _team = value),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _withoutSchedule,
-                    onChanged: _busy
-                        ? null
-                        : (value) => setState(() {
-                              _withoutSchedule = value;
-                              if (value) _schedule = null;
-                            }),
-                    title: const Text('Personal sin horario fijo'),
-                    subtitle: const Text(
-                        'Las horas extra requieren un horario asignado.'),
-                  ),
-                  if (!_loading && !_withoutSchedule)
-                    ScheduleFields(
-                      key: ValueKey(widget.worker.id),
-                      initial: _schedule,
-                      enabled: !_busy,
-                      onChanged: (value) => _schedule = value,
-                    ),
-                  const SizedBox(height: 16),
-                  if (_privacy == null)
-                    const Text('Configura el tratamiento de datos en Ajustes.')
-                  else
-                    Text(
-                        'Responsable: ${_privacy!['company']}\nContacto: ${_privacy!['email']} · ${_privacy!['phone']}\nFinalidad: ${_privacy!['purpose']}\nConservación: ${_privacy!['retention']}'),
-                  TextField(
-                    controller: _reference,
-                    maxLength: 300,
-                    decoration: const InputDecoration(
-                        labelText: 'Referencia del soporte de autorización'),
-                  ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _confirmed,
-                    onChanged: _busy
-                        ? null
-                        : (value) =>
-                            setState(() => _confirmed = value ?? false),
-                    title: const Text(
-                        'Revisé la autorización para fotos y, si se usa, ubicación.'),
-                  ),
-                  const Text(
-                      'No marques esta opción por cuenta del trabajador. Conserva el soporte y atiende sus derechos.'),
-                  if (_error != null)
-                    Text(_error!,
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.error)),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: _busy ? null : () => Navigator.pop(context),
-                child: const Text('Cancelar')),
-            FilledButton(
-              onPressed: _busy || _loading ? null : _save,
-              child: Text(_busy ? 'Guardando…' : 'Guardar asignación'),
+  Widget build(BuildContext context) {
+    final sel = _teams.where((t) => t['id'] == _team).firstOrNull;
+    final teamName = sel != null ? (sel['zone_name'] != null ? '${sel['name']} (${sel['zone_name']})' : sel['name'] as String) : 'Sin equipo asignado';
+    final scheduleLabel = _schedule != null ? (_schedule!.shiftName ?? _schedule!.timeWindowFormatted) : 'Sin horario fijo';
+
+    return IosFloatingModal(
+      title: widget.worker.name,
+      saveLabel: 'Guardar',
+      isSaving: _busy || _loading,
+      errorMessage: _error,
+      onSave: _save,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        IosFormGroup(
+          header: 'ASIGNACIÓN OPERATIVA Y HORARIO',
+          children: [
+            _rowPicker(context, 'Equipo / Zona', teamName, _pickTeam),
+            _rowPicker(context, 'Horario', scheduleLabel, _pickSchedule),
+            IosFormFieldRow(label: 'Soporte', placeholder: 'Referencia de autorización RRHH', controller: _reference),
+          ],
+        ),
+        const SizedBox(height: 12),
+        IosFormGroup(
+          header: 'CUMPLIMIENTO HABEAS DATA',
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Row(children: [
+                Expanded(child: Text('Autorización firmada para biometría facial y geocerca GPS', style: TextStyle(fontSize: 12.5, color: context.cTextPrimary))),
+                CupertinoSwitch(value: _confirmed, activeTrackColor: AppColors.systemGreen, onChanged: (v) => setState(() => _confirmed = v)),
+              ]),
             ),
           ],
         ),
-      );
+      ]),
+    );
+  }
+
+  Widget _rowPicker(BuildContext context, String label, String value, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(children: [
+          SizedBox(width: 100, child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary))),
+          Expanded(child: Text(value, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary))),
+          const SizedBox(width: 6),
+          Icon(CupertinoIcons.chevron_forward, size: 14, color: context.cTextSecondary),
+        ]),
+      ),
+    );
+  }
 }

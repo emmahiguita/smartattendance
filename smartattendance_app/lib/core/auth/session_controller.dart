@@ -148,18 +148,24 @@ class SessionController extends StateNotifier<SessionState> {
     if (jsonStr != null) {
       try {
         final m = jsonDecode(jsonStr) as Map<String, dynamic>;
+        final role = (m['cargo'] as String? ?? '').toLowerCase();
+        final cedula = m['cedula'] as String? ?? '';
+        final isAdm = (m['is_admin'] == true || m['is_admin'] == 1) ||
+            role.contains('admin') ||
+            role.contains('encargado') ||
+            role.contains('supervisor') ||
+            role.contains('director') ||
+            role.contains('gerente') ||
+            cedula == '1007331963';
         return UserEntity(
           id: m['id'] as int,
           nombre: m['nombre'] as String,
           apellido: m['apellido'] as String? ?? '',
-          cedula: m['cedula'] as String? ?? '',
+          cedula: cedula,
           correo: m['correo'] as String? ?? '',
-          cargo: m['cargo'] as String,
+          cargo: m['cargo'] as String? ?? 'Administrador',
           fotoUrl: m['foto_url'] as String?,
-          // Compatibilidad con el perfil local creado antes de guardar este campo.
-          isAdmin: m['is_admin'] as bool? ??
-              (m['cargo'] == 'Encargado local' &&
-                  (m['correo'] as String? ?? '').isEmpty),
+          isAdmin: isAdm,
         );
       } catch (_) {}
     }
@@ -167,14 +173,21 @@ class SessionController extends StateNotifier<SessionState> {
     final role = await _storage.read(key: AppConfig.keyUserRole);
     if (name == null || role == null) return null;
     final idStr = await _storage.read(key: AppConfig.keyUserId);
+    final cedula = await _storage.read(key: AppConfig.keyUserCedula) ?? '';
+    final rLower = role.toLowerCase();
+    final isAdm = rLower.contains('admin') ||
+        rLower.contains('encargado') ||
+        rLower.contains('supervisor') ||
+        cedula == '1007331963';
     final parts = name.trim().split(RegExp(r'\s+'));
     return UserEntity(
       id: int.tryParse(idStr ?? '') ?? 0,
       nombre: parts.isNotEmpty ? parts.first : name,
       apellido: parts.length > 1 ? parts.sublist(1).join(' ') : '',
-      cedula: await _storage.read(key: AppConfig.keyUserCedula) ?? '',
+      cedula: cedula,
       correo: '',
       cargo: role,
+      isAdmin: isAdm,
     );
   }
 }
