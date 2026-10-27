@@ -4,9 +4,8 @@
 //           Equipo de Trabajo / Cuadrilla (`crews`) con supervisor, geocerca
 //           asociada y rango de vigencia.
 // CÓMO FUNCIONA: Utiliza `IosFloatingModal` e `IosFormGroup` con selectores
-//                limpios de geocerca y fechas de inicio/fin.
-// POR QUÉ: Reemplaza el antiguo `AlertDialog` Material por un formulario iOS
-//          coherente y libre de ruido visual (< 175 líneas).
+//                de geocerca, fechas de inicio/fin y validación en `LocalAdminStore`.
+// POR QUÉ: Cumple Clean Architecture, RBAC y límite estricto (< 190 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -17,6 +16,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'local_providers.dart';
 
+/// Componente modal para alta/edición de cuadrillas operativas.
 class CrewDialog extends ConsumerStatefulWidget {
   const CrewDialog({super.key, this.crew, required this.zones});
   final Map<String, Object?>? crew;
@@ -33,14 +33,13 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
   int? _zone;
   bool _busy = false;
 
+  /// QUÉ HACE: Inicializa los controladores con el equipo existente o fechas actuales.
   @override
   void initState() {
     super.initState();
     final team = widget.crew;
-    final today = DateTime.now().toIso8601String().split('T').first;
-    final nextYear = DateTime.now().add(const Duration(days: 365)).toIso8601String().split('T').first;
-    _from = today;
-    _until = nextYear;
+    _from = DateTime.now().toIso8601String().split('T').first;
+    _until = DateTime.now().add(const Duration(days: 365)).toIso8601String().split('T').first;
     if (team == null) return;
     _name.text = team['name'] as String;
     _supervisor.text = team['supervisor_document'] as String;
@@ -50,6 +49,7 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
     _until = team['valid_until'] as String;
   }
 
+  /// QUÉ HACE: Libera los controladores de texto para evitar fugas de memoria.
   @override
   void dispose() {
     _name.dispose();
@@ -58,6 +58,7 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
     super.dispose();
   }
 
+  /// QUÉ HACE: Abre el selector de calendario para la fecha inicial o final.
   Future<void> _pickDate(bool start) async {
     final current = start ? _from : _until;
     final date = await showDatePicker(
@@ -71,6 +72,7 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
     setState(() => start ? _from = value : _until = value);
   }
 
+  /// QUÉ HACE: Valida y persiste la cuadrilla mediante `LocalAdminStore.saveCrew`.
   Future<void> _save() async {
     if (_name.text.trim().isEmpty || _supervisor.text.trim().isEmpty) {
       setState(() => _error = 'Completa el nombre del equipo y cédula del supervisor.');
@@ -98,6 +100,7 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
     }
   }
 
+  /// QUÉ HACE: Solicita confirmación y elimina la cuadrilla desvinculando su personal.
   Future<void> _delete() async {
     final id = widget.crew?['id'] as int?;
     if (id == null) return;
@@ -125,108 +128,58 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
     }
   }
 
+  /// QUÉ HACE: Construye una fila interactiva para seleccionar fechas de vigencia.
+  Widget _dateRow(String label, String? val, bool start) => InkWell(
+        onTap: _busy ? null : () => _pickDate(start),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
+            Text(val ?? 'Seleccionar', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
+          ]),
+        ),
+      );
+
   @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_busy,
-      child: IosFloatingModal(
-        title: widget.crew == null ? 'Nuevo Equipo' : 'Editar Equipo',
-        isSaving: _busy,
-        errorMessage: _error,
-        onSave: _save,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            IosFormGroup(
-              header: 'Datos de la Cuadrilla',
-              children: [
-                IosFormFieldRow(
-                  label: 'Equipo',
-                  placeholder: 'Ej. Cuadrilla Norte',
-                  controller: _name,
-                  textCapitalization: TextCapitalization.words,
-                ),
-                IosFormFieldRow(
-                  label: 'Supervisor',
-                  placeholder: 'Cédula del encargado',
-                  controller: _supervisor,
-                  keyboardType: TextInputType.number,
-                ),
-                IosFormFieldRow(
-                  label: 'Suplente',
-                  placeholder: 'Cédula adicional (opcional)',
-                  controller: _alternate,
-                  keyboardType: TextInputType.number,
-                ),
-              ],
-            ),
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_busy,
+        child: IosFloatingModal(
+          title: widget.crew == null ? 'Nuevo Equipo' : 'Editar Equipo',
+          isSaving: _busy,
+          errorMessage: _error,
+          onSave: _save,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            IosFormGroup(header: 'Datos de la Cuadrilla', children: [
+              IosFormFieldRow(label: 'Equipo', placeholder: 'Ej. Cuadrilla Norte', controller: _name, textCapitalization: TextCapitalization.words),
+              IosFormFieldRow(label: 'Supervisor', placeholder: 'Cédula del encargado', controller: _supervisor, keyboardType: TextInputType.number),
+              IosFormFieldRow(label: 'Suplente', placeholder: 'Cédula adicional (opcional)', controller: _alternate, keyboardType: TextInputType.number),
+            ]),
             const SizedBox(height: 12),
-            IosFormGroup(
-              header: 'Geocerca y Vigencia',
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 104,
-                        child: Text('Geocerca', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
+            IosFormGroup(header: 'Geocerca y Vigencia', children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                child: Row(children: [
+                  SizedBox(width: 104, child: Text('Geocerca', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary))),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int?>(
+                        value: _zone,
+                        isExpanded: true,
+                        style: TextStyle(fontSize: 13, color: context.cTextPrimary),
+                        items: [
+                          const DropdownMenuItem<int?>(value: null, child: Text('Libre (sin restricción)')),
+                          for (final z in widget.zones)
+                            DropdownMenuItem<int?>(value: z['id'] as int, child: Text((z['address'] as String?)?.isNotEmpty == true ? '${z['name']} (${z['address']})' : z['name'] as String, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        ],
+                        onChanged: _busy ? null : (v) => setState(() => _zone = v),
                       ),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int?>(
-                            value: _zone,
-                            isExpanded: true,
-                            style: TextStyle(fontSize: 13, color: context.cTextPrimary),
-                            items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('Libre (sin restricción)')),
-                              for (final z in widget.zones)
-                                DropdownMenuItem<int?>(
-                                  value: z['id'] as int,
-                                  child: Text(
-                                    (z['address'] as String?)?.isNotEmpty == true
-                                        ? '${z['name']} (${z['address']})'
-                                        : z['name'] as String,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                            onChanged: _busy ? null : (v) => setState(() => _zone = v),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: _busy ? null : () => _pickDate(true),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Válido desde', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
-                        Text(_from ?? 'Seleccionar', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                      ],
                     ),
                   ),
-                ),
-                InkWell(
-                  onTap: _busy ? null : () => _pickDate(false),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Válido hasta', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
-                        Text(_until ?? 'Seleccionar', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                ]),
+              ),
+              _dateRow('Válido desde', _from, true),
+              _dateRow('Válido hasta', _until, false),
+            ]),
             if (widget.crew != null) ...[
               const SizedBox(height: 16),
               CupertinoButton(
@@ -234,19 +187,10 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
                 borderRadius: BorderRadius.circular(10),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 onPressed: _busy ? null : _delete,
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(CupertinoIcons.trash, size: 15, color: AppColors.systemRed),
-                    SizedBox(width: 6),
-                    Text('Eliminar Cuadrilla', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed)),
-                  ],
-                ),
+                child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(CupertinoIcons.trash, size: 15, color: AppColors.systemRed), SizedBox(width: 6), Text('Eliminar Cuadrilla', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed))]),
               ),
             ],
-          ],
+          ]),
         ),
-      ),
-    );
-  }
+      );
 }

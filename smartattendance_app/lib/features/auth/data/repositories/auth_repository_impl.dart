@@ -1,9 +1,17 @@
-﻿// lib/features/auth/data/repositories/auth_repository_impl.dart
-import 'dart:async';
+// ============================================================================
+// ARCHIVO: auth_repository_impl.dart
+// QUÉ HACE: Implementa el repositorio de autenticación combinando API remota
+//           y verificación local SQLite (`LocalAuthDataSource`), persistiendo
+//           tokens y perfil en `FlutterSecureStorage`.
+// CÓMO FUNCIONA: Si hay red consulta `AuthRemoteDataSource`; ante modo offline
+//                o caída de red, delega a `LocalAuthDataSource` pasando cédula
+//                y contraseña para validación real.
+// POR QUÉ: Cumple Clean Architecture (DIP/SRP) y evita bloqueos de red (< 165 líneas).
+// ============================================================================
 
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../../../../core/config/app_config.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/exceptions/error_handler.dart';
@@ -28,48 +36,51 @@ final class AuthRepositoryImpl implements AuthRepository {
   final FlutterSecureStorage _storage;
   final LocalAuthDataSource _local;
 
+  /// QUÉ HACE: Autentica por cédula y contraseña en modo online u offline.
   @override
   Future<(String token, UserEntity user)> loginByCedula(
     String cedula, {
     String? password,
     bool isOffline = false,
   }) async {
-    // Si NO hay internet, login local instantáneo — sin esperar timeout.
     if (isOffline) {
-      AppLogger.info('Offline mode: skipping remote, using local auth');
-      return _localLogin(cedula);
+      AppLogger.info('Offline mode: validating credentials against local SQLite');
+      return _localLogin(cedula, password: password);
     }
-
     try {
       final (token, refreshToken, userModel) =
           await _remote.loginByCedula(cedula, password: password);
       return _persistSession(token, refreshToken, userModel);
     } catch (e) {
-      // Si el intento remoto falló por error de red, intentar local.
       if (_isNetworkError(e)) {
-        AppLogger.warning('Backend unreachable, falling back to local auth');
-        return _localLogin(cedula);
+        AppLogger.warning('Backend unreachable, validating against local SQLite');
+        return _localLogin(cedula, password: password);
       }
       throw ErrorHandler.handle(e);
     }
   }
 
-  /// Login 100% offline — usa la DB local SQLite.
-  Future<(String token, UserEntity user)> _localLogin(String cedula) async {
+  /// QUÉ HACE: Ejecuta la autenticación contra las tablas SQLite locales reales.
+  Future<(String token, UserEntity user)> _localLogin(
+    String cedula, {
+    String? password,
+  }) async {
     try {
       final (token, refreshToken, userModel) =
-          await _local.loginByCedula(cedula);
+          await _local.loginByCedula(cedula, password: password);
       return _persistSession(token, refreshToken, userModel);
+    } on FormatException catch (e) {
+      throw AuthException(message: e.message);
     } catch (e) {
-      AppLogger.error('Local auth also failed', error: e);
-      throw Exception('Sin conexión y usuario no encontrado localmente. '
-          'Conéctate a internet para el primer inicio de sesión.');
+      AppLogger.error('Local auth failed', error: e);
+      throw AuthException(
+        message: 'Usuario no encontrado en la nómina local.',
+      );
     }
   }
 
-  /// Detecta si el error es de conectividad (no del servidor rechazando).
+  /// QUÉ HACE: Identifica si una excepción corresponde a falta de conectividad.
   bool _isNetworkError(Object e) {
-    // NetworkException is thrown by ErrorHandler when Dio catches connection errors
     if (e is NetworkException) return true;
     if (e is DioException) {
       return e.type == DioExceptionType.connectionTimeout ||
@@ -78,7 +89,6 @@ final class AuthRepositoryImpl implements AuthRepository {
           e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.unknown;
     }
-    // SocketException, TimeoutException, etc.
     return e is TimeoutException ||
         (e is Exception && e.toString().contains('SocketException'));
   }
@@ -123,7 +133,11 @@ final class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<String> requestPasswordResetCode({required String cedula, required String correo}) => _remote.requestPasswordResetCode(cedula: cedula, correo: correo);
+  Future<String> requestPasswordResetCode({
+    required String cedula,
+    required String correo,
+  }) =>
+      _remote.requestPasswordResetCode(cedula: cedula, correo: correo);
 
   @override
   Future<String> resetPassword({
@@ -144,6 +158,7 @@ final class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  /// QUÉ HACE: Cifra y guarda los tokens y atributos del usuario en Keystore/Keychain.
   Future<(String, UserEntity)> _persistSession(
     String token,
     String refreshToken,
@@ -162,6 +177,3 @@ final class AuthRepositoryImpl implements AuthRepository {
     return (token, user);
   }
 }
-
-
-
