@@ -2,9 +2,9 @@
 // ARCHIVO: local_admin_store.dart
 // QUÉ HACE: Fachada administrativa para geocercas GPS (`work_zones`), equipos
 //           (`crews`), asignaciones de personal y políticas de privacidad.
-// CÓMO FUNCIONA: Aplica transacciones SQLite atómicas, valida coordenadas y
-//                delega plantillas de turnos a `LocalShiftStore`.
-// POR QUÉ: Desacopla responsabilidades (SRP) y garantiza seguridad (< 190 líneas).
+// CÓMO FUNCIONA: Exige `requireAdmin()` en toda mutación, aplica transacciones
+//                SQLite atómicas, valida coordenadas y delega turnos a `LocalShiftStore`.
+// POR QUÉ: Desacopla responsabilidades (SRP) y garantiza seguridad RBAC (< 185 líneas).
 // ============================================================================
 
 import 'dart:convert';
@@ -29,7 +29,9 @@ class LocalAdminStore {
   );
 
   void requireAdmin() {
-    if (adminDocument == null) throw const FormatException('Acción exclusiva del administrador.');
+    if (adminDocument == null || adminDocument!.trim().isEmpty) {
+      throw const FormatException('Acción exclusiva del administrador.');
+    }
   }
 
   Future<String?> setting(String name) async {
@@ -56,6 +58,7 @@ class LocalAdminStore {
   }
 
   Future<int> saveZone(Map<String, Object?> zone, {int? id}) async {
+    requireAdmin();
     final lat = (zone['latitude'] as num).toDouble(), lng = (zone['longitude'] as num).toDouble(), rad = (zone['radius_m'] as num).toDouble();
     if ((zone['name'] as String).trim().isEmpty || !lat.isFinite || lat.abs() > 90 || !lng.isFinite || lng.abs() > 180 || !rad.isFinite || rad < 20 || rad > 50000) {
       throw const FormatException('Revisa nombre, coordenadas y radio (20 a 50000 metros).');
@@ -90,13 +93,7 @@ class LocalAdminStore {
     if (crewId != null && (await db.query('crews', where: 'id=?', whereArgs: [crewId])).isEmpty) {
       throw const FormatException('Selecciona un equipo existente.');
     }
-    await db.update('workers', {
-      'crew_id': crewId,
-      'schedule_json': schedule?.encode(),
-      'authorization_reference': authRef,
-      'authorization_policy': privacy,
-      'authorization_at': DateTime.now().toUtc().toIso8601String(),
-    }, where: 'id=?', whereArgs: [workerId]);
+    await db.update('workers', {'crew_id': crewId, 'schedule_json': schedule?.encode(), 'authorization_reference': authRef, 'authorization_policy': privacy, 'authorization_at': DateTime.now().toUtc().toIso8601String()}, where: 'id=?', whereArgs: [workerId]);
   }
 
   Future<Map<String, Object?>> workerConfig(int id) async {
@@ -106,15 +103,8 @@ class LocalAdminStore {
     return rows.first;
   }
 
-  Future<void> applySchedule(PhotoDay day) {
-    requireAdmin();
-    return JourneyReviewStore(database, adminDocument!).applySchedule(day);
-  }
-
-  Future<void> review(PhotoDay day, {required bool approve, bool abandon = false}) {
-    requireAdmin();
-    return JourneyReviewStore(database, adminDocument!).review(day, approve: approve, abandon: abandon);
-  }
+  Future<void> applySchedule(PhotoDay day) { requireAdmin(); return JourneyReviewStore(database, adminDocument!).applySchedule(day); }
+  Future<void> review(PhotoDay day, {required bool approve, bool abandon = false}) { requireAdmin(); return JourneyReviewStore(database, adminDocument!).review(day, approve: approve, abandon: abandon); }
 
   Future<void> savePrivacy(Map<String, String> fields) async {
     requireAdmin();
@@ -130,14 +120,7 @@ class LocalAdminStore {
     if (p == null || p.contains('"company":null') || !p.contains('"company"')) {
       await db.insert('local_settings', {
         'name': 'privacy',
-        'value': jsonEncode({
-          'company': 'Talento Humano & Operaciones',
-          'responsible': 'Talento Humano & Operaciones',
-          'email': 'rrhh@smartattendance.local',
-          'phone': '+57 300 000 0000',
-          'purpose': 'Control de asistencia biométrica, geocerca GPS y gestión horaria',
-          'retention': '5 años conforme a normativa laboral vigente',
-        }),
+        'value': jsonEncode({'company': 'Talento Humano & Operaciones', 'responsible': 'Talento Humano & Operaciones', 'email': 'rrhh@smartattendance.local', 'phone': '+57 300 000 0000', 'purpose': 'Control de asistencia biométrica, geocerca GPS y gestión horaria', 'retention': '5 años conforme a normativa laboral vigente'}),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await LocalShiftStore.seedDefaultShifts(db);
@@ -146,24 +129,8 @@ class LocalAdminStore {
       await tx.rawDelete('DELETE FROM work_zones WHERE id NOT IN (SELECT MIN(id) FROM work_zones GROUP BY name)');
       final zCount = Sqflite.firstIntValue(await tx.rawQuery('SELECT COUNT(*) FROM work_zones')) ?? 0;
       if (zCount == 0) {
-        final zoneId = await tx.insert('work_zones', {
-          'name': 'Sede Principal Operativa',
-          'address': 'Calle 25 # 20-30, Dosquebradas, Risaralda',
-          'latitude': 6.2874,
-          'longitude': -75.5871,
-          'radius_m': 250.0,
-        });
-        await tx.insert('crews', {
-          'name': 'Equipo Operativo Central',
-          'supervisor_document': adminDocument ?? '1007331963',
-          'zone_id': zoneId,
-          'valid_from': '2026-01-01',
-          'valid_until': '2026-12-31',
-        });
-      } else {
-        try {
-          await tx.execute("UPDATE work_zones SET address = 'Calle 25 # 20-30, Dosquebradas, Risaralda' WHERE address IS NULL OR address = ''");
-        } catch (_) {}
+        final zoneId = await tx.insert('work_zones', {'name': 'Sede Principal Operativa', 'address': 'Calle 25 # 20-30, Dosquebradas, Risaralda', 'latitude': 6.2874, 'longitude': -75.5871, 'radius_m': 250.0});
+        await tx.insert('crews', {'name': 'Equipo Operativo Central', 'supervisor_document': adminDocument ?? '1007331963', 'zone_id': zoneId, 'valid_from': '2026-01-01', 'valid_until': '2026-12-31'});
       }
     });
   }
@@ -184,28 +151,20 @@ class LocalAdminStore {
     await db.delete('crews', where: 'id=?', whereArgs: [id]);
   }
 
-  Future<void> deleteWorker(int id) async {
-    requireAdmin();
-    await (await database.database).delete('workers', where: 'id=?', whereArgs: [id]);
-  }
+  Future<void> deleteWorker(int id) async { requireAdmin(); await (await database.database).delete('workers', where: 'id=?', whereArgs: [id]); }
 
   Future<void> updateWorkerDetails(int id, {required String name, required String document, required String job}) async {
     requireAdmin();
     if (name.trim().isEmpty || !RegExp(r'^\d{3,20}$').hasMatch(document.trim())) {
       throw const FormatException('Escribe el nombre y una cédula de 3 a 20 dígitos.');
     }
-    await (await database.database).update('workers', {
-      'name': name.trim(),
-      'document': document.trim(),
-      'job': job.trim().isEmpty ? 'Colaborador' : job.trim(),
-    }, where: 'id=?', whereArgs: [id]);
+    await (await database.database).update('workers', {'name': name.trim(), 'document': document.trim(), 'job': job.trim().isEmpty ? 'Colaborador' : job.trim()}, where: 'id=?', whereArgs: [id]);
   }
 
   Future<List<ShiftTemplate>> shiftTemplates() => _shiftStore.shiftTemplates();
   Future<void> saveShiftTemplate(ShiftTemplate t) => _shiftStore.saveShiftTemplate(t);
   Future<void> deleteShiftTemplate(int id) => _shiftStore.deleteShiftTemplate(id);
-  Future<void> assignShiftToWorkers({required List<int> workerIds, required ShiftTemplate template, String? reference}) =>
-      _shiftStore.assignShiftToWorkers(workerIds: workerIds, template: template, reference: reference);
+  Future<void> assignShiftToWorkers({required List<int> workerIds, required ShiftTemplate template, String? reference}) => _shiftStore.assignShiftToWorkers(workerIds: workerIds, template: template, reference: reference);
   Future<void> removeScheduleFromWorker(int workerId) => _shiftStore.removeScheduleFromWorker(workerId);
   Future<List<PhotoDay>> allOvertimeDays() => _shiftStore.allOvertimeDays();
 }

@@ -1,12 +1,12 @@
 // ============================================================================
 // ARCHIVO: capture_gate.dart
-// QUÉ HACE: Aplica las reglas y restricciones del Administrador y Supervisor:
-//           1. Existencia del colaborador en base local.
-//           2. Validación de geocerca GPS real en la zona asignada.
-//           3. Validación del rango/ventana de horario permitida para marcar.
-// CÓMO FUNCIONA: Consulta workers con join a crews y work_zones. Si el supervisor
-//                configuró un rango de horas, valida `isTimeWithinMarkWindow`.
-// POR QUÉ: Garantiza control de asistencia verídico sin simulación (< 90 líneas).
+// QUÉ HACE: Aplica las reglas de seguridad y restricciones del Administrador:
+//           1. Autorización del operador sobre el colaborador (`visibleWorkers`).
+//           2. Validación de la ventana horaria permitida (`isTimeWithinMarkWindow`).
+//           3. Validación de la geocerca GPS real en la zona asignada.
+// CÓMO FUNCIONA: Consulta `workers` filtrando por `actor.visibleWorkers('w.id')`,
+//                verifica el horario asignado y la distancia Haversine al punto GPS.
+// POR QUÉ: Impide suplantación entre empleados y marcaciones fuera de regla (< 85 líneas).
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -19,7 +19,7 @@ class CaptureGate {
   const CaptureGate(this.actor);
   final LocalActor actor;
 
-  /// Datos del trabajador + su zona. Lanza si el trabajador no existe.
+  /// Datos del trabajador + su zona, exigiendo permiso de visibilidad del actor.
   Future<Map<String, Object?>> employee(DatabaseExecutor db, int workerId) async {
     final rows = await db.rawQuery('''SELECT w.*, c.name crew_name,
       z.id zone_id, z.name zone_name, z.latitude zone_lat,
@@ -27,9 +27,13 @@ class CaptureGate {
       FROM workers w
       LEFT JOIN crews c ON c.id=w.crew_id
       LEFT JOIN work_zones z ON z.id=c.zone_id
-      WHERE w.id=?''', [workerId]);
+      WHERE w.id=? AND ${actor.visibleWorkers('w.id')}''', [
+      workerId,
+      ...actor.visibilityArgs,
+    ]);
     if (rows.isEmpty) {
-      throw const FormatException('Trabajador no encontrado en el dispositivo.');
+      throw const FormatException(
+          'No tienes permiso para registrar asistencia de este colaborador.');
     }
     return rows.first;
   }
@@ -42,10 +46,11 @@ class CaptureGate {
   ) async {
     final row = await employee(db, workerId);
 
-    // 1. Verificación de ventana horaria configurada por el supervisor
+    // 1. Verificación de ventana horaria configurada por el administrador
     final scheduleJson = row['schedule_json'] as String?;
     final schedule = WorkSchedule.decode(scheduleJson);
-    if (schedule != null && !schedule.isTimeWithinMarkWindow(ColombiaClock.wall(DateTime.now()))) {
+    if (schedule != null &&
+        !schedule.isTimeWithinMarkWindow(ColombiaClock.wall(DateTime.now()))) {
       throw FormatException(
           'Fuera del rango horario permitido para marcar (${schedule.markWindowFormatted}). '
           'Consulta con tu supervisor.');
@@ -53,7 +58,7 @@ class CaptureGate {
 
     // 2. Verificación de Geocerca GPS real
     final zoneId = row['zone_id'];
-    if (zoneId == null) return row; // Sin zona asignada: sin restricción geográfica.
+    if (zoneId == null) return row;
 
     final zone = WorkZone(
       zoneId as int,

@@ -1,17 +1,20 @@
 // ============================================================================
 // ARCHIVO: admin_management_screen.dart
 // QUÉ HACE: Módulo ejecutivo de Gestión RRHH 100% estilo Apple iOS con selector
-//           nativo `CupertinoSlidingSegmentedControl` para Personal, Horarios,
-//           Extras y Zonas sin mezclar controles entre pestañas.
-// CÓMO FUNCIONA: Renderiza la barra segmentada Cupertino en la parte superior y
-//                conmuta suavemente entre las 4 sub-vistas independientes.
-// POR QUÉ: Garantiza estética iOS pura y cumple SRP (< 115 líneas).
+//           nativo `CupertinoSlidingSegmentedControl` para Reportes, Personal,
+//           Horarios y Extras, protegido por control de acceso RBAC + PIN.
+// CÓMO FUNCIONA: Verifica `localActorProvider.isAdmin`. Si el usuario es un
+//                colaborador sin rol administrativo, bloquea el módulo y ofrece
+//                `AdminUnlockButton` (PIN cifrado en `FlutterSecureStorage`).
+// POR QUÉ: Impide que empleados modifiquen turnos, geocercas o aprueben extras (< 165 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/ios_glass_card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../photo_attendance/presentation/admin_unlock_button.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
 import '../widgets/hr_overtime_tab.dart';
 import '../widgets/hr_reports_tab.dart';
@@ -73,6 +76,49 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final actor = ref.watch(localActorProvider);
+    if (!actor.isAdmin) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: IosGlassCard(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  CupertinoIcons.lock_shield_fill,
+                  size: 44,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Módulo Exclusivo de Administración',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: context.cTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'La configuración de turnos, ventanas de marcación, geocercas GPS, aprobación de horas extras y reportes ejecutivos requiere permisos de Administrador o desbloqueo con PIN.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: context.cTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const AdminUnlockButton(),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final overtimeDays = ref.watch(allOvertimeDaysProvider).value ?? [];
     final pending = overtimeDays
         .where((d) =>

@@ -4,8 +4,9 @@
 //           con GPS real y exportación CSV, enriquecido con datos de cuadrilla
 //           (`crew_name`) y geocerca (`zone_name`).
 // CÓMO FUNCIONA: Ejecuta un LEFT JOIN entre `workers`, `crews`, `work_zones` y
-//                `photo_marks` para entregar el estado completo de cada empleado.
-// POR QUÉ: Evita múltiples consultas separadas y cumple SRP (< 130 líneas).
+//                `photo_marks` aplicando el filtro RBAC `actor.visibleWorkers`.
+// POR QUÉ: Evita múltiples consultas, protege la creación de personal y cumple
+//          SRP (< 140 líneas).
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
@@ -64,6 +65,9 @@ class PhotoRepository implements LocalAttendanceRepository {
   @override
   Future<void> addWorker(String name, String document, String job,
       {int? crewId, WorkSchedule? schedule, String? authorizationReference}) async {
+    if (!actor.isAdmin && document.trim() != actor.document.trim()) {
+      throw const FormatException('Acción exclusiva del administrador.');
+    }
     if (name.trim().isEmpty ||
         !RegExp(r'^\d{3,20}$').hasMatch(document.trim())) {
       throw const FormatException(
@@ -75,8 +79,8 @@ class PhotoRepository implements LocalAttendanceRepository {
         'name': name.trim(),
         'document': document.trim(),
         'job': job.trim().isEmpty ? 'Colaborador' : job.trim(),
-        if (crewId != null) 'crew_id': crewId,
-        if (schedule != null) 'schedule_json': schedule.encode(),
+        if (crewId != null && actor.isAdmin) 'crew_id': crewId,
+        if (schedule != null && actor.isAdmin) 'schedule_json': schedule.encode(),
         'authorization_reference':
             authorizationReference ?? 'Registro de personal en campo',
         'authorization_policy': 'Política General SmartAttendance',

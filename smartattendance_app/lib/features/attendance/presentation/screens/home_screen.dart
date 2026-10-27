@@ -1,14 +1,14 @@
 // ============================================================================
 // ARCHIVO: home_screen.dart
-// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18 (Inicio, Historial,
-//           Gestión RRHH, Perfil) con barra inferior flotante translúcida y
-//           orquestación de GPS + marcación directa.
+// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18 (Inicio, Reportes,
+//           Mapa, Perfil) con barra inferior flotante translúcida y
+//           orquestación de GPS + marcación directa protegida por identidad.
 // CÓMO FUNCIONA:
 // 1. Consulta la posición GPS real mediante `LocationService` y la geocerca
 //    activa en SQLite (`work_zones`), calculando distancia Haversine.
-// 2. Renderiza una barra de navegación flotante estilo iOS (`CupertinoIcons`)
-//    con `BackdropFilter` y bordes redondeados continuos.
-// POR QUÉ: Cumple estética 100% iOS con menús flotantes limpios (< 180 líneas).
+// 2. Vincula la marcación al documento real del usuario autenticado (`user.cedula`)
+//    para impedir que un colaborador registre marcas a nombre de otro.
+// POR QUÉ: Cumple estética iOS y aislamiento estricto de identidad (< 195 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -81,14 +81,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _captureMark([String? requestedType]) async {
     try {
       if (requestedType != null) {
-        final workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
         final session = ref.read(sessionControllerProvider);
         final user = session is SessionAuthenticated ? session.user : null;
-        final target = (user != null && workers.isNotEmpty)
-            ? workers.where((w) => w.document.trim() == user.cedula.trim() || w.name.toLowerCase() == user.fullName.toLowerCase()).firstOrNull
-            : workers.firstOrNull;
+        final actor = ref.read(localActorProvider);
+        var workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
+        var target = (user != null)
+            ? workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull
+            : null;
+        if (target == null && user != null && RegExp(r'^\d{3,20}$').hasMatch(user.cedula.trim())) {
+          await ref.read(localPhotoRepositoryProvider).addWorker(user.fullName, user.cedula.trim(), user.cargo);
+          ref.invalidate(localWorkersProvider);
+          workers = await ref.read(localWorkersProvider.future).catchError((_) => <LocalWorker>[]);
+          target = workers.where((w) => w.document.trim() == user.cedula.trim()).firstOrNull;
+        }
+        target ??= actor.isAdmin ? workers.firstOrNull : null;
         if (target != null && mounted) {
-          await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target, initialType: requestedType)));
+          await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target!, initialType: requestedType)));
           if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); }
           return;
         }
@@ -112,15 +120,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(sel ? activeIcon : icon, size: 21, color: color),
             const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                color: color,
-                letterSpacing: -0.2,
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 10.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: color, letterSpacing: -0.2)),
           ]),
         ),
       ),
@@ -156,15 +156,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       const AdminManagementScreen(),
-      MapTabScreen(
-        latitude: _latitude,
-        longitude: _longitude,
-        zoneLat: _zoneLat,
-        zoneLng: _zoneLng,
-        zoneRadius: _zoneRadius,
-        zoneName: _zoneName,
-        onRefresh: _refreshLocation,
-      ),
+      MapTabScreen(latitude: _latitude, longitude: _longitude, zoneLat: _zoneLat, zoneLng: _zoneLng, zoneRadius: _zoneRadius, zoneName: _zoneName, onRefresh: _refreshLocation),
       const ProfileScreen(),
     ];
 
@@ -184,10 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 decoration: BoxDecoration(
                   color: context.cSurface.withValues(alpha: context.isDark ? 0.72 : 0.85),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: context.cBorder.withValues(alpha: context.isDark ? 0.55 : 0.75),
-                    width: 0.8,
-                  ),
+                  border: Border.all(color: context.cBorder.withValues(alpha: context.isDark ? 0.55 : 0.75), width: 0.8),
                 ),
                 child: Row(children: [
                   _navItem(0, CupertinoIcons.house, CupertinoIcons.house_fill, 'Inicio'),
