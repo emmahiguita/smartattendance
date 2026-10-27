@@ -1,15 +1,19 @@
 // ============================================================================
 // ARCHIVO: photo_repository.dart
-// QUÉ HACE: Repositorio SQLite local de colaboradores, marcaciones biométricas
-//           con GPS real y exportación CSV, enriquecido con datos de cuadrilla
-//           (`crew_name`) y geocerca (`zone_name`).
-// CÓMO FUNCIONA: Ejecuta un LEFT JOIN entre `workers`, `crews`, `work_zones` y
-//                `photo_marks` aplicando el filtro RBAC `actor.visibleWorkers`.
-// POR QUÉ: Evita múltiples consultas, protege la creación de personal y cumple
-//          SRP (< 140 líneas).
+// QUÉ HACE: Repositorio SQLite local de colaboradores, supervisores y
+//           administradores, marcaciones biométricas con GPS real y CSV.
+// CÓMO FUNCIONA:
+// 1. `workers()` ejecuta un LEFT JOIN entre `workers`, `crews`, `work_zones`
+//    y la última marca de la jornada aplicando `actor.visibleWorkers`.
+// 2. `addWorker()` inserta en `workers` y sincroniza inmediatamente la cuenta
+//    en `usuarios_locales` (`LocalDatabaseService`) para que el nuevo
+//    Colaborador, Supervisor o Administrador pueda iniciar sesión al instante.
+// POR QUÉ: Garantiza alta inmediata para login y cumple SRP (< 150 líneas).
 // ============================================================================
 
 import 'package:sqflite/sqflite.dart';
+import '../../../../core/localstore/local_database_service.dart';
+import '../../auth/data/datasources/local_auth_datasource.dart';
 import '../domain/attendance_location.dart';
 import '../domain/local_actor.dart';
 import '../domain/photo_record.dart';
@@ -63,32 +67,50 @@ class PhotoRepository implements LocalAttendanceRepository {
   }
 
   @override
-  Future<void> addWorker(String name, String document, String job,
-      {int? crewId, WorkSchedule? schedule, String? authorizationReference}) async {
-    if (!actor.isAdmin && document.trim() != actor.document.trim()) {
-      throw const FormatException('Acción exclusiva del administrador.');
+  Future<void> addWorker(
+    String name,
+    String document,
+    String job, {
+    int? crewId,
+    WorkSchedule? schedule,
+    String? authorizationReference,
+  }) async {
+    final cleanDoc = document.trim();
+    final cleanName = name.trim();
+    final cleanJob = job.trim().isEmpty ? 'Colaborador' : job.trim();
+
+    if (!actor.isAdmin && cleanDoc != actor.document.trim()) {
+      throw const FormatException('Acción exclusiva del administrador o supervisor.');
     }
-    if (name.trim().isEmpty ||
-        !RegExp(r'^\d{3,20}$').hasMatch(document.trim())) {
-      throw const FormatException(
-          'Escribe el nombre y una cédula de 3 a 20 dígitos.');
+    if (cleanName.isEmpty || !RegExp(r'^\d{3,20}$').hasMatch(cleanDoc)) {
+      throw const FormatException('Escribe el nombre y una cédula de 3 a 20 dígitos.');
     }
     final db = await database.database;
     try {
-      await db.insert('workers', {
-        'name': name.trim(),
-        'document': document.trim(),
-        'job': job.trim().isEmpty ? 'Colaborador' : job.trim(),
+      final newId = await db.insert('workers', {
+        'name': cleanName,
+        'document': cleanDoc,
+        'job': cleanJob,
         if (crewId != null && actor.isAdmin) 'crew_id': crewId,
         if (schedule != null && actor.isAdmin) 'schedule_json': schedule.encode(),
-        'authorization_reference':
-            authorizationReference ?? 'Registro de personal en campo',
+        'authorization_reference': authorizationReference ?? 'Registro de personal en campo',
         'authorization_policy': 'Política General SmartAttendance',
         'authorization_at': DateTime.now().toUtc().toIso8601String(),
       });
+
+      final parts = cleanName.split(RegExp(r'\s+'));
+      await LocalDatabaseService().insertLocalUser({
+        'id': newId,
+        'cedula': cleanDoc,
+        'nombre': parts.first,
+        'apellido': parts.length > 1 ? parts.sublist(1).join(' ') : '',
+        'correo': '',
+        'cargo': cleanJob,
+        'is_admin': LocalAuthDataSource.isRoleAdmin(cleanJob, cleanDoc) ? 1 : 0,
+      });
     } on DatabaseException catch (error) {
       if (error.isUniqueConstraintError()) {
-        throw const FormatException('Ya existe un trabajador con esa cédula.');
+        throw const FormatException('Ya existe una persona registrada con esa cédula.');
       }
       rethrow;
     }
@@ -97,8 +119,8 @@ class PhotoRepository implements LocalAttendanceRepository {
   @override
   Future<PhotoRecord> capture(LocalWorker worker, String type, String imagePath,
           {required AttendanceLocation location, String? captureId}) =>
-      PhotoMarkWriter(database, actor).save(worker, type, imagePath,
-          location: location, captureId: captureId);
+      PhotoMarkWriter(database, actor)
+          .save(worker, type, imagePath, location: location, captureId: captureId);
 
   @override
   Future<void> prepare(LocalWorker worker) =>
@@ -108,28 +130,25 @@ class PhotoRepository implements LocalAttendanceRepository {
   Future<List<PhotoRecord>> history(
       {int skip = 0, int limit = 50, String search = ''}) async {
     final db = await database.database;
-    final term = search
-        .replaceAll('\\', '\\\\')
-        .replaceAll('%', '\\%')
-        .replaceAll('_', '\\_');
-    final rows = await db.query('photo_marks',
-        where:
-            '${actor.visibleWorkers('worker_id')}${search.isEmpty ? '' : " AND (name LIKE ? ESCAPE '\\' OR document LIKE ? ESCAPE '\\')"}',
-        whereArgs: [
-          ...actor.visibilityArgs,
-          if (search.isNotEmpty) ...['%$term%', '%$term%']
-        ],
-        orderBy: 'captured_at DESC, uuid DESC',
-        limit: limit,
-        offset: skip);
+    final term = search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+    final rows = await db.query(
+      'photo_marks',
+      where:
+          '${actor.visibleWorkers('worker_id')}${search.isEmpty ? '' : " AND (name LIKE ? ESCAPE '\\' OR document LIKE ? ESCAPE '\\')"}',
+      whereArgs: [
+        ...actor.visibilityArgs,
+        if (search.isNotEmpty) ...['%$term%', '%$term%']
+      ],
+      orderBy: 'captured_at DESC, uuid DESC',
+      limit: limit,
+      offset: skip,
+    );
     return rows.map(photoRecordFromRow).toList();
   }
 
   @override
-  Future<List<PhotoDay>> days(
-          {int skip = 0, int limit = 20, String search = ''}) =>
-      PhotoDayReader(database, actor)
-          .read(skip: skip, limit: limit, search: search);
+  Future<List<PhotoDay>> days({int skip = 0, int limit = 20, String search = ''}) =>
+      PhotoDayReader(database, actor).read(skip: skip, limit: limit, search: search);
 
   @override
   Future<String> exportCsv() => PhotoExporter(database, actor).export();

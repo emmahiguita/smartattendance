@@ -1,12 +1,15 @@
 // ============================================================================
 // ARCHIVO: serviciudad_hero_card.dart
-// QUÉ HACE: Panel transparente con los 4 botones pequeños de marcación:
-//           1. Inicio (Entrada), 2. Salida Almuerzo, 3. Regreso, 4. Salida.
-// CÓMO FUNCIONA: Muestra cada botón pequeño, transparente, con su estado real:
-//                hora registrada, activo para el siguiente turno o pendiente.
-// POR QUÉ: Atiende la directiva: "DEPURA ESA CARD DEBE SER TRANSPARENTE TODO,
-//          EL BOTON DE INICIO, SALIDA REGRESO A ALMORZAR Y SALIDA DEBE SER
-//          PEQUEÑO, CORRIGE COMPONENTES NO DEBEN SER REDUNDANTES" (< 155 líneas).
+// QUÉ HACE: Panel con los 4 botones compactos de marcación de la jornada:
+//           1. Inicio (`entrada`), 2. Salida Almuerzo (`salida_almuerzo`),
+//           3. Regreso Almuerzo (`regreso_almuerzo`), 4. Salida (`salida`).
+// CÓMO FUNCIONA:
+// - Calcula el estado real de hoy y habilita ÚNICAMENTE el botón que
+//   corresponde al paso actual (`nextTipo`).
+// - Bloquea el toque en botones ya marcados (`isDone`) o fuera de orden
+//   (`!isActive`), mostrando un aviso claro si el usuario intenta saltar pasos.
+// POR QUÉ: Corrige el bug que permitía tocar Salida, Regreso o Almuerzo sin
+//          haber marcado Entrada o repetir Salida (< 180 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -23,13 +26,27 @@ class ServiciudadHeroCard extends StatelessWidget {
   final List<AttendanceEntity> records;
   final ValueChanged<String> onTap;
 
+  void _notifyBlocked(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = records.where((r) {
       final l = r.fecha.toLocal();
       return l.year == now.year && l.month == now.month && l.day == now.day;
-    }).toList()..sort((a, b) => a.hora.compareTo(b.hora));
+    }).toList()
+      ..sort((a, b) => a.hora.compareTo(b.hora));
 
     final lastMark = today.isNotEmpty ? today.last.tipo.toLowerCase() : '';
     final nextTipo = MarkSequence.next(lastMark);
@@ -51,7 +68,7 @@ class ServiciudadHeroCard extends StatelessWidget {
                 title: 'Inicio',
                 icon: CupertinoIcons.arrow_down_right_circle,
                 record: entrada,
-                isActive: nextTipo == 'entrada',
+                nextTipo: nextTipo,
               ),
             ),
             const SizedBox(width: 8),
@@ -62,7 +79,7 @@ class ServiciudadHeroCard extends StatelessWidget {
                 title: 'Salida Almuerzo',
                 icon: CupertinoIcons.pause_circle,
                 record: salidaAlm,
-                isActive: nextTipo == 'salida_almuerzo',
+                nextTipo: nextTipo,
               ),
             ),
           ],
@@ -77,7 +94,7 @@ class ServiciudadHeroCard extends StatelessWidget {
                 title: 'Regreso Almuerzo',
                 icon: CupertinoIcons.play_circle,
                 record: regresoAlm,
-                isActive: nextTipo == 'regreso_almuerzo',
+                nextTipo: nextTipo,
               ),
             ),
             const SizedBox(width: 8),
@@ -88,7 +105,7 @@ class ServiciudadHeroCard extends StatelessWidget {
                 title: 'Salida',
                 icon: CupertinoIcons.arrow_up_right_circle,
                 record: salida,
-                isActive: nextTipo == 'salida',
+                nextTipo: nextTipo,
               ),
             ),
           ],
@@ -103,10 +120,11 @@ class ServiciudadHeroCard extends StatelessWidget {
     required String title,
     required IconData icon,
     required AttendanceEntity? record,
-    required bool isActive,
+    required String nextTipo,
   }) {
     final isDark = context.isDark;
     final isDone = record != null;
+    final isActive = !isDone && nextTipo == tipo;
     final timeStr = isDone ? DateFormat('h:mm a').format(record.hora.toLocal()) : null;
 
     final Color borderColor = isDone
@@ -115,13 +133,28 @@ class ServiciudadHeroCard extends StatelessWidget {
     final Color bgColor = isDone
         ? AppColors.success.withValues(alpha: isDark ? 0.12 : 0.05)
         : (isActive ? AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08) : Colors.transparent);
-    final Color iconColor = isDone ? AppColors.success : (isActive ? AppColors.primary : context.cTextSecondary.withValues(alpha: 0.6));
-    final String label = isDone ? '$timeStr  ✓' : (isActive ? 'Toca para marcar' : 'Pendiente');
+    final Color iconColor = isDone
+        ? AppColors.success
+        : (isActive ? AppColors.primary : context.cTextSecondary.withValues(alpha: 0.45));
+    final String label = isDone ? '$timeStr  ✓' : (isActive ? 'Toca para marcar' : 'Bloqueado');
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => onTap(tipo),
+        onTap: () {
+          if (isDone) {
+            _notifyBlocked(context, 'Ya registraste "$title" hoy a las $timeStr.');
+            return;
+          }
+          if (!isActive) {
+            final msg = nextTipo.isEmpty
+                ? 'Tu jornada de hoy ya finalizó con tu Salida.'
+                : 'Orden de jornada: primero debes marcar "${MarkSequence.labelOf(nextTipo)}".';
+            _notifyBlocked(context, msg);
+            return;
+          }
+          onTap(tipo);
+        },
         borderRadius: BorderRadius.circular(12),
         child: Container(
           height: 48,
@@ -133,7 +166,11 @@ class ServiciudadHeroCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(isDone ? CupertinoIcons.checkmark_alt_circle_fill : icon, size: 20, color: iconColor),
+              Icon(
+                isDone ? CupertinoIcons.checkmark_alt_circle_fill : (isActive ? icon : CupertinoIcons.lock_fill),
+                size: 19,
+                color: iconColor,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -145,7 +182,7 @@ class ServiciudadHeroCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
-                        color: isDone ? AppColors.success : (isActive ? AppColors.primary : context.cTextPrimary),
+                        color: isDone ? AppColors.success : (isActive ? AppColors.primary : context.cTextSecondary),
                         letterSpacing: -0.2,
                       ),
                       maxLines: 1,

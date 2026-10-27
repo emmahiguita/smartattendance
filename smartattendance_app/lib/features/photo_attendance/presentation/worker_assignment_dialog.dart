@@ -1,11 +1,13 @@
 // ============================================================================
 // ARCHIVO: worker_assignment_dialog.dart
 // QUÉ HACE: Ventana flotante Apple iOS (`IosFloatingModal`) para que el
-//           Administrador asigne Rol/Permiso (`Colaborador`, `Supervisor`,
-//           `Administrador`), Cuadrilla/Geocerca y Horario a una persona.
-// CÓMO FUNCIONA: Consulta `crewsWithZones` y `shiftTemplates`, permitiendo
-//                promover o cambiar el rol para que inicie sesión con ese nivel.
-// POR QUÉ: Permite delegar supervisores/administradores desde adentro (< 195 líneas).
+//           Administrador o Supervisor asigne Rol (`Colaborador`, `Supervisor`,
+//           `Administrador`), Cuadrilla/Geocerca, Horario o elimine/dé de baja
+//           a una persona desde dentro de la aplicación.
+// CÓMO FUNCIONA: Persiste cambios en `LocalAdminStore` sincronizando el acceso
+//                de inicio de sesión, y permite borrar la cuenta con confirmación.
+// POR QUÉ: Permite administrar y dar de baja supervisores, administradores y
+//          trabajadores desde adentro (< 195 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -20,7 +22,6 @@ import '../domain/shift_template.dart';
 import '../domain/work_schedule.dart';
 import 'local_providers.dart';
 
-/// Modal administrativo para asignar Rol, Cuadrilla/Zona y Turno a un usuario.
 class WorkerAssignmentDialog extends ConsumerStatefulWidget {
   const WorkerAssignmentDialog({super.key, required this.worker});
   final LocalWorker worker;
@@ -44,7 +45,6 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     _load();
   }
 
-  /// QUÉ HACE: Carga cuadrillas, turnos y el rol actual del usuario desde SQLite.
   Future<void> _load() async {
     try {
       final store = ref.read(localAdminStoreProvider);
@@ -66,7 +66,6 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     }
   }
 
-  /// QUÉ HACE: Persiste el rol, cuadrilla y horario en `workers` para login inmediato.
   Future<void> _save() async {
     if (!_confirmed) {
       setState(() => _error = 'Confirma la autorización de tratamiento de datos.');
@@ -84,7 +83,30 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     }
   }
 
-  /// QUÉ HACE: Permite al Administrador asignar nivel de acceso (Colaborador, Supervisor, Administrador).
+  /// QUÉ HACE: Elimina al Colaborador, Supervisor o Administrador y revoca su login.
+  Future<void> _deleteUser() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Eliminar / Dar de Baja'),
+        content: Text('¿Deseas eliminar a "${widget.worker.name}" ($_role)? Ya no podrá iniciar sesión con su cédula.'),
+        actions: [
+          CupertinoDialogAction(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => (_busy = true, _error = null));
+    try {
+      await ref.read(localAdminStoreProvider).deleteWorker(widget.worker.id);
+      ref.invalidate(localWorkersProvider);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => (_error = e is FormatException ? e.message : 'No se pudo eliminar.', _busy = false));
+    }
+  }
+
   Future<void> _pickRole() async {
     const roles = [
       ('Colaborador', 'Solo marca ingreso, almuerzo y salida (sin acceso a RRHH)'),
@@ -108,29 +130,27 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
     if (mounted && selected != null) setState(() => _role = selected);
   }
 
-  /// QUÉ HACE: Abre el selector de cuadrilla y geocerca GPS.
   Future<void> _pickTeam() async {
     final actions = [
       const IosGlassAction<int?>(label: 'Sin equipo asignado (Zona Libre)', value: null, icon: CupertinoIcons.clear_circled),
       for (final t in _teams)
         IosGlassAction<int?>(
           label: t['name'] as String,
-          subtitle: t['zone_name'] != null ? '${t['zone_name']}${t['zone_address'] != null ? ' • ${t['zone_address']}' : ''}' : null,
+          subtitle: t['zone_name'] != null ? '${t['zone_name']}' : null,
           value: t['id'] as int,
           icon: CupertinoIcons.person_2_fill,
         ),
     ];
-    final selected = await showIosGlassFloatingMenu<int?>(context: context, title: 'Equipo / Cuadrilla y Geocerca', subtitle: 'Selecciona la cuadrilla y geocerca para este colaborador', actions: actions);
+    final selected = await showIosGlassFloatingMenu<int?>(context: context, title: 'Equipo / Cuadrilla y Geocerca', subtitle: 'Selecciona la cuadrilla y geocerca', actions: actions);
     if (mounted && selected != _team) setState(() => _team = selected);
   }
 
-  /// QUÉ HACE: Abre el selector de plantilla de horario.
   Future<void> _pickSchedule() async {
     final actions = [
       for (final t in _templates) IosGlassAction<WorkSchedule?>(label: t.name, subtitle: t.timeFormatted, value: t.toSchedule(), icon: CupertinoIcons.clock),
-      const IosGlassAction<WorkSchedule?>(label: 'Sin horario fijo', subtitle: 'Horario flexible sin restricción horaria', value: null, icon: CupertinoIcons.slash_circle, isDestructive: true),
+      const IosGlassAction<WorkSchedule?>(label: 'Sin horario fijo', subtitle: 'Horario flexible', value: null, icon: CupertinoIcons.slash_circle, isDestructive: true),
     ];
-    final selected = await showIosGlassFloatingMenu<WorkSchedule?>(context: context, title: 'Horario Pactado', subtitle: 'Selecciona la plantilla de turno a asignar', actions: actions);
+    final selected = await showIosGlassFloatingMenu<WorkSchedule?>(context: context, title: 'Horario Pactado', subtitle: 'Selecciona la plantilla de turno', actions: actions);
     if (mounted) setState(() => _schedule = selected);
   }
 
@@ -159,7 +179,7 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
             _rowPicker(context, 'Rol / Acceso', _role, _pickRole),
             _rowPicker(context, 'Equipo / Zona', teamName, _pickTeam),
             _rowPicker(context, 'Horario', scheduleLabel, _pickSchedule),
-            IosFormFieldRow(label: 'Soporte', placeholder: 'Referencia de autorización RRHH', controller: _reference),
+            IosFormFieldRow(label: 'Soporte', placeholder: 'Referencia RRHH', controller: _reference),
           ],
         ),
         const SizedBox(height: 12),
@@ -175,6 +195,20 @@ class _WorkerAssignmentDialogState extends ConsumerState<WorkerAssignmentDialog>
             ),
           ],
         ),
+        if (widget.worker.document.trim() != '1007331963') ...[
+          const SizedBox(height: 14),
+          CupertinoButton(
+            color: AppColors.systemRed.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            onPressed: _busy ? null : _deleteUser,
+            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(CupertinoIcons.trash, size: 15, color: AppColors.systemRed),
+              SizedBox(width: 6),
+              Text('Eliminar Usuario / Dar de Baja', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed)),
+            ]),
+          ),
+        ],
       ]),
     );
   }

@@ -100,7 +100,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       target ??= actor.isAdmin ? workers.firstOrNull : null;
       if (target != null && (requestedType != null || !actor.isAdmin) && mounted) {
-        await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target!, initialType: requestedType ?? 'Ingreso')));
+        await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: target!, initialType: requestedType ?? 'entrada')));
         if (mounted) { ref.invalidate(localDayHistoryProvider); ref.invalidate(localWorkersProvider); }
         return;
       }

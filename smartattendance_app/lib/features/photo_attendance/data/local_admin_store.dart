@@ -1,14 +1,21 @@
 // ============================================================================
 // ARCHIVO: local_admin_store.dart
 // QUÉ HACE: Fachada administrativa para geocercas GPS (`work_zones`), equipos
-//           (`crews`), asignaciones de personal/roles y políticas de privacidad.
-// CÓMO FUNCIONA: Exige `requireAdmin()` en toda mutación, aplica transacciones
-//                SQLite atómicas, valida coordenadas y delega turnos a `LocalShiftStore`.
-// POR QUÉ: Desacopla responsabilidades (SRP) y garantiza seguridad RBAC (< 180 líneas).
+//           (`crews`), asignaciones de personal/roles y baja de usuarios.
+// CÓMO FUNCIONA:
+// - Exige `requireAdmin()` en toda mutación.
+// - Sincroniza altas, cambios de rol (`Colaborador`, `Supervisor`, `Administrador`)
+//   y eliminaciones (`deleteWorker`) tanto en `PhotoDatabase.workers` como en
+//   `LocalDatabaseService.usuarios_locales`, para que los cambios de login y
+//   bajas tengan efecto inmediato.
+// POR QUÉ: Garantiza que supervisores, administradores y trabajadores agregados
+//          puedan iniciar sesión y que al borrarlos pierdan el acceso (< 190 líneas).
 // ============================================================================
 
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
+import '../../../../core/localstore/local_database_service.dart';
+import '../../auth/data/datasources/local_auth_datasource.dart';
 import '../domain/photo_record.dart';
 import '../domain/shift_template.dart';
 import '../domain/work_schedule.dart';
@@ -30,7 +37,7 @@ class LocalAdminStore {
 
   void requireAdmin() {
     if (adminDocument == null || adminDocument!.trim().isEmpty) {
-      throw const FormatException('Acción exclusiva del administrador.');
+      throw const FormatException('Acción exclusiva del administrador o supervisor.');
     }
   }
 
@@ -85,27 +92,37 @@ class LocalAdminStore {
     );
   }
 
-  /// QUÉ HACE: Asigna cuadrilla, horario y nivel de rol (Colaborador/Supervisor/Administrador).
+  /// QUÉ HACE: Asigna cuadrilla, horario y rol (Colaborador/Supervisor/Administrador) y sincroniza login.
   Future<void> assignWorker(int workerId, int? crewId, WorkSchedule? schedule, String authorizationReference, {String? role}) async {
     requireAdmin();
     await ensureDefaultData();
     final privacy = await setting('privacy') ?? 'Política General SmartAttendance';
-    final authRef = authorizationReference.trim().isNotEmpty ? authorizationReference.trim() : 'Asignación administrativa de equipo/jornada';
-    if (schedule != null && (schedule.dailyMinutes <= 0 || schedule.dailyMinutes > 1440 || schedule.nightStartMinute < 0 || schedule.nightStartMinute >= 1440 || schedule.nightEndMinute < 0 || schedule.nightEndMinute >= 1440 || schedule.nightStartMinute == schedule.nightEndMinute)) {
+    final authRef = authorizationReference.trim().isNotEmpty ? authorizationReference.trim() : 'Asignación administrativa';
+    if (schedule != null && (schedule.dailyMinutes <= 0 || schedule.dailyMinutes > 1440 || schedule.nightStartMinute == schedule.nightEndMinute)) {
       throw const FormatException('Duración de jornada inválida.');
     }
     final db = await database.database;
     if (crewId != null && (await db.query('crews', where: 'id=?', whereArgs: [crewId])).isEmpty) {
       throw const FormatException('Selecciona un equipo existente.');
     }
+    final cleanRole = (role != null && role.trim().isNotEmpty) ? role.trim() : null;
     await db.update('workers', {
       'crew_id': crewId,
       'schedule_json': schedule?.encode(),
-      if (role != null && role.trim().isNotEmpty) 'job': role.trim(),
+      if (cleanRole != null) 'job': cleanRole,
       'authorization_reference': authRef,
       'authorization_policy': privacy,
       'authorization_at': DateTime.now().toUtc().toIso8601String(),
     }, where: 'id=?', whereArgs: [workerId]);
+
+    if (cleanRole != null) {
+      final wRows = await db.query('workers', where: 'id=?', whereArgs: [workerId], limit: 1);
+      if (wRows.isNotEmpty) {
+        final doc = (wRows.first['document'] as String).trim();
+        final authDb = await LocalDatabaseService().database;
+        await authDb.update('usuarios_locales', {'cargo': cleanRole, 'is_admin': LocalAuthDataSource.isRoleAdmin(cleanRole, doc) ? 1 : 0}, where: 'cedula=?', whereArgs: [doc]);
+      }
+    }
   }
 
   Future<Map<String, Object?>> workerConfig(int id) async {
@@ -129,7 +146,7 @@ class LocalAdminStore {
   Future<void> ensureDefaultData() async {
     final db = await database.database;
     final p = await setting('privacy');
-    if (p == null || p.contains('"company":null') || !p.contains('"company"')) {
+    if (p == null || !p.contains('"company"')) {
       await db.insert('local_settings', {
         'name': 'privacy',
         'value': jsonEncode({'company': 'Talento Humano & Operaciones', 'responsible': 'Talento Humano & Operaciones', 'email': 'rrhh@smartattendance.local', 'phone': '+57 300 000 0000', 'purpose': 'Control de asistencia biométrica, geocerca GPS y gestión horaria', 'retention': '5 años conforme a normativa laboral vigente'}),
@@ -139,8 +156,7 @@ class LocalAdminStore {
     await db.transaction((tx) async {
       await tx.rawDelete('DELETE FROM crews WHERE id NOT IN (SELECT MIN(id) FROM crews GROUP BY name)');
       await tx.rawDelete('DELETE FROM work_zones WHERE id NOT IN (SELECT MIN(id) FROM work_zones GROUP BY name)');
-      final zCount = Sqflite.firstIntValue(await tx.rawQuery('SELECT COUNT(*) FROM work_zones')) ?? 0;
-      if (zCount == 0) {
+      if ((Sqflite.firstIntValue(await tx.rawQuery('SELECT COUNT(*) FROM work_zones')) ?? 0) == 0) {
         final zoneId = await tx.insert('work_zones', {'name': 'Sede Principal Operativa', 'address': 'Calle 25 # 20-30, Dosquebradas, Risaralda', 'latitude': 6.2874, 'longitude': -75.5871, 'radius_m': 250.0});
         await tx.insert('crews', {'name': 'Equipo Operativo Central', 'supervisor_document': adminDocument ?? '1007331963', 'zone_id': zoneId, 'valid_from': '2026-01-01', 'valid_until': '2026-12-31'});
       }
@@ -163,14 +179,21 @@ class LocalAdminStore {
     await db.delete('crews', where: 'id=?', whereArgs: [id]);
   }
 
-  Future<void> deleteWorker(int id) async { requireAdmin(); await (await database.database).delete('workers', where: 'id=?', whereArgs: [id]); }
-
-  Future<void> updateWorkerDetails(int id, {required String name, required String document, required String job}) async {
+  /// QUÉ HACE: Elimina un Colaborador, Supervisor o Administrador y revoca su acceso al login.
+  Future<void> deleteWorker(int id) async {
     requireAdmin();
-    if (name.trim().isEmpty || !RegExp(r'^\d{3,20}$').hasMatch(document.trim())) {
-      throw const FormatException('Escribe el nombre y una cédula de 3 a 20 dígitos.');
+    final db = await database.database;
+    final rows = await db.query('workers', where: 'id=?', whereArgs: [id], limit: 1);
+    if (rows.isNotEmpty) {
+      final doc = (rows.first['document'] as String? ?? '').trim();
+      if (doc == '1007331963') {
+        throw const FormatException('No se puede eliminar al Administrador Principal del sistema.');
+      }
+      final authDb = await LocalDatabaseService().database;
+      await authDb.delete('usuarios_locales', where: 'cedula=?', whereArgs: [doc]);
+      await authDb.delete('empleados_cache', where: 'cedula=?', whereArgs: [doc]);
     }
-    await (await database.database).update('workers', {'name': name.trim(), 'document': document.trim(), 'job': job.trim().isEmpty ? 'Colaborador' : job.trim()}, where: 'id=?', whereArgs: [id]);
+    await db.delete('workers', where: 'id=?', whereArgs: [id]);
   }
 
   Future<List<ShiftTemplate>> shiftTemplates() => _shiftStore.shiftTemplates();

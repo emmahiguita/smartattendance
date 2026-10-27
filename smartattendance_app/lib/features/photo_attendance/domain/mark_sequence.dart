@@ -1,47 +1,77 @@
-// lib/features/photo_attendance/domain/mark_sequence.dart
+// ============================================================================
+// ARCHIVO: mark_sequence.dart
+// QUÉ HACE: Define y valida de forma estricta la secuencia única de una
+//           jornada laboral diaria:
+//           1. `entrada` (Inicio)
+//           2. `salida_almuerzo` (Salida a almuerzo)
+//           3. `regreso_almuerzo` (Regreso de almuerzo)
+//           4. `salida` (Salida final - cierra la jornada del día)
+// CÓMO FUNCIONA:
+// - `allowed` mapea la última marca del día hacia la única marca siguiente
+//   válida. Cuando ya se marcó `salida`, retorna lista vacía `[]` porque la
+//   jornada del día está cerrada.
+// - `validate` lanza `FormatException` descriptiva si se intenta saltar un
+//   paso, repetir una marca o marcar `salida` sin haber iniciado jornada.
+// POR QUÉ: Corrige el bug que permitía marcar Salida, Almuerzo o Regreso sin
+//          orden lógico o repetir Salida en una misma jornada (< 85 líneas).
+// ============================================================================
+
 import '../../../../core/utils/attendance_type.dart';
 
-/// ============================================================================
-/// DOMINIO: MarkSequence (fuente única de "¿qué marca sigue?")
-/// ============================================================================
-/// QUÉ HACE:
-/// Sugiere el orden natural de la jornada:
-///   Entrada → Inicio almuerzo → Regreso almuerzo → Salida → (nueva Entrada)
-///
-/// CÓMO FUNCIONA:
-/// [allowed] mapea "última marca" → "marcas permitidas"; la PRIMERA de cada
-/// lista es la sugerida ([next]). Una última marca desconocida (p. ej. un
-/// 'hora_extra_*' antiguo) se trata como "sin marca" → sugiere Entrada.
-///
-/// POR QUÉ:
-/// Antes Home, la lista de trabajadores y el directorio calculaban "la
-/// siguiente marca" cada uno a su manera (código duplicado y resultados
-/// distintos). Ahora todos llaman a [next]. Las horas extras NO están:
-/// las decide el administrador, no el trabajador marcando.
-/// ============================================================================
 abstract final class MarkSequence {
-  /// Transiciones de la jornada. Clave '' = todavía no hay marcas.
+  /// Transiciones estrictas paso a paso dentro de una jornada diaria.
   static const allowed = <String, List<String>>{
-    '': ['entrada', 'salida_almuerzo', 'regreso_almuerzo', 'salida'],
-    'entrada': ['salida_almuerzo', 'salida', 'regreso_almuerzo'],
-    'salida_almuerzo': ['regreso_almuerzo', 'salida'],
-    'regreso_almuerzo': ['salida', 'salida_almuerzo'],
-    'salida': ['entrada'],
+    '': ['entrada'],
+    'entrada': ['salida_almuerzo'],
+    'salida_almuerzo': ['regreso_almuerzo'],
+    'regreso_almuerzo': ['salida'],
+    'salida': <String>[],
   };
 
-  /// Marcas permitidas después de [last] (desconocida → como si no hubiera).
-  static List<String> options(String? last) =>
-      allowed[last ?? ''] ?? allowed['']!;
+  /// QUÉ HACE: Devuelve las marcas permitidas después de `last`.
+  static List<String> options(String? last) {
+    final key = (last ?? '').trim().toLowerCase();
+    return allowed[key] ?? const ['entrada'];
+  }
 
-  /// Marca sugerida después de [last]. Ej.: next('entrada') = 'salida_almuerzo'.
-  static String next(String? last) => options(last).first;
+  /// QUÉ HACE: Devuelve el siguiente paso obligatorio de la jornada, o `''`
+  ///           si la jornada de hoy ya concluyó con `salida`.
+  static String next(String? last) {
+    final opts = options(last);
+    return opts.isEmpty ? '' : opts.first;
+  }
 
-  /// Valida que [next] sea un tipo conocido. Acepta los tipos antiguos para
-  /// que el cálculo de totales del historial no falle con registros viejos;
-  /// la escritura de marcas NUEVAS se restringe aparte con [attendanceTypes].
-  static void validate(String? previous, String next) {
-    if (!knownAttendanceTypes.contains(next)) {
-      throw FormatException('Tipo de marcación no reconocido: $next');
+  /// QUÉ HACE: Nombre legible en español para mensajes de validación.
+  static String labelOf(String type) => switch (type.trim().toLowerCase()) {
+        'entrada' => 'Inicio (Entrada)',
+        'salida_almuerzo' => 'Salida a Almuerzo',
+        'regreso_almuerzo' => 'Regreso de Almuerzo',
+        'salida' => 'Salida Final',
+        _ => 'Jornada Completada',
+      };
+
+  /// QUÉ HACE: Valida estrictamente que `nextType` sea el paso que sigue a `previous`.
+  static void validate(String? previous, String nextType) {
+    final cleanNext = nextType.trim().toLowerCase();
+    if (!knownAttendanceTypes.contains(cleanNext)) {
+      throw FormatException('Tipo de marcación no reconocido: $nextType');
+    }
+    final cleanPrev = (previous ?? '').trim().toLowerCase();
+    if (cleanPrev == 'salida') {
+      throw const FormatException(
+        'La jornada de hoy ya fue cerrada con tu Salida. No puedes registrar más marcas hoy.',
+      );
+    }
+    final expected = next(cleanPrev);
+    if (cleanNext != expected) {
+      if (cleanPrev.isEmpty) {
+        throw const FormatException(
+          'No puedes marcar Almuerzo ni Salida sin haber registrado primero tu Inicio (Entrada).',
+        );
+      }
+      throw FormatException(
+        'Orden de jornada inválido: tu última marca fue "${labelOf(cleanPrev)}", por lo tanto debes registrar "${labelOf(expected)}".',
+      );
     }
   }
 }
