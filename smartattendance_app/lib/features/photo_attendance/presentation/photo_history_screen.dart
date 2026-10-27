@@ -1,3 +1,13 @@
+// ============================================================================
+// ARCHIVO: photo_history_screen.dart
+// QUÉ HACE: Pantalla de historial de marcaciones con evidencia fotográfica.
+// CÓMO FUNCIONA: Si el usuario es Administrador/Supervisor (`actor.isAdmin`),
+//                habilita la barra de búsqueda global y la exportación masiva
+//                (PDF, Excel XLSX, CSV). Si es Colaborador normal, muestra
+//                únicamente sus propias marcaciones sin opciones de exportación.
+// POR QUÉ: Aísla los datos de nómina entre colaboradores y cumple < 165 líneas.
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/photo_pdf_exporter.dart';
@@ -7,8 +17,7 @@ import 'local_providers.dart';
 import 'photo_day_card.dart';
 import 'photo_share.dart';
 
-/// Historial local paginado y búsqueda explícita. No consulta internet ni tiene
-/// timers/polling. Los resultados obsoletos se descartan con una generación.
+/// Historial local paginado con control de acceso por rol (`LocalActor`).
 class PhotoHistoryScreen extends ConsumerStatefulWidget {
   const PhotoHistoryScreen({super.key});
   @override
@@ -35,6 +44,7 @@ class _PhotoHistoryScreenState extends ConsumerState<PhotoHistoryScreen> {
     super.dispose();
   }
 
+  /// QUÉ HACE: Consulta las jornadas autorizadas según el rol del usuario activo.
   Future<void> _load({bool reset = false}) async {
     if (_loading && !reset) return;
     final generation = ++_generation;
@@ -63,8 +73,9 @@ class _PhotoHistoryScreenState extends ConsumerState<PhotoHistoryScreen> {
     }
   }
 
+  /// QUÉ HACE: Exporta reportes oficiales únicamente cuando el actor es Admin.
   Future<void> _export(String format) async {
-    if (_exporting) return;
+    if (_exporting || !ref.read(localActorProvider).isAdmin) return;
     setState(() => _exporting = true);
     try {
       final repository = ref.read(localPhotoRepositoryProvider);
@@ -78,8 +89,7 @@ class _PhotoHistoryScreenState extends ConsumerState<PhotoHistoryScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'No se pudo exportar o abrir el selector para compartir.')));
+            content: Text('No se pudo exportar o abrir el selector para compartir.')));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -87,74 +97,81 @@ class _PhotoHistoryScreenState extends ConsumerState<PhotoHistoryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Historial con fotos'), actions: [
-          PopupMenuButton<String>(
+  Widget build(BuildContext context) {
+    final isAdmin = ref.watch(localActorProvider).isAdmin;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isAdmin ? 'Historial con fotos' : 'Mis marcaciones'),
+        actions: [
+          if (isAdmin)
+            PopupMenuButton<String>(
               enabled: !_exporting,
               tooltip: 'Exportar y compartir',
               onSelected: _export,
               itemBuilder: (_) => const [
-                    PopupMenuItem(
-                        value: 'pdf',
-                        child: Text('PDF con fotos (todo el historial)')),
-                    PopupMenuItem(
-                        value: 'xlsx',
-                        child:
-                            Text('Excel XLSX con fotos (todo el historial)')),
-                    PopupMenuItem(
-                        value: 'csv',
-                        child: Text(
-                            'CSV con horas y referencias de fotos (todo)')),
-                  ],
-              icon: const Icon(Icons.ios_share)),
-        ]),
-        body: SafeArea(
-            child: Column(children: [
+                PopupMenuItem(value: 'pdf', child: Text('PDF con fotos (todo el historial)')),
+                PopupMenuItem(value: 'xlsx', child: Text('Excel XLSX con fotos (todo el historial)')),
+                PopupMenuItem(value: 'csv', child: Text('CSV con horas y referencias de fotos (todo)')),
+              ],
+              icon: const Icon(Icons.ios_share),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(children: [
           if (_exporting) const LinearProgressIndicator(),
-          Padding(
+          if (isAdmin)
+            Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
-                  controller: _search,
-                  onSubmitted: (_) => _load(reset: true),
-                  decoration: InputDecoration(
-                      labelText: 'Buscar nombre o cédula',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                          onPressed: () => _load(reset: true),
-                          icon: const Icon(Icons.arrow_forward))))),
+                controller: _search,
+                onSubmitted: (_) => _load(reset: true),
+                decoration: InputDecoration(
+                  labelText: 'Buscar nombre o cédula',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    onPressed: () => _load(reset: true),
+                    icon: const Icon(Icons.arrow_forward),
+                  ),
+                ),
+              ),
+            ),
           if (_error != null)
-            TextButton(
-                onPressed: () => _load(reset: true), child: Text(_error!)),
+            TextButton(onPressed: () => _load(reset: true), child: Text(_error!)),
           if (_loading && _records.isEmpty)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_records.isEmpty)
-            const Expanded(
-                child: Center(child: Text('No hay asistencias para mostrar.')))
+            const Expanded(child: Center(child: Text('No hay asistencias para mostrar.')))
           else
             Expanded(
-                child: RefreshIndicator(
-                    onRefresh: () => _load(reset: true),
-                    child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: _records.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index < _records.length) {
-                            return PhotoDayCard(
-                                key: ValueKey(_records[index].id),
-                                day: _records[index],
-                                onChanged: () => _load(reset: true));
-                          }
-                          return Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: _more
-                                  ? OutlinedButton(
-                                      onPressed: _loading ? null : _load,
-                                      child: Text(_loading
-                                          ? 'Cargando…'
-                                          : 'Cargar más'))
-                                  : const Text('Fin del historial',
-                                      textAlign: TextAlign.center));
-                        }))),
-        ])),
-      );
+              child: RefreshIndicator(
+                onRefresh: () => _load(reset: true),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: _records.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index < _records.length) {
+                      return PhotoDayCard(
+                        key: ValueKey(_records[index].id),
+                        day: _records[index],
+                        onChanged: () => _load(reset: true),
+                      );
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _more
+                          ? OutlinedButton(
+                              onPressed: _loading ? null : _load,
+                              child: Text(_loading ? 'Cargando…' : 'Cargar más'),
+                            )
+                          : const Text('Fin del historial', textAlign: TextAlign.center),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
 }

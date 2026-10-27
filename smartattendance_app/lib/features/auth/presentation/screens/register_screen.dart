@@ -1,11 +1,18 @@
-// lib/features/auth/presentation/screens/register_screen.dart
+// ============================================================================
+// ARCHIVO: register_screen.dart
+// QUÉ HACE: Pantalla de registro de nuevo colaborador (`POST /auth/register`).
+// CÓMO FUNCIONA: Captura datos básicos y bloquea el escalamiento de privilegios
+//                forzando que ningún auto-registro pueda asignarse rol de
+//                `Administrador` o `Supervisor` (esos roles solo los asigna un
+//                Administrador autenticado desde adentro de la aplicación).
+// POR QUÉ: Evita auto-promoción de permisos y cumple el límite de < 195 líneas.
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/exceptions/error_handler.dart';
@@ -13,114 +20,70 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/validators/input_validators.dart';
+import '../../data/datasources/local_auth_datasource.dart';
 import '../viewmodels/login_viewmodel.dart' show authRepositoryProvider;
 
-/// Registro REAL de empleado: POST /auth/register.
-/// El servidor crea la cuenta (contraseña bcrypt) y retorna tokens —
-/// la sesión queda iniciada automáticamente.
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
-
   @override
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nombreController = TextEditingController();
-  final _apellidoController = TextEditingController();
-  final _cedulaController = TextEditingController();
-  final _correoController = TextEditingController();
-  final _telefonoController = TextEditingController();
-  final _cargoController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
-
-  DateTime? _fechaNacimiento;
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
+  final _nombre = TextEditingController(), _apellido = TextEditingController();
+  final _cedula = TextEditingController(), _correo = TextEditingController();
+  final _telefono = TextEditingController(), _cargo = TextEditingController(text: 'Colaborador');
+  final _password = TextEditingController(), _confirm = TextEditingController();
+  DateTime? _fechaNac;
+  bool _isLoading = false, _obscurePass = true, _obscureConf = true;
 
   @override
   void dispose() {
-    _nombreController.dispose();
-    _apellidoController.dispose();
-    _cedulaController.dispose();
-    _correoController.dispose();
-    _telefonoController.dispose();
-    _cargoController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
+    for (final c in [_nombre, _apellido, _cedula, _correo, _telefono, _cargo, _password, _confirm]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  /// Calendario para fecha de nacimiento (rango realista 18–80 años).
-  Future<void> _pickFechaNacimiento() async {
+  Future<void> _pickFecha() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _fechaNacimiento ?? DateTime(now.year - 25, 1, 1),
+      initialDate: _fechaNac ?? DateTime(now.year - 25, 1, 1),
       firstDate: DateTime(now.year - 80),
       lastDate: DateTime(now.year - 18, now.month, now.day),
-      locale: const Locale('es'),
-      helpText: 'Fecha de nacimiento',
-      cancelText: 'Cancelar',
-      confirmText: 'Seleccionar',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context)
-              .colorScheme
-              .copyWith(primary: AppColors.primary),
-        ),
-        child: child!,
-      ),
     );
-    if (picked != null) {
-      setState(() => _fechaNacimiento = picked);
+    if (picked != null && mounted) setState(() => _fechaNac = picked);
+  }
+
+  /// QUÉ HACE: Sanitiza el cargo en auto-registro para impedir auto-asignación de Admin/Supervisor.
+  String _safeCollaboratorRole(String rawCargo) {
+    final trimmed = rawCargo.trim();
+    if (trimmed.isEmpty || LocalAuthDataSource.isRoleAdmin(trimmed, '')) {
+      return 'Colaborador';
     }
+    return trimmed;
   }
 
   Future<void> _handleRegister() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-
     setState(() => _isLoading = true);
     HapticFeedback.mediumImpact();
-
     try {
-      final repository = ref.read(authRepositoryProvider);
-      final (_, user) = await repository.register(
-        nombre: _nombreController.text,
-        apellido: _apellidoController.text,
-        cedula: _cedulaController.text,
-        correo: _correoController.text,
-        password: _passwordController.text,
-        telefono: _telefonoController.text,
-        cargo: _cargoController.text,
-        fechaNacimiento: _fechaNacimiento == null
-            ? null
-            : DateFormat('yyyy-MM-dd').format(_fechaNacimiento!),
-      );
-
-      // Sesión iniciada con los tokens REALES que retornó el servidor.
+      final safeCargo = _safeCollaboratorRole(_cargo.text);
+      final (_, user) = await ref.read(authRepositoryProvider).register(
+            nombre: _nombre.text.trim(),
+            apellido: _apellido.text.trim(),
+            cedula: _cedula.text.trim(),
+            correo: _correo.text.trim(),
+            password: _password.text,
+            telefono: _telefono.text.trim(),
+            cargo: safeCargo,
+            fechaNacimiento: _fechaNac == null ? null : DateFormat('yyyy-MM-dd').format(_fechaNac!),
+          );
       await ref.read(sessionControllerProvider.notifier).authenticate(user);
-
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: Text('Cuenta creada. Bienvenido, ${user.nombre}.')),
-            ],
-          ),
-          backgroundColor: AppColors.systemGreen,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
       context.go(AppRoutes.home);
     } on AppException catch (e) {
       _showError(e.message);
@@ -131,326 +94,98 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
-  void _showError(String message) {
+  void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.systemRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.systemRed, behavior: SnackBarBehavior.floating));
   }
+
+  Widget _field(String label, TextEditingController ctrl, String hint, IconData icon, {TextInputType? type, List<TextInputFormatter>? fmt, String? Function(String?)? val, bool obscure = false, Widget? suffix}) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          TextFormField(
+            controller: ctrl,
+            keyboardType: type,
+            inputFormatters: fmt,
+            obscureText: obscure,
+            validator: val,
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixIcon: Icon(icon, size: 20, color: context.cGray),
+              suffixIcon: suffix,
+              filled: true,
+              fillColor: context.cBackground,
+              contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: context.cBorder)),
+            ),
+          ),
+        ]),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final fechaLabel = _fechaNacimiento == null
-        ? 'Selecciona tu fecha de nacimiento'
-        : DateFormat('dd/MM/yyyy').format(_fechaNacimiento!);
-
+    final fechaLabel = _fechaNac == null ? 'Seleccionar fecha' : DateFormat('dd/MM/yyyy').format(_fechaNac!);
     return Scaffold(
       backgroundColor: context.cBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: context.cTextPrimary),
-          onPressed: () => context.go(AppRoutes.login),
-        ),
-        title: Text(
-          'Registro de Usuario',
-          style: TextStyle(
-            color: context.cTextPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        leading: IconButton(icon: Icon(Icons.arrow_back, color: context.cTextPrimary), onPressed: () => context.go(AppRoutes.login)),
+        title: Text('Registro de Colaborador', style: TextStyle(color: context.cTextPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  color: context.cSurface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: context.cBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(color: context.cSurface, borderRadius: BorderRadius.circular(22), border: Border.all(color: context.cBorder)),
                 child: Form(
                   key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Crea tu cuenta',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: context.cTextPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Tus datos se registran en el sistema de asistencia',
-                        style: TextStyle(
-                            fontSize: 13, color: context.cTextSecondary),
-                      ),
-                      const SizedBox(height: 24),
-
-                      _field(
-                        label: 'Nombre',
-                        controller: _nombreController,
-                        hint: 'Ej: Emmanuel',
-                        icon: Icons.person,
-                        validator: (v) =>
-                            InputValidators.validateRequired(v, 'Nombre'),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Apellido',
-                        controller: _apellidoController,
-                        hint: 'Ej: Higuita',
-                        icon: Icons.badge,
-                        validator: (v) =>
-                            InputValidators.validateRequired(v, 'Apellido'),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Cédula de Identidad',
-                        controller: _cedulaController,
-                        hint: 'Ej: 1007331963',
-                        icon: Icons.badge,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                        validator: (v) => InputValidators.validateCedula(v),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Correo Electrónico',
-                        controller: _correoController,
-                        hint: 'correo@empresa.com',
-                        icon: Icons.mail,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (v) => InputValidators.validateEmail(v),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Teléfono',
-                        controller: _telefonoController,
-                        hint: 'Ej: +57 300 123 4567',
-                        icon: Icons.call,
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Cargo / Posición',
-                        controller: _cargoController,
-                        hint: 'Ej: Desarrollador / Analista',
-                        icon: Icons.work,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // ── Fecha de nacimiento con calendario ──
-                      const Text('Fecha de Nacimiento',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: _pickFechaNacimiento,
-                        borderRadius: BorderRadius.circular(14),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Crea tu cuenta operativa', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: context.cTextPrimary)),
+                    const SizedBox(height: 4),
+                    Text('Los permisos de Supervisor o Administrador solo son asignados internamente por RRHH.', style: TextStyle(fontSize: 12, color: context.cTextSecondary)),
+                    const SizedBox(height: 18),
+                    _field('Nombre', _nombre, 'Ej: Juan', Icons.person, val: (v) => InputValidators.validateRequired(v, 'Nombre')),
+                    _field('Apellido', _apellido, 'Ej: Pérez', Icons.badge, val: (v) => InputValidators.validateRequired(v, 'Apellido')),
+                    _field('Cédula de Identidad', _cedula, 'Ej: 1020304050', Icons.credit_card, type: TextInputType.number, fmt: [FilteringTextInputFormatter.digitsOnly], val: InputValidators.validateCedula),
+                    _field('Correo Electrónico', _correo, 'correo@empresa.com', Icons.mail, type: TextInputType.emailAddress, val: InputValidators.validateEmail),
+                    _field('Teléfono', _telefono, '+57 300 000 0000', Icons.call, type: TextInputType.phone),
+                    InkWell(
+                      onTap: _pickFecha,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
                         child: InputDecorator(
-                          decoration:
-                              _decoration('', Icons.calendar_month).copyWith(
-                            suffixIcon: Icon(Icons.expand_more,
-                                size: 20, color: context.cGray),
-                          ),
-                          child: Text(
-                            fechaLabel,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: _fechaNacimiento == null
-                                  ? FontWeight.w400
-                                  : FontWeight.w600,
-                              color: _fechaNacimiento == null
-                                  ? context.cGray2
-                                  : context.cTextPrimary,
-                            ),
-                          ),
+                          decoration: InputDecoration(labelText: 'Fecha de Nacimiento', prefixIcon: const Icon(Icons.calendar_month, size: 20), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
+                          child: Text(fechaLabel),
                         ),
                       ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Contraseña',
-                        controller: _passwordController,
-                        hint: 'Mínimo 6 caracteres',
-                        icon: Icons.lock,
-                        obscure: _obscurePassword,
-                        suffix: IconButton(
-                          icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              size: 20),
-                          onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword),
-                        ),
-                        validator: (v) => (v == null || v.length < 6)
-                            ? 'Mínimo 6 caracteres'
-                            : null,
+                    ),
+                    _field('Contraseña', _password, 'Mínimo 6 caracteres', Icons.lock, obscure: _obscurePass, suffix: IconButton(icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility, size: 19), onPressed: () => setState(() => _obscurePass = !_obscurePass)), val: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null),
+                    _field('Confirmar Contraseña', _confirm, 'Repite la contraseña', Icons.lock_open, obscure: _obscureConf, suffix: IconButton(icon: Icon(_obscureConf ? Icons.visibility_off : Icons.visibility, size: 19), onPressed: () => setState(() => _obscureConf = !_obscureConf)), val: (v) => v != _password.text ? 'Las contraseñas no coinciden' : null),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: _isLoading ? null : _handleRegister,
+                        child: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Registrarme como Colaborador', style: TextStyle(fontWeight: FontWeight.w700)),
                       ),
-                      const SizedBox(height: 16),
-
-                      _field(
-                        label: 'Confirmar Contraseña',
-                        controller: _confirmController,
-                        hint: 'Repite la contraseña',
-                        icon: Icons.lock_open,
-                        obscure: _obscureConfirm,
-                        suffix: IconButton(
-                          icon: Icon(
-                              _obscureConfirm
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              size: 20),
-                          onPressed: () => setState(
-                              () => _obscureConfirm = !_obscureConfirm),
-                        ),
-                        validator: (v) => (v != _passwordController.text)
-                            ? 'Las contraseñas no coinciden'
-                            : null,
-                      ),
-                      const SizedBox(height: 28),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleRegister,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                            elevation: 0,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2.5),
-                                )
-                              : const Text(
-                                  'Registrarme',
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      Center(
-                        child: TextButton(
-                          onPressed: () => context.go(AppRoutes.login),
-                          child: Text.rich(
-                            TextSpan(
-                              text: '¿Ya tienes una cuenta? ',
-                              style: TextStyle(
-                                  color: context.cTextSecondary, fontSize: 13),
-                              children: const [
-                                TextSpan(
-                                  text: 'Inicia sesión',
-                                  style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ]),
                 ),
-              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _field({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    String? Function(String?)? validator,
-    bool obscure = false,
-    Widget? suffix,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          obscureText: obscure,
-          style: const TextStyle(fontSize: 15),
-          decoration: _decoration(hint, icon).copyWith(suffixIcon: suffix),
-          validator: validator,
-        ),
-      ],
-    );
-  }
-
-  InputDecoration _decoration(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint.isEmpty ? null : hint,
-      hintStyle: TextStyle(color: context.cGray2, fontSize: 14),
-      prefixIcon: Icon(icon, size: 20, color: context.cGray),
-      filled: true,
-      fillColor: context.cBackground,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: context.cBorder),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: context.cBorder),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
       ),
     );
   }

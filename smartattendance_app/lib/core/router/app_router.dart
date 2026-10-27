@@ -1,3 +1,12 @@
+// ============================================================================
+// ARCHIVO: app_router.dart
+// QUÉ HACE: Enrutador declarativo (`GoRouter`) con guardián de sesión y RBAC.
+// CÓMO FUNCIONA: Redirige usuarios no autenticados a `/login` e impide que
+//                colaboradores sin rol administrativo (`!isAdmin`) naveguen
+//                a rutas de directorio de personal (`/employee-today`, etc.).
+// POR QUÉ: Blindaje de navegación en capa de ruteo (< 115 líneas).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +17,7 @@ import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/photo_attendance/presentation/local_attendance_home.dart';
+import '../../features/photo_attendance/presentation/local_providers.dart';
 import '../../features/photo_attendance/presentation/local_start_screen.dart';
 import '../../features/photo_attendance/presentation/photo_history_screen.dart';
 import '../../features/profile/presentation/screens/edit_profile_screen.dart';
@@ -32,70 +42,51 @@ abstract final class AppRoutes {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
-      initialLocation: AppRoutes.splash,
-      redirect: (context, state) {
-        final session = ref.read(sessionControllerProvider);
-        final path = state.matchedLocation;
-        if (session is SessionUnknown || path == AppRoutes.splash) return null;
-        const public = {
-          AppRoutes.login,
-          AppRoutes.register,
-          AppRoutes.forgotPassword
-        };
-        if (session is SessionUnauthenticated && !public.contains(path)) {
-          return AppRoutes.login;
-        }
-        return null;
-      },
-      routes: [
+    initialLocation: AppRoutes.splash,
+    redirect: (context, state) {
+      final session = ref.read(sessionControllerProvider);
+      final path = state.matchedLocation;
+      if (session is SessionUnknown || path == AppRoutes.splash) return null;
+      const public = {AppRoutes.login, AppRoutes.register, AppRoutes.forgotPassword};
+      if (session is SessionUnauthenticated && !public.contains(path)) {
+        return AppRoutes.login;
+      }
+      const adminOnly = {AppRoutes.facialRecognition, AppRoutes.employeeToday, AppRoutes.qrScan};
+      if (adminOnly.contains(path) && !ref.read(localActorProvider).isAdmin) {
+        return AppRoutes.home;
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(path: AppRoutes.splash, builder: (_, __) => const LocalStartScreen()),
+      GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
+      GoRoute(path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: AppRoutes.forgotPassword, builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
+      GoRoute(
+        path: AppRoutes.confirmation,
+        builder: (_, state) => ConfirmationScreen(
+          tipo: state.uri.queryParameters['tipo'] ?? 'entrada',
+          fechaRegistro: state.uri.queryParameters['fecha'],
+          horaRegistro: state.uri.queryParameters['hora'],
+        ),
+      ),
+      GoRoute(path: AppRoutes.history, builder: (_, __) => const PhotoHistoryScreen()),
+      GoRoute(path: AppRoutes.settings, builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: AppRoutes.profileEdit, builder: (_, __) => const EditProfileScreen()),
+      for (final path in [AppRoutes.facialRecognition, AppRoutes.employeeToday, AppRoutes.qrScan])
         GoRoute(
-            path: AppRoutes.splash,
-            builder: (_, __) => const LocalStartScreen()),
-        GoRoute(
-            path: AppRoutes.login,
-            builder: (_, __) => const LoginScreen()),
-        GoRoute(
-            path: AppRoutes.register,
-            builder: (_, __) => const RegisterScreen()),
-        GoRoute(
-            path: AppRoutes.forgotPassword,
-            builder: (_, __) => const ForgotPasswordScreen()),
-        GoRoute(
-            path: AppRoutes.home,
-            builder: (_, __) => const HomeScreen()),
-        GoRoute(
-            path: AppRoutes.confirmation,
-            builder: (_, state) => ConfirmationScreen(
-                tipo: state.uri.queryParameters['tipo'] ?? 'entrada',
-                fechaRegistro: state.uri.queryParameters['fecha'],
-                horaRegistro: state.uri.queryParameters['hora'])),
-        GoRoute(
-            path: AppRoutes.history,
-            builder: (_, __) => const PhotoHistoryScreen()),
-        GoRoute(
-            path: AppRoutes.settings,
-            builder: (_, __) => const SettingsScreen()),
-        GoRoute(
-            path: AppRoutes.profileEdit,
-            builder: (_, __) => const EditProfileScreen()),
-        for (final path in [
-          AppRoutes.facialRecognition,
-          AppRoutes.employeeToday,
-          AppRoutes.qrScan
-        ])
-          GoRoute(
-              path: path,
-              builder: (_, state) => LocalAttendanceHome(
-                  initialType: state.uri.queryParameters['tipo'])),
-      ],
-      errorBuilder: (_, __) => const Scaffold(
-          body: Center(child: Text('Pantalla no encontrada.'))));
+          path: path,
+          builder: (_, state) => LocalAttendanceHome(initialType: state.uri.queryParameters['tipo']),
+        ),
+    ],
+    errorBuilder: (_, __) => const Scaffold(body: Center(child: Text('Pantalla no encontrada.'))),
+  );
 
   ref.listen<SessionState>(sessionControllerProvider, (_, next) {
     final path = router.routerDelegate.currentConfiguration.uri.path;
     if (next is SessionUnauthenticated) router.go(AppRoutes.login);
-    if (next is SessionAuthenticated &&
-        [AppRoutes.login, AppRoutes.splash].contains(path)) {
+    if (next is SessionAuthenticated && [AppRoutes.login, AppRoutes.splash].contains(path)) {
       router.go(AppRoutes.home);
     }
   });

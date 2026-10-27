@@ -1,8 +1,17 @@
-// lib/features/auth/data/models/user_model.dart
-import '../../domain/entities/user_entity.dart';
+// ============================================================================
+// ARCHIVO: user_model.dart
+// QUÉ HACE: Modelo de datos que transforma JSON de API o filas SQLite a
+//           la entidad de dominio `UserEntity`.
+// CÓMO FUNCIONA: Evalúa privilegios administrativos mediante la regla estricta
+//                `LocalAuthDataSource.isRoleAdmin` (sin subcadenas ambiguas).
+// POR QUÉ: Evita escalamiento de privilegios por cargos como "Auxiliar
+//          Administrativo" y cumple Clean Architecture (< 100 líneas).
+// ============================================================================
 
-/// Data model: parses API JSON and maps to UserEntity.
-/// SRP: only data transformation (JSON ↔ domain entity).
+import '../../domain/entities/user_entity.dart';
+import '../datasources/local_auth_datasource.dart';
+
+/// Modelo de transformación de datos de usuario (JSON / SQLite ↔ Dominio).
 final class UserModel {
   const UserModel({
     required this.id,
@@ -30,25 +39,21 @@ final class UserModel {
   final String? fotoUrl;
   final bool isAdmin;
 
+  /// QUÉ HACE: Construye `UserModel` desde JSON validando rol estricto.
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    final role = (json['cargo'] ?? json['rol'] ?? json['role'] ?? '').toString().toLowerCase();
+    final role = (json['cargo'] ?? json['rol'] ?? json['role'] ?? '').toString();
     final cedula = (json['cedula'] ?? '').toString();
     final bool admin = (json['is_admin'] == 1 || json['is_admin'] == true) ||
         (json['isAdmin'] == 1 || json['isAdmin'] == true) ||
-        role.contains('admin') ||
-        role.contains('encargado') ||
-        role.contains('supervisor') ||
-        role.contains('director') ||
-        role.contains('gerente') ||
-        cedula == '1007331963';
+        LocalAuthDataSource.isRoleAdmin(role, cedula);
 
     return UserModel(
       id: json['id'] as int,
       nombre: json['nombre'] as String,
       apellido: json['apellido'] as String,
-      cedula: json['cedula'] as String,
-      correo: json['correo'] as String,
-      cargo: json['cargo'] as String,
+      cedula: cedula,
+      correo: (json['correo'] ?? '').toString(),
+      cargo: role.isEmpty ? 'Colaborador' : role,
       fechaNacimiento: json['fecha_nacimiento'] as String?,
       telefono: json['telefono'] as String?,
       direccion: json['direccion'] as String?,
@@ -57,7 +62,7 @@ final class UserModel {
     );
   }
 
-  /// LSP: UserEntity can be substituted wherever UserModel is expected.
+  /// QUÉ HACE: Convierte el modelo de datos en entidad de dominio inmutable.
   UserEntity toEntity() => UserEntity(
         id: id,
         nombre: nombre,
@@ -72,18 +77,22 @@ final class UserModel {
         isAdmin: isAdmin,
       );
 
-  /// Crea un UserModel desde una fila de SQLite (usuarios_locales).
-  factory UserModel.fromLocalRow(Map<String, dynamic> row) => UserModel(
-        id: row['id'] as int,
-        nombre: row['nombre'] as String,
-        apellido: row['apellido'] as String,
-        cedula: row['cedula'] as String,
-        correo: (row['correo'] as String?) ?? '',
-        cargo: (row['cargo'] as String?) ?? 'Empleado',
-        fechaNacimiento: row['fecha_nacimiento'] as String?,
-        telefono: row['telefono'] as String?,
-        direccion: row['direccion'] as String?,
-        fotoUrl: row['foto_url'] as String?,
-        isAdmin: row['is_admin'] == 1,
-      );
+  /// QUÉ HACE: Construye `UserModel` desde una fila local de `usuarios_locales`.
+  factory UserModel.fromLocalRow(Map<String, dynamic> row) {
+    final cargo = (row['cargo'] as String?) ?? 'Colaborador';
+    final cedula = (row['cedula'] as String?) ?? '';
+    return UserModel(
+      id: row['id'] as int,
+      nombre: row['nombre'] as String,
+      apellido: (row['apellido'] as String?) ?? '',
+      cedula: cedula,
+      correo: (row['correo'] as String?) ?? '',
+      cargo: cargo,
+      fechaNacimiento: row['fecha_nacimiento'] as String?,
+      telefono: row['telefono'] as String?,
+      direccion: row['direccion'] as String?,
+      fotoUrl: row['foto_url'] as String?,
+      isAdmin: row['is_admin'] == 1 || LocalAuthDataSource.isRoleAdmin(cargo, cedula),
+    );
+  }
 }

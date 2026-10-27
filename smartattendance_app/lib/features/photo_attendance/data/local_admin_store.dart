@@ -79,6 +79,10 @@ class LocalAdminStore {
     }
     final db = await database.database;
     id == null ? await db.insert('crews', crew) : await db.update('crews', crew, where: 'id=?', whereArgs: [id]);
+    await db.rawUpdate(
+      "UPDATE workers SET job = 'Supervisor' WHERE document = ? AND LOWER(job) = 'colaborador'",
+      [(crew['supervisor_document'] as String).trim()],
+    );
   }
 
   /// QUÉ HACE: Asigna cuadrilla, horario y nivel de rol (Colaborador/Supervisor/Administrador).
