@@ -16,6 +16,7 @@ abstract final class AppAssets {
   static const String logoOficial = 'assets/images/serviciudad_logo.png';
 
   // ── BANNERS INSTITUCIONALES ──
+  static const String bannerInicioAlcantarillado = 'assets/banners/banner_inicio_alcantarillado.jpg';
   static const String bannerAcueducto = 'assets/banners/banner_acueducto.png';
   static const String bannerAlcantarillado = 'assets/banners/banner_alcantarillado.png';
   static const String bannerAseo = 'assets/banners/banner_aseo.png';

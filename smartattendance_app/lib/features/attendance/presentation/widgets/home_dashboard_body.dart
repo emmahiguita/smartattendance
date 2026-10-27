@@ -1,23 +1,21 @@
 // ============================================================================
 // ARCHIVO: home_dashboard_body.dart
-// QUÉ HACE: Cuerpo principal de Inicio 100% limpio, transparente y no redundante.
-// CÓMO FUNCIONA: Orquesta de forma directa, pequeña y transparente:
-//                1. Logo Oficial 3D flotante interactivo (sin card ni cajas).
-//                2. Encabezado institucional limpio con saludo al colaborador.
-//                3. Los 4 botones pequeños y transparentes de marcación:
-//                   Inicio, Salida Almuerzo, Regreso y Salida.
-//                4. Barra de estado transparente con geocerca GPS y tiempo.
-// POR QUÉ: Atiende la directiva: "DEPURA ESA CARD DEBE SER TRANSPARENTE TODO,
-//          EL BOTON DE INICIO, SALIDA REGRESO A ALMORZAR Y SALIDA DEBE SER
-//          PEQUEÑO, CORRIGE COMPONENTES NO DEBEN SER REDUNDANTES" (< 100 líneas).
+// QUÉ HACE: Cuerpo principal de Inicio con el banner institucional superior
+//           completo en estilo iOS opaco (`ServiciudadTopIosBanner`), saludo
+//           al colaborador, los 4 botones compactos de marcación y estado GPS.
+// CÓMO FUNCIONA: Coloca la imagen oficial únicamente en la parte superior de
+//                Inicio fusionada con el fondo de la pantalla y organiza debajo
+//                los controles operativos sin saturar la vista.
+// POR QUÉ: Cumple Clean Architecture, adaptabilidad horizontal/vertical y el
+//          límite estricto de < 110 líneas.
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../../domain/entities/attendance_entity.dart';
 import 'home_header.dart';
-import 'serviciudad_3d_logo_hero.dart';
 import 'serviciudad_hero_card.dart';
 import 'serviciudad_status_grid.dart';
+import 'serviciudad_top_ios_banner.dart';
 
 class HomeDashboardBody extends StatelessWidget {
   final dynamic user;
@@ -74,12 +72,12 @@ class HomeDashboardBody extends StatelessWidget {
     return SingleChildScrollView(
       key: const PageStorageKey('home-clean-scroll'),
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Serviciudad3DLogoHero(height: 130),
-          const SizedBox(height: 6),
+          const ServiciudadTopIosBanner(),
+          const SizedBox(height: 10),
           HomeHeader(
             user: user,
             onOpenDirectory: onOpenStaff ?? () => onSelectMark?.call(null),
