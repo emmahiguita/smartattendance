@@ -1,18 +1,16 @@
 // ============================================================================
 // ARCHIVO: serviciudad_top_ios_banner.dart
 // QUÉ HACE: Carrusel superior SIN CARD con las fotografías operativas oficiales
-//           enviadas por el usuario (`bannerInicioCalidadVida`,
-//           `bannerInicioRedesTuberia`, `bannerInicioCuadrillaDia`,
-//           `bannerInicioNocturno`, `bannerInicioAlcantarillado`) pasando cada
-//           5 segundos con desvanecimiento iOS opaco, seguido del bloque textual
-//           de Misión y Visión con tipografía Editorial Profesional avanzada.
+//           enviadas por el usuario pasando cada 5 segundos con desvanecimiento
+//           iOS opaco hacia el fondo de la pantalla y el logo oficial de
+//           Serviciudad E.S.P., SIN texto de Misión ni Visión.
 // CÓMO FUNCIONA:
 // 1. `Timer.periodic(Duration(seconds: 5))` avanza el `PageController` entre
 //    las imágenes enviadas, mostrándolas completas (`BoxFit.fill`).
-// 2. Renderiza debajo la Misión y Visión con jerarquía tipográfica Editorial
-//    (`AppTheme.editorialSerif` + OpenType `kern` y `liga`).
-// POR QUÉ: Cumple la directiva de mostrar las nuevas imágenes enviadas y usar
-//          fuente tipo Editorial Profesional avanzada (< 170 líneas).
+// 2. `ShaderMask` funde el borde inferior con el fondo de la pantalla y muestra
+//    el logo institucional oficial (`AppAssets.logoOficialReal`).
+// POR QUÉ: Cumple la directiva "sin mision y vision solo las imagenes y el logo"
+//          manteniendo el código en < 130 líneas.
 // ============================================================================
 
 import 'dart:async';
@@ -105,6 +103,23 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
                     ),
                   ),
                   Positioned(
+                    top: 10,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.86),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Image.asset(
+                        AppAssets.logoOficialReal,
+                        height: 28,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ),
+                  Positioned(
                     bottom: 8,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -126,58 +141,6 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
                 ],
               ),
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(width: 22, height: 1.6, color: AppColors.primary),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'COMPROMISO INSTITUCIONAL · SERVICIUDAD E.S.P.',
-                    style: TextStyle(fontSize: 9.8, fontWeight: FontWeight.w800, letterSpacing: 1.25, color: AppColors.primary, fontFeatures: AppTheme.editorialFeatures),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 5),
-              Text(
-                'Misión & Visión Institucional',
-                style: TextStyle(
-                  fontFamily: AppTheme.editorialSerif,
-                  fontFamilyFallback: AppTheme.editorialFallbacks,
-                  fontFeatures: AppTheme.editorialFeatures,
-                  fontSize: 18.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.35,
-                  height: 1.18,
-                  color: context.cTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 5),
-              RichText(
-                text: TextSpan(
-                  style: TextStyle(
-                    fontFamily: AppTheme.editorialSerif,
-                    fontFamilyFallback: AppTheme.editorialFallbacks,
-                    fontFeatures: AppTheme.editorialFeatures,
-                    fontSize: 12.6,
-                    height: 1.46,
-                    letterSpacing: -0.05,
-                    color: context.cTextSecondary,
-                  ),
-                  children: [
-                    TextSpan(text: 'Misión — ', style: TextStyle(fontWeight: FontWeight.w700, fontStyle: FontStyle.italic, color: context.cTextPrimary)),
-                    const TextSpan(text: 'Garantizar la prestación eficiente y continua de los servicios de Acueducto, Aseo y Alcantarillado para el bienestar y salud de la ciudad.\n'),
-                    TextSpan(text: 'Visión — ', style: TextStyle(fontWeight: FontWeight.w700, fontStyle: FontStyle.italic, color: context.cTextPrimary)),
-                    const TextSpan(text: 'Consolidarnos como la empresa pública líder en sostenibilidad ambiental, innovación operativa y calidad de vida en la región.'),
-                  ],
-                ),
-              ),
-            ],
           ),
         ),
       ],
