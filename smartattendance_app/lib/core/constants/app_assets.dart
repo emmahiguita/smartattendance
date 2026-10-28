@@ -16,6 +16,8 @@ abstract final class AppAssets {
   static const String logoOficial = 'assets/images/serviciudad_logo.png';
 
   // ── BANNERS INSTITUCIONALES ──
+  static const String bannerInicioCiudadLimpia = 'assets/banners/banner_inicio_ciudad_limpia.jpg';
+  static const String bannerInicioMantenimientoRedes = 'assets/banners/banner_inicio_mantenimiento_redes.jpg';
   static const String bannerInicioCalidadVida = 'assets/banners/banner_inicio_calidad_vida.jpg';
   static const String bannerInicioRedesTuberia = 'assets/banners/banner_inicio_redes_tuberia.jpg';
   static const String bannerInicioAlcantarillado = 'assets/banners/banner_inicio_alcantarillado.jpg';

@@ -1,18 +1,28 @@
 // ============================================================================
 // ARCHIVO: home_header.dart
-// QUÉ HACE: Encabezado institucional con tipografía Editorial Profesional
-//           (`AppTheme.editorialSerif`), saludo personalizado, cargo y fecha.
-// CÓMO FUNCIONA: Combina Serif de alto contraste en el saludo y la inicial del
-//                avatar con versalitas espaciadas en el sello institucional.
-// POR QUÉ: Aplica el sistema de fuentes Editorial Profesional (< 125 líneas).
+// QUÉ HACE: Encabezado institucional con miniatura fotográfica real del
+//           empleado (interactiva para agregar/cambiar foto desde Cámara o
+//           Galería) e información textual organizada:
+//           1. Nombre / Saludo editorial (`¡Hola, Emmanuel!`).
+//           2. Debajo, el Cargo completo sin recortes (`Cargo: Administrador`) y ID.
+//           3. Fecha oficial del día.
+// CÓMO FUNCIONA: Resuelve la foto real mediante `EmployeeAvatarService` y
+//                permite actualizarla tocando la miniatura.
+// POR QUÉ: Cumple la directiva de mostrar bien organizado el nombre y debajo
+//          el cargo sin cortarse, con foto real en miniatura (< 180 líneas).
 // ============================================================================
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/auth/session_controller.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/employee_avatar_service.dart';
+import '../../../auth/domain/entities/user_entity.dart';
 
-class HomeHeader extends StatelessWidget {
+class HomeHeader extends ConsumerWidget {
   final dynamic user;
   final VoidCallback? onOpenDirectory;
 
@@ -33,34 +43,79 @@ class HomeHeader extends StatelessWidget {
     }
   }
 
+  String _cleanCargo(String raw) {
+    final lower = raw.trim().toLowerCase();
+    if (lower.contains('administrador')) return 'Administrador';
+    if (lower.contains('supervisor')) return 'Supervisor Operativo';
+    return raw.trim().isEmpty ? 'Colaborador Operativo' : raw.trim();
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = context.isDark;
-    final fullName = (user?.fullName as String? ?? 'Colaborador');
+    final session = ref.watch(sessionControllerProvider);
+    final authUser = session is SessionAuthenticated ? session.user : (user is UserEntity ? user as UserEntity : null);
+
+    final fullName = authUser?.fullName ?? (user?.fullName as String? ?? 'Colaborador');
     final firstName = fullName.split(' ').first;
-    final cargo = (user?.cargo as String? ?? 'Operativo');
+    final rawCargo = authUser?.cargo ?? (user?.cargo as String? ?? 'Colaborador');
+    final cargo = _cleanCargo(rawCargo);
+    final cedula = authUser?.cedula ?? '';
     final dateStr = _formatDate();
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'C';
+    final avatarFile = EmployeeAvatarService.resolveFile(authUser?.fotoUrl);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
-          child: Text(
-            initial,
-            style: const TextStyle(
-              fontFamily: AppTheme.editorialSerif,
-              fontFamilyFallback: AppTheme.editorialFallbacks,
-              fontFeatures: AppTheme.editorialFeatures,
-              fontSize: 19,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
+        GestureDetector(
+          onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, authUser),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.45), width: 1.6),
+                  color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+                  image: avatarFile != null
+                      ? DecorationImage(image: FileImage(avatarFile), fit: BoxFit.cover)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: avatarFile == null
+                    ? Text(
+                        initial,
+                        style: const TextStyle(
+                          fontFamily: AppTheme.editorialSerif,
+                          fontFamilyFallback: AppTheme.editorialFallbacks,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : null,
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: context.cBackground, width: 1.8),
+                  ),
+                  child: const Icon(CupertinoIcons.camera_fill, size: 10, color: Colors.white),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 13),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,62 +123,60 @@ class HomeHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  Expanded(
+                    child: Text(
+                      '¡Hola, $firstName!',
+                      style: TextStyle(
+                        fontFamily: AppTheme.editorialSerif,
+                        fontFamilyFallback: AppTheme.editorialFallbacks,
+                        fontFeatures: AppTheme.editorialFeatures,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.35,
+                        color: context.cTextPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.08),
-                      borderRadius: BorderRadius.circular(5),
+                      color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.09),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
                       'SERVICIUDAD E.S.P.',
                       style: TextStyle(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
+                        letterSpacing: 0.8,
                         color: AppColors.primary,
-                        fontFeatures: AppTheme.editorialFeatures,
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      cargo,
-                      style: TextStyle(
-                        fontFamily: AppTheme.editorialSerif,
-                        fontFamilyFallback: AppTheme.editorialFallbacks,
-                        fontStyle: FontStyle.italic,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: context.cTextSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 3),
               Text(
-                '¡Hola, $firstName!',
-                style: TextStyle(
+                cedula.isNotEmpty ? 'Cargo: $cargo  •  ID $cedula' : 'Cargo: $cargo',
+                style: const TextStyle(
                   fontFamily: AppTheme.editorialSerif,
                   fontFamilyFallback: AppTheme.editorialFallbacks,
                   fontFeatures: AppTheme.editorialFeatures,
-                  fontSize: 19.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.35,
-                  color: context.cTextPrimary,
+                  fontSize: 12.2,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 1),
+              const SizedBox(height: 2),
               Text(
                 dateStr,
                 style: TextStyle(
                   fontSize: 11.2,
-                  letterSpacing: 0.1,
                   color: context.cTextSecondary,
                   fontWeight: FontWeight.w500,
                   fontFeatures: AppTheme.editorialFeatures,

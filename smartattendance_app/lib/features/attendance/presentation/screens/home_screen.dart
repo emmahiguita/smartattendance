@@ -24,6 +24,7 @@ import '../../../../core/location/location_service.dart';
 import '../../../../core/location/traccar_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/domain/entities/user_entity.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
 import '../../../photo_attendance/domain/work_schedule.dart';
 import '../../../photo_attendance/presentation/local_attendance_home.dart';
@@ -68,6 +69,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             await db.update('workers', {'schedule_json': sched.encode()}, where: 'id = ?', whereArgs: [wRows.first['id']]);
           }
           _assignedOvertimeMinutes = sched.assignedOvertimeMinutes;
+        }
+        if (session is SessionAuthenticated && (session.user.fotoUrl == null || session.user.fotoUrl!.isEmpty)) {
+          final pRows = await db.query('photo_marks', columns: ['local_path'], where: 'document = ?', whereArgs: [cedula], orderBy: 'captured_at DESC', limit: 1);
+          final pPath = pRows.firstOrNull?['local_path'] as String?;
+          if (pPath != null && pPath.isNotEmpty) {
+            final u = session.user;
+            await ref.read(sessionControllerProvider.notifier).authenticate(UserEntity(id: u.id, nombre: u.nombre, apellido: u.apellido, cedula: u.cedula, correo: u.correo, cargo: u.cargo, fotoUrl: pPath, isAdmin: u.isAdmin));
+          }
         }
         rows = await db.rawQuery('SELECT z.* FROM workers w JOIN crews c ON c.id = w.crew_id JOIN work_zones z ON z.id = c.zone_id WHERE w.document = ? LIMIT 1', [cedula]);
       }

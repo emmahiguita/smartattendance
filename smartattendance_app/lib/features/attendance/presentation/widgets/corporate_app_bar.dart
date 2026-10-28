@@ -1,22 +1,22 @@
 // ============================================================================
 // ARCHIVO: corporate_app_bar.dart
-// QUÉ HACE: Barra superior institucional sobria con identidad tipográfica
-//           monocromática, subtítulo contextual de sección, campana de
-//           recordatorios reales de jornada y acceso al perfil.
-// CÓMO FUNCIONA: Observa `localDayHistoryProvider` para mostrar un indicador
-//                discreto si existen recordatorios pendientes y navega al
-//                perfil al tocar el avatar de iniciales.
-// POR QUÉ: Elimina colores "vibe coder" (texto bicolor cian/blanco e iconos
-//          saturados) a favor de una cabecera ejecutiva limpia (< 160 líneas).
+// QUÉ HACE: Barra superior institucional con tipografía Editorial Profesional,
+//           campana de recordatorios reales y miniatura fotográfica real del
+//           empleado autenticado.
+// CÓMO FUNCIONA: Observa `sessionControllerProvider` y `localDayHistoryProvider`
+//                para mostrar la foto real del empleado en el botón de perfil.
+// POR QUÉ: Mantiene coherencia visual con la miniatura real del empleado (< 170 líneas).
 // ============================================================================
 
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/session_controller.dart';
 import '../../../../core/notifications/journey_reminders.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/employee_avatar_service.dart';
 import '../../../photo_attendance/presentation/local_day_history.dart';
 import '../../domain/entities/attendance_entity.dart';
 import 'notifications_sheet.dart';
@@ -38,9 +38,11 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final records = ref.watch(localDayHistoryProvider).valueOrNull ??
-        const <AttendanceEntity>[];
+    final session = ref.watch(sessionControllerProvider);
+    final authUser = session is SessionAuthenticated ? session.user : null;
+    final records = ref.watch(localDayHistoryProvider).valueOrNull ?? const <AttendanceEntity>[];
     final hasPendingReminders = computeJourneyReminders(records).isNotEmpty;
+    final avatarFile = EmployeeAvatarService.resolveFile(authUser?.fotoUrl);
 
     return AppBar(
       backgroundColor: context.cBackground.withValues(alpha: context.isDark ? 0.82 : 0.90),
@@ -125,10 +127,7 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     child: Container(
                       width: 7,
                       height: 7,
-                      decoration: const BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
                     ),
                   ),
               ],
@@ -145,13 +144,12 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
             decoration: BoxDecoration(
               color: context.cTextSecondary.withValues(alpha: 0.18),
               shape: BoxShape.circle,
-              border: Border.all(color: context.cBorder.withValues(alpha: 0.6), width: 0.8),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.45), width: 1.0),
+              image: avatarFile != null ? DecorationImage(image: FileImage(avatarFile), fit: BoxFit.cover) : null,
             ),
-            child: Icon(
-              CupertinoIcons.person_fill,
-              size: 19,
-              color: context.cTextSecondary,
-            ),
+            child: avatarFile == null
+                ? Icon(CupertinoIcons.person_fill, size: 19, color: context.cTextSecondary)
+                : null,
           ),
         ),
       ],

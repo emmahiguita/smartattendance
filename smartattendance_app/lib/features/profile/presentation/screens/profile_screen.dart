@@ -1,38 +1,35 @@
 // ============================================================================
 // ARCHIVO: profile_screen.dart
 // QUÉ HACE: Pantalla de Perfil Corporativo estilo Apple iOS Inset Grouped con
-//           avatar circular, información de expediente y acciones según rol.
-// CÓMO FUNCIONA: Lee el usuario autenticado desde `sessionControllerProvider`
-//                y verifica `localActorProvider.isAdmin` para ocultar acciones
-//                exclusivas de administración a los colaboradores normales.
-// POR QUÉ: Evita que usuarios normales registren cuentas o escalen privilegios (< 140 líneas).
+//           fotografía real interactiva del empleado, información de expediente
+//           y acciones según rol.
+// CÓMO FUNCIONA: Lee el usuario autenticado desde `sessionControllerProvider`,
+//                permite tomar o seleccionar su foto real con `EmployeeAvatarService`
+//                y verifica `localActorProvider.isAdmin`.
+// POR QUÉ: Permite agregar la foto real del empleado y mantiene < 145 líneas.
 // ============================================================================
 
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/auth/session_controller.dart';
-import '../../../../core/config/app_config.dart';
 import '../../../../core/design_system/ios_modal_scaffold.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/confirm_logout.dart';
+import '../../../../core/utils/employee_avatar_service.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  static ImageProvider? _resolveImageProvider(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    if (raw.startsWith('/') || raw.startsWith('file://')) {
-      final file = File(raw.replaceFirst('file://', ''));
-      return file.existsSync() ? FileImage(file) : null;
-    }
-    final fullUrl = AppConfig.fullPhotoUrl(raw);
-    return fullUrl.isNotEmpty ? NetworkImage(fullUrl) : null;
+  String _cleanCargo(String? raw) {
+    final v = (raw ?? '').trim();
+    if (v.toLowerCase().contains('administrador')) return 'Administrador';
+    if (v.toLowerCase().contains('supervisor')) return 'Supervisor Operativo';
+    return v.isEmpty ? 'Colaborador Operativo' : v;
   }
 
   @override
@@ -40,7 +37,7 @@ class ProfileScreen extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
     final isAdmin = ref.watch(localActorProvider).isAdmin;
-    final img = _resolveImageProvider(user?.fotoUrl);
+    final avatarFile = EmployeeAvatarService.resolveFile(user?.fotoUrl);
     final initial = (user?.nombre ?? '').isEmpty ? '?' : user!.nombre[0].toUpperCase();
 
     return SingleChildScrollView(
@@ -50,16 +47,39 @@ class ProfileScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
           decoration: BoxDecoration(color: context.cSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: context.cBorder, width: 0.5)),
           child: Column(children: [
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.14),
-              backgroundImage: img,
-              child: img == null ? Text(initial, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary)) : null,
+            GestureDetector(
+              onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+                    backgroundImage: avatarFile != null ? FileImage(avatarFile) : null,
+                    child: avatarFile == null ? Text(initial, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary)) : null,
+                  ),
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, border: Border.all(color: context.cSurface, width: 2)),
+                      child: const Icon(CupertinoIcons.camera_fill, size: 13, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
-            Text(user?.fullName ?? 'Colaborador', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: context.cTextPrimary, letterSpacing: -0.3)),
+            Text(user?.fullName ?? 'Colaborador', style: TextStyle(fontFamily: AppTheme.editorialSerif, fontFamilyFallback: AppTheme.editorialFallbacks, fontSize: 18, fontWeight: FontWeight.w700, color: context.cTextPrimary, letterSpacing: -0.3)),
             const SizedBox(height: 2),
-            Text(user?.cargo ?? 'Colaborador Operativo', style: TextStyle(fontSize: 12.5, color: context.cTextSecondary)),
+            Text(_cleanCargo(user?.cargo), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user),
+              child: const Text('Toca la foto para agregar o cambiar imagen real', style: TextStyle(fontSize: 11, color: AppColors.primary)),
+            ),
           ]),
         ),
         const SizedBox(height: 16),
@@ -67,15 +87,16 @@ class ProfileScreen extends ConsumerWidget {
           header: 'INFORMACIÓN DE EXPEDIENTE',
           children: [
             _InfoRow(CupertinoIcons.person_crop_rectangle, 'Cédula', user?.cedula ?? '---'),
+            _InfoRow(CupertinoIcons.briefcase, 'Cargo Oficial', _cleanCargo(user?.cargo)),
             _InfoRow(CupertinoIcons.mail, 'Correo', (user == null || user.correo.isEmpty) ? '---' : user.correo),
             _InfoRow(CupertinoIcons.phone, 'Teléfono', (user?.telefono?.isNotEmpty ?? false) ? user!.telefono! : 'Sin registrar'),
-            _InfoRow(CupertinoIcons.location, 'Dirección', (user?.direccion?.isNotEmpty ?? false) ? user!.direccion! : 'Sin registrar'),
           ],
         ),
         const SizedBox(height: 16),
         IosFormGroup(
           header: 'AJUSTES Y CUENTA',
           children: [
+            _ActionRow(icon: CupertinoIcons.camera, label: 'Agregar / Cambiar Foto Real del Empleado', onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user)),
             _ActionRow(icon: CupertinoIcons.pencil, label: 'Editar Perfil', onTap: () => context.push(AppRoutes.profileEdit)),
             if (isAdmin) _ActionRow(icon: CupertinoIcons.person_badge_plus, label: 'Registrar nuevo usuario', onTap: () => context.push(AppRoutes.register)),
             _ActionRow(icon: CupertinoIcons.slider_horizontal_3, label: 'Configuración de Aplicación', onTap: () => context.push(AppRoutes.settings)),
