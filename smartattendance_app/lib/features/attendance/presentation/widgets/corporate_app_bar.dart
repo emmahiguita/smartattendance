@@ -78,16 +78,22 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
               Text(
                 'SERVICIUDAD E.S.P.',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontFamily: AppTheme.editorialSerif,
+                  fontFamilyFallback: AppTheme.editorialFallbacks,
+                  fontFeatures: AppTheme.editorialFeatures,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.7,
                   color: context.cTextPrimary,
                 ),
               ),
               Text(
                 'Dosquebradas · Risaralda',
                 style: TextStyle(
-                  fontSize: 9.5,
+                  fontFamily: AppTheme.editorialSerif,
+                  fontFamilyFallback: AppTheme.editorialFallbacks,
+                  fontStyle: FontStyle.italic,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: context.cTextSecondary,
                 ),

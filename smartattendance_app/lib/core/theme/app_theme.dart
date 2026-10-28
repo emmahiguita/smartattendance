@@ -1,11 +1,13 @@
 // ============================================================================
 // ARCHIVO: app_theme.dart
-// QUÉ HACE: Configuración temática Titanium Enterprise para Flutter (Modo Claro
-//           Nieve #F5F7FA / Blanco y Modo Oscuro Grafito #101821 / #192431).
-// CÓMO FUNCIONA: Construye `ThemeData` con botones con radio 12-14px, tarjetas 16px,
-//                separadores metálicos y extensión `ThemeColorsX` reactiva.
-// POR QUÉ: Satisface la identidad Titanium Enterprise con contraste óptimo,
-//          accesibilidad y controles de al menos 48x48 dp (< 160 líneas).
+// QUÉ HACE: Sistema tipográfico y cromático Editorial Profesional (Titanium
+//           Enterprise + High-Contrast Editorial Serif & Precision Sans).
+// CÓMO FUNCIONA:
+// 1. Aplica tipografía `serif` editorial (`Georgia` / `Noto Serif` / `New York`)
+//    con ligaduras y kerning OpenType (`kern`, `liga`) en titulares ejecutivos.
+// 2. Combina figuras tabulares (`tnum`) y tracking óptico en cuerpo y métricas.
+// POR QUÉ: Cumple la directiva "la fuente debe ser tipo editorial Profesional
+//          lo mas avanzado en font" manteniendo < 155 líneas.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -13,6 +15,14 @@ import 'app_colors.dart';
 export '../design_system/design_system.dart';
 
 class AppTheme {
+  static const String editorialSerif = 'serif';
+  static const List<String> editorialFallbacks = ['Georgia', 'Noto Serif', 'Times New Roman', 'serif'];
+  static const List<FontFeature> editorialFeatures = [
+    FontFeature.enable('kern'),
+    FontFeature.enable('liga'),
+    FontFeature.tabularFigures(),
+  ];
+
   static ThemeData get lightTheme => _buildTheme(false);
   static ThemeData get darkTheme => _buildTheme(true);
 
@@ -27,6 +37,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: isDark ? Brightness.dark : Brightness.light,
+      fontFamilyFallback: editorialFallbacks,
       colorScheme: ColorScheme(
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: primary,
@@ -47,10 +58,13 @@ class AppTheme {
         centerTitle: true,
         iconTheme: IconThemeData(color: primary),
         titleTextStyle: TextStyle(
+          fontFamily: editorialSerif,
+          fontFamilyFallback: editorialFallbacks,
+          fontFeatures: editorialFeatures,
           color: txt,
-          fontSize: 16.5,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.35,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
         ),
         surfaceTintColor: Colors.transparent,
       ),
@@ -62,7 +76,7 @@ class AppTheme {
           minimumSize: const Size.fromHeight(DesignTokens.buttonHeight),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.15, fontFeatures: editorialFeatures),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -72,7 +86,7 @@ class AppTheme {
           side: BorderSide(color: sep, width: DesignTokens.borderWidth),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton)),
           padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
-          textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+          textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, letterSpacing: -0.15, fontFeatures: editorialFeatures),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -92,24 +106,23 @@ class AppTheme {
     final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final secondaryColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
     return TextTheme(
-      displayLarge: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.6, color: textColor),
-      displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: textColor),
-      headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.45, color: textColor),
-      headlineMedium: TextStyle(fontSize: 19, fontWeight: FontWeight.w600, letterSpacing: -0.38, color: textColor),
-      titleLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.34, color: textColor),
-      titleMedium: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.3, color: textColor),
-      bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, letterSpacing: -0.25, color: textColor),
-      bodyMedium: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w400, letterSpacing: -0.2, color: textColor),
-      bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, letterSpacing: -0.15, color: secondaryColor),
-      labelLarge: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: textColor),
-      labelSmall: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: secondaryColor),
+      displayLarge: TextStyle(fontFamily: editorialSerif, fontFamilyFallback: editorialFallbacks, fontFeatures: editorialFeatures, fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.5, color: textColor),
+      displayMedium: TextStyle(fontFamily: editorialSerif, fontFamilyFallback: editorialFallbacks, fontFeatures: editorialFeatures, fontSize: 26, fontWeight: FontWeight.w700, letterSpacing: -0.4, color: textColor),
+      headlineLarge: TextStyle(fontFamily: editorialSerif, fontFamilyFallback: editorialFallbacks, fontFeatures: editorialFeatures, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.35, color: textColor),
+      headlineMedium: TextStyle(fontFamily: editorialSerif, fontFamilyFallback: editorialFallbacks, fontFeatures: editorialFeatures, fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.3, color: textColor),
+      titleLarge: TextStyle(fontFamily: editorialSerif, fontFamilyFallback: editorialFallbacks, fontFeatures: editorialFeatures, fontSize: 17.5, fontWeight: FontWeight.w700, letterSpacing: -0.25, color: textColor),
+      titleMedium: TextStyle(fontFeatures: editorialFeatures, fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.2, color: textColor),
+      bodyLarge: TextStyle(fontFeatures: editorialFeatures, fontSize: 15, fontWeight: FontWeight.w400, letterSpacing: -0.15, height: 1.45, color: textColor),
+      bodyMedium: TextStyle(fontFeatures: editorialFeatures, fontSize: 13.5, fontWeight: FontWeight.w400, letterSpacing: -0.1, height: 1.42, color: textColor),
+      bodySmall: TextStyle(fontFeatures: editorialFeatures, fontSize: 12, fontWeight: FontWeight.w400, letterSpacing: -0.05, height: 1.38, color: secondaryColor),
+      labelLarge: TextStyle(fontFeatures: editorialFeatures, fontSize: 13.5, fontWeight: FontWeight.w600, letterSpacing: -0.1, color: textColor),
+      labelSmall: TextStyle(fontFeatures: editorialFeatures, fontSize: 11.5, fontWeight: FontWeight.w600, letterSpacing: 0.2, color: secondaryColor),
     );
   }
 }
 
 extension ThemeColorsX on BuildContext {
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
-
   Color get cTextPrimary => isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
   Color get cTextSecondary => isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
   Color get cTextTertiary => isDark ? const Color(0xFF657486) : AppColors.textTertiary;
@@ -122,10 +135,5 @@ extension ThemeColorsX on BuildContext {
   Color get cGray4 => isDark ? AppColors.darkBorder : AppColors.systemGray4;
   Color get cGray5 => isDark ? const Color(0xFF1E2B3A) : AppColors.systemGray5;
   Color get cWhite => isDark ? const Color(0xFFE2ECF5) : Colors.white;
-
-  LinearGradient get cGradientBackground => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [cBackground, cBackground],
-      );
+  LinearGradient get cGradientBackground => LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [cBackground, cBackground]);
 }

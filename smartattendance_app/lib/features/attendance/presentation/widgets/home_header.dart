@@ -1,11 +1,10 @@
 // ============================================================================
 // ARCHIVO: home_header.dart
-// QUÉ HACE: Encabezado institucional limpio con saludo personalizado, cargo,
-//           fecha oficial y avatar de colaborador.
-// CÓMO FUNCIONA: Muestra la información del colaborador y fecha sin duplicar
-//                el logo oficial que ya preside majestuosamente en 3D arriba.
-// POR QUÉ: Atiende la directiva: "elimina componentes zombies y redundantes,
-//          hazlo limpio y profesional" (< 120 líneas).
+// QUÉ HACE: Encabezado institucional con tipografía Editorial Profesional
+//           (`AppTheme.editorialSerif`), saludo personalizado, cargo y fecha.
+// CÓMO FUNCIONA: Combina Serif de alto contraste en el saludo y la inicial del
+//                avatar con versalitas espaciadas en el sello institucional.
+// POR QUÉ: Aplica el sistema de fuentes Editorial Profesional (< 125 líneas).
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -52,8 +51,11 @@ class HomeHeader extends StatelessWidget {
           child: Text(
             initial,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontFamily: AppTheme.editorialSerif,
+              fontFamilyFallback: AppTheme.editorialFallbacks,
+              fontFeatures: AppTheme.editorialFeatures,
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
               color: AppColors.primary,
             ),
           ),
@@ -77,31 +79,41 @@ class HomeHeader extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.9,
                         color: AppColors.primary,
+                        fontFeatures: AppTheme.editorialFeatures,
                       ),
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    cargo,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: context.cTextSecondary,
+                  Expanded(
+                    child: Text(
+                      cargo,
+                      style: TextStyle(
+                        fontFamily: AppTheme.editorialSerif,
+                        fontFamilyFallback: AppTheme.editorialFallbacks,
+                        fontStyle: FontStyle.italic,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: context.cTextSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
               const SizedBox(height: 3),
               Text(
                 '¡Hola, $firstName!',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.3,
+                style: TextStyle(
+                  fontFamily: AppTheme.editorialSerif,
+                  fontFamilyFallback: AppTheme.editorialFallbacks,
+                  fontFeatures: AppTheme.editorialFeatures,
+                  fontSize: 19.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.35,
+                  color: context.cTextPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -110,9 +122,11 @@ class HomeHeader extends StatelessWidget {
               Text(
                 dateStr,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.2,
+                  letterSpacing: 0.1,
                   color: context.cTextSecondary,
                   fontWeight: FontWeight.w500,
+                  fontFeatures: AppTheme.editorialFeatures,
                 ),
               ),
             ],
