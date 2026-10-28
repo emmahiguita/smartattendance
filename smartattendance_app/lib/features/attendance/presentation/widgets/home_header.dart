@@ -2,14 +2,17 @@
 // ARCHIVO: home_header.dart
 // QUÉ HACE: Encabezado institucional con miniatura fotográfica real del
 //           empleado (interactiva para agregar/cambiar foto desde Cámara o
-//           Galería) e información textual organizada:
-//           1. Nombre / Saludo editorial (`¡Hola, Emmanuel!`).
-//           2. Debajo, el Cargo completo sin recortes (`Cargo: Administrador`) y ID.
-//           3. Fecha oficial del día.
+//           Galería) e información textual organizada SIN CORTARSE:
+//           1. Sello `SERVICIUDAD E.S.P.` arriba.
+//           2. Saludo editorial (`¡Hola, Emmanuel!`).
+//           3. Debajo, en su propia línea completa y con `softWrap: true`, el
+//              cargo completo (`Encargado local / Administrador` o `Supervisor`)
+//              para que jamás se corte con `...`.
+//           4. Fecha oficial del día.
 // CÓMO FUNCIONA: Resuelve la foto real mediante `EmployeeAvatarService` y
 //                permite actualizarla tocando la miniatura.
-// POR QUÉ: Cumple la directiva de mostrar bien organizado el nombre y debajo
-//          el cargo sin cortarse, con foto real en miniatura (< 180 líneas).
+// POR QUÉ: Garantiza que "/ Administrador" o "Supervisor" aparezca siempre
+//          completo sin cortarse (< 175 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -43,13 +46,6 @@ class HomeHeader extends ConsumerWidget {
     }
   }
 
-  String _cleanCargo(String raw) {
-    final lower = raw.trim().toLowerCase();
-    if (lower.contains('administrador')) return 'Administrador';
-    if (lower.contains('supervisor')) return 'Supervisor Operativo';
-    return raw.trim().isEmpty ? 'Colaborador Operativo' : raw.trim();
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = context.isDark;
@@ -58,9 +54,8 @@ class HomeHeader extends ConsumerWidget {
 
     final fullName = authUser?.fullName ?? (user?.fullName as String? ?? 'Colaborador');
     final firstName = fullName.split(' ').first;
-    final rawCargo = authUser?.cargo ?? (user?.cargo as String? ?? 'Colaborador');
-    final cargo = _cleanCargo(rawCargo);
-    final cedula = authUser?.cedula ?? '';
+    final rawCargo = (authUser?.cargo ?? (user?.cargo as String? ?? 'Colaborador')).trim();
+    final cargo = rawCargo.isEmpty ? 'Colaborador Operativo' : rawCargo;
     final dateStr = _formatDate();
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'C';
     final avatarFile = EmployeeAvatarService.resolveFile(authUser?.fotoUrl);
@@ -121,56 +116,47 @@ class HomeHeader extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '¡Hola, $firstName!',
-                      style: TextStyle(
-                        fontFamily: AppTheme.editorialSerif,
-                        fontFamilyFallback: AppTheme.editorialFallbacks,
-                        fontFeatures: AppTheme.editorialFeatures,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.35,
-                        color: context.cTextPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.09),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: const Text(
+                  'SERVICIUDAD E.S.P.',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.09),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'SERVICIUDAD E.S.P.',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 3),
               Text(
-                cedula.isNotEmpty ? 'Cargo: $cargo  •  ID $cedula' : 'Cargo: $cargo',
-                style: const TextStyle(
+                '¡Hola, $firstName!',
+                style: TextStyle(
                   fontFamily: AppTheme.editorialSerif,
                   fontFamilyFallback: AppTheme.editorialFallbacks,
                   fontFeatures: AppTheme.editorialFeatures,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.35,
+                  color: context.cTextPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                cargo,
+                softWrap: true,
+                style: TextStyle(
+                  fontFamily: AppTheme.editorialSerif,
+                  fontFamilyFallback: AppTheme.editorialFallbacks,
+                  fontStyle: FontStyle.italic,
                   fontSize: 12.2,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  color: context.cTextSecondary,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
