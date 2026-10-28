@@ -1,14 +1,15 @@
 // ============================================================================
 // ARCHIVO: ios_glass_card.dart
-// QUÉ HACE: Contenedor con efecto translúcido Frosted Glass profesional (HIG)
-//           utilizando `BackdropFilter` con desenfoque gaussiano y bordes sutiles.
-// CÓMO FUNCIONA: Aplica un filtro de desenfoque (`ImageFilter.blur(sigmaX: 20, sigmaY: 20)`),
-//                fondo de superficie translúcida (`0.72` en modo oscuro / `0.82` en claro)
-//                y borde metálico Titanium Enterprise de 0.8dp.
-// POR QUÉ: Brinda la apariencia premium de vidrio esmerilado de iOS sin saturación
-//          ni sobrecarga de memoria (< 90 líneas).
+// QUÉ HACE: Contenedor con efecto translúcido Frosted Liquid Glass 100% iOS
+//           utilizando `BackdropFilter` con desenfoque gaussiano y borde especular.
+// CÓMO FUNCIONA: Aplica `ImageFilter.blur(sigmaX: 22, sigmaY: 22)`, fondo de
+//                cristal translúcido (`0.42` en modo oscuro con reflejo especular
+//                superior) y borde cristalino de 0.9dp.
+// POR QUÉ: Materializa la directiva "el modo oscuro debe ser 100% ios
+//          trasparente profesional" (< 85 líneas).
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -32,25 +33,41 @@ class IosGlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = context.isDark;
     final defaultBorder = Border.all(
-      color: context.cBorder.withValues(alpha: isDark ? 0.80 : 0.85),
+      color: isDark ? Colors.white.withValues(alpha: 0.18) : context.cBorder.withValues(alpha: 0.85),
       width: 0.9,
     );
 
-    final cardContent = Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: context.cSurface.withValues(alpha: isDark ? 0.90 : 0.95),
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: border ?? defaultBorder,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+    final cardContent = ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0E1C30).withValues(alpha: 0.44) : context.cSurface.withValues(alpha: 0.92),
+            gradient: isDark
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.10),
+                      const Color(0xFF0E1C30).withValues(alpha: 0.38),
+                    ],
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: border ?? defaultBorder,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
+          child: child,
+        ),
       ),
-      child: child,
     );
 
     if (onTap == null) return cardContent;

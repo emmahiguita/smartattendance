@@ -127,7 +127,7 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
         .length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

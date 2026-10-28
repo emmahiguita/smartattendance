@@ -1,22 +1,12 @@
-// lib/core/design_system/ios_floating_glass_sheet.dart
 // ============================================================================
 // ARCHIVO: ios_floating_glass_sheet.dart
-// CAPA: Core / Design System (Sábana Flotante Translúcida Estilo Apple iOS Glass)
-// ----------------------------------------------------------------------------
-// QUÉ HACE:
-// Presenta un diálogo modal suspendido con desenfoque gaussiano de 30px (BackdropFilter),
-// bordes cristalinos translúcidos y esquinas redondeadas 28dp, flotando libremente
-// en el centro de la pantalla sin anclarse nunca al borde inferior.
-//
-// CÓMO FUNCIONA:
-// - Detecta orientación (Vertical vs Horizontal / Landscape) de forma reactiva.
-// - En Horizontal: Amplía el ancho a `min(width * 0.90, 820)` para dar espacio a
-//   tablas complejas y evitar recortes o cuellos de botella visuales.
-// - En Vertical: Centra la sábana con ancho ergonómico para uso con una mano.
-//
-// POR QUÉ:
-// Directriz estricta del usuario: "DEBE SER ESTILO IOS TRASPARENTE Y SABANA FLOTANTE
-// GLASSES LOS MENU NO ABREN NUNCA DESDE ABAJO" y "corrige modo horizontal" (< 160 líneas).
+// QUÉ HACE: Presenta un diálogo modal suspendido con desenfoque gaussiano de
+//           32px (`BackdropFilter`), bordes cristalinos translúcidos y esquinas
+//           redondeadas 28dp 100% iOS Liquid Glass.
+// CÓMO FUNCIONA: En modo oscuro aplica cristal translúcido (`0.54` de opacidad)
+//                con borde especular blanco (`0.22`) y desenfoque profundo.
+// POR QUÉ: Cumple la directiva de modo oscuro 100% iOS transparente profesional
+//          sin abrir nunca desde abajo (< 165 líneas).
 // ============================================================================
 
 import 'dart:math';
@@ -26,7 +16,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 export 'ios_glass_menu.dart';
 
-/// Despliega una sábana modal flotante con estética translúcida iOS Liquid Glass.
 Future<T?> showIosFloatingGlassSheet<T>({
   required BuildContext context,
   required Widget child,
@@ -39,13 +28,12 @@ Future<T?> showIosFloatingGlassSheet<T>({
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Cerrar',
-    barrierColor: Colors.black.withValues(alpha: context.isDark ? 0.55 : 0.35),
+    barrierColor: Colors.black.withValues(alpha: context.isDark ? 0.50 : 0.35),
     transitionDuration: const Duration(milliseconds: 260),
     pageBuilder: (ctx, anim, secAnim) {
       final size = MediaQuery.of(ctx).size;
       final isLandscape = size.width > size.height;
-
-      // Adaptación ergonómica horizontal vs vertical para evitar cortes
+      final isDark = ctx.isDark;
       final dialogMaxWidth = isLandscape ? min(size.width * 0.90, 820.0) : min(size.width * 0.94, 480.0);
       final dialogMaxHeight = isLandscape ? size.height * 0.92 : size.height * maxHeightFactor;
 
@@ -53,29 +41,33 @@ Future<T?> showIosFloatingGlassSheet<T>({
         color: Colors.transparent,
         child: Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isLandscape ? 24 : 18,
-              vertical: isLandscape ? 12 : 24,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: isLandscape ? 24 : 18, vertical: isLandscape ? 12 : 24),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(28),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
                 child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: dialogMaxHeight,
-                    maxWidth: dialogMaxWidth,
-                  ),
+                  constraints: BoxConstraints(maxHeight: dialogMaxHeight, maxWidth: dialogMaxWidth),
                   decoration: BoxDecoration(
-                    color: ctx.cSurface.withValues(alpha: ctx.isDark ? 0.72 : 0.86),
+                    color: isDark ? const Color(0xFF0C1829).withValues(alpha: 0.54) : ctx.cSurface.withValues(alpha: 0.86),
+                    gradient: isDark
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.11),
+                              const Color(0xFF0A1526).withValues(alpha: 0.52),
+                            ],
+                          )
+                        : null,
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: ctx.isDark ? 0.22 : 0.65),
+                      color: Colors.white.withValues(alpha: isDark ? 0.22 : 0.65),
                       width: 1.1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: ctx.isDark ? 0.45 : 0.16),
+                        color: Colors.black.withValues(alpha: isDark ? 0.48 : 0.16),
                         blurRadius: 38,
                         spreadRadius: 2,
                         offset: const Offset(0, 16),
@@ -120,10 +112,7 @@ Future<T?> showIosFloatingGlassSheet<T>({
                                       const SizedBox(height: 2),
                                       Text(
                                         subtitle,
-                                        style: TextStyle(
-                                          fontSize: isLandscape ? 11 : 12,
-                                          color: ctx.cTextSecondary,
-                                        ),
+                                        style: TextStyle(fontSize: isLandscape ? 11 : 12, color: ctx.cTextSecondary),
                                       ),
                                     ],
                                   ],
@@ -135,10 +124,7 @@ Future<T?> showIosFloatingGlassSheet<T>({
                                   child: Container(
                                     width: 30,
                                     height: 30,
-                                    decoration: BoxDecoration(
-                                      color: ctx.cBorder.withValues(alpha: 0.4),
-                                      shape: BoxShape.circle,
-                                    ),
+                                    decoration: BoxDecoration(color: ctx.cBorder.withValues(alpha: 0.4), shape: BoxShape.circle),
                                     child: Icon(CupertinoIcons.xmark, size: 14, color: ctx.cTextPrimary),
                                   ),
                                 ),
@@ -159,13 +145,7 @@ Future<T?> showIosFloatingGlassSheet<T>({
     },
     transitionBuilder: (ctx, anim, secAnim, pageChild) {
       final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return ScaleTransition(
-        scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved),
-        child: FadeTransition(
-          opacity: curved,
-          child: pageChild,
-        ),
-      );
+      return ScaleTransition(scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved), child: FadeTransition(opacity: curved, child: pageChild));
     },
   );
 }

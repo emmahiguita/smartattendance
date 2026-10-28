@@ -73,7 +73,7 @@ class HomeDashboardBody extends StatelessWidget {
     return SingleChildScrollView(
       key: const PageStorageKey('home-clean-scroll'),
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 92),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

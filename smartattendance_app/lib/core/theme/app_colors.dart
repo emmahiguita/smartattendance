@@ -1,12 +1,11 @@
 // ============================================================================
 // ARCHIVO: app_colors.dart
 // QUÉ HACE: Paleta cromática y tokens del sistema de diseño Titanium Enterprise
-//           (Nieve #F5F7FA, Plata #DCE2E9, Titanio #8C9BAB, Grafito #263445,
-//           Azul Acero #315E86) con soporte dual Modo Claro y Modo Oscuro.
-// CÓMO FUNCIONA: Define constantes semánticas de color, gradientes metálicos
-//                sutiles y tokens de espaciado/radio (tarjetas 16px, botones 12px).
-// POR QUÉ: Materializa la Especificación Maestra Titanium Enterprise garantizando
-//          contraste corporativo, accesibilidad y cero distracción (< 140 líneas).
+//           con Modo Oscuro 100% Apple iOS Liquid Glass Transparente Profesional.
+// CÓMO FUNCIONA: Define constantes semánticas de color, superficies translúcidas
+//                de cristal esmerilado y bordes especulares para modo oscuro.
+// POR QUÉ: Materializa un modo oscuro 100% iOS transparente profesional con
+//          máxima legibilidad y estética ejecutiva (< 140 líneas).
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -16,7 +15,7 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // ── Núcleo Metálico Serviciudad Titanium Enterprise ──
   static const Color primary = Color(0xFF005A9C); // Azul Serviciudad oficial
-  static const Color primaryDark = Color(0xFF003F73); // Azul marino profundo
+  static const Color primaryDark = Color(0xFF0A84FF); // Azul iOS Dark Mode luminoso
   static const Color accent = Color(0xFF1598D3); // Celeste agua institucional
   static const Color graphite = Color(0xFF263445); // Grafito / Titanio oscuro
   static const Color silver = Color(0xFFDCE2E9); // Plata satinada
@@ -25,10 +24,10 @@ abstract final class AppColors {
 
   // ── Semántica de Negocio y Estados ──
   static const Color success = Color(0xFF18794E); // Verde empresarial
-  static const Color successDark = Color(0xFF125C3B);
+  static const Color successDark = Color(0xFF30D158); // Verde iOS Dark Mode
   static const Color warning = Color(0xFFA66414); // Ámbar supervisión
   static const Color error = Color(0xFFB93838); // Rojo alerta
-  static const Color errorDark = Color(0xFF8F2828);
+  static const Color errorDark = Color(0xFFFF453A); // Rojo iOS Dark Mode
   static const Color systemGreen = success;
   static const Color systemGreenDark = successDark;
   static const Color systemRed = error;
@@ -50,12 +49,12 @@ abstract final class AppColors {
   static const Color textSecondary = Color(0xFF475569); // Slate 600 sobrio
   static const Color textTertiary = Color(0xFF64748B); // Slate 500
 
-  // ── Modo Oscuro (Executive Obsidian Slate) ──
-  static const Color darkBackground = Color(0xFF0B1320); // Obsidiana ejecutiva pura
-  static const Color darkSurface = Color(0xFF131F33); // Superficie slate de alta gama
-  static const Color darkBorder = Color(0xFF1E314D); // Borde titanio sutil
-  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Blanco cristal
-  static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
+  // ── Modo Oscuro 100% iOS Liquid Glass Transparente Profesional ──
+  static const Color darkBackground = Color(0xFF050A14); // Obsidiana iOS OLED profunda
+  static const Color darkSurface = Color(0xFF101E33); // Cristal oscuro translúcido base
+  static const Color darkBorder = Color(0x2EFFFFFF); // Borde especular cristal iOS (18% blanco)
+  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Blanco cristal iOS
+  static const Color darkTextSecondary = Color(0xFFB0C0D4); // Plata translúcido legible
 
   // ── Grises Auxiliares y Compatibilidad ──
   static const Color systemGray = titanium;
@@ -96,24 +95,21 @@ abstract final class AppColors {
 }
 
 abstract final class DesignTokens {
-  // ── Radios Titanium Enterprise ──
   static const double radiusXS = 6.0;
   static const double radiusSmall = 8.0;
-  static const double radiusButton = 12.0; // 12-14 px especificado
+  static const double radiusButton = 12.0;
   static const double radiusMedium = 12.0;
-  static const double radiusCard = 16.0; // 16 px especificado
+  static const double radiusCard = 16.0;
   static const double radiusPanel = 16.0;
   static const double radiusLarge = 18.0;
   static const double radiusXL = 22.0;
   static const double radiusPanelLarge = 22.0;
   static const double radiusPill = 999.0;
 
-  // ── Dimensiones y Accesibilidad ──
   static const double borderWidth = 0.8;
-  static const double buttonHeight = 52.0; // 50-54 px especificado
-  static const double minTouchTargetSize = 48.0; // >= 48x48 dp especificado
+  static const double buttonHeight = 52.0;
+  static const double minTouchTargetSize = 48.0;
 
-  // ── Sistema de Espaciado (8pt con pasos de 4pt) ──
   static const double spaceXS = 4.0;
   static const double space4 = 4.0;
   static const double spaceS = 8.0;

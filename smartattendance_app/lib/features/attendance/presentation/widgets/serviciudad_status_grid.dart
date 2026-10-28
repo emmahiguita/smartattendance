@@ -1,14 +1,16 @@
 // ============================================================================
 // ARCHIVO: serviciudad_status_grid.dart
-// QUÉ HACE: Barra de estado transparente, compacta y no redundante.
-// CÓMO FUNCIONA: Muestra en una sola fila minimalista y transparente:
-//                1. Estado de jornada en vivo (bullet + En curso / Finalizada).
-//                2. Tiempo laborado acumulado (sumando Horas Extras Asignadas
-//                   cuando el colaborador cumple su horario o cierra salida).
-//                3. Geocerca GPS con acceso al mapa interactivo.
-// POR QUÉ: Integra el conteo automático de Horas Extras Asignadas (< 165 líneas).
+// QUÉ HACE: Barra de estado 100% iOS Liquid Glass transparente con:
+//           1. Estado de jornada en vivo (bullet + En curso / Finalizada).
+//           2. Tiempo laborado acumulado (sumando Horas Extras Asignadas).
+//           3. Geocerca GPS con acceso al mapa interactivo.
+// CÓMO FUNCIONA: Envuelve la barra en `BackdropFilter` con cristal translúcido
+//                y borde especular iOS en Modo Oscuro.
+// POR QUÉ: Integra el conteo automático de Horas Extras Asignadas y Modo Oscuro
+//          100% iOS transparente profesional (< 160 líneas).
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -58,6 +60,9 @@ class ServiciudadStatusGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    final activeBlue = isDark ? AppColors.primaryDark : AppColors.primary;
+    final activeGreen = isDark ? AppColors.successDark : AppColors.success;
     final now = DateTime.now();
     final today = records.where((r) {
       final l = r.fecha.toLocal();
@@ -76,7 +81,7 @@ class ServiciudadStatusGrid extends StatelessWidget {
     if (entrada != null) {
       if (salida != null) {
         statusText = assignedOvertimeMinutes > 0 ? 'Finalizada (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'Jornada finalizada';
-        statusColor = AppColors.primary;
+        statusColor = activeBlue;
         final diff = salida.hora.difference(entrada.hora) + extraDur;
         tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
       } else if (lastMark == 'salida_almuerzo') {
@@ -86,7 +91,7 @@ class ServiciudadStatusGrid extends StatelessWidget {
         tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
       } else {
         statusText = assignedOvertimeMinutes > 0 ? 'En curso (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'En curso';
-        statusColor = AppColors.success;
+        statusColor = activeGreen;
         final diff = now.difference(entrada.hora.toLocal());
         tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
       }
@@ -99,51 +104,57 @@ class ServiciudadStatusGrid extends StatelessWidget {
         ? '${zoneName ?? 'Sede'} (En geocerca)'
         : (zoneName ?? 'Sede Central');
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: context.cBorder.withValues(alpha: context.isDark ? 0.35 : 0.4),
-          width: 0.8,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor)),
-          const SizedBox(width: 6),
-          Text(statusText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
-          const SizedBox(width: 6),
-          Text('•  $tiempoTrabajado', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
-          const Spacer(),
-          Flexible(
-            child: InkWell(
-              onTap: () => _openMap(context),
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(CupertinoIcons.location_solid, size: 11, color: AppColors.primary),
-                    const SizedBox(width: 3),
-                    Flexible(
-                      child: Text(
-                        zoneLabel,
-                        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.primary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    const Icon(CupertinoIcons.chevron_forward, size: 9, color: AppColors.primary),
-                  ],
-                ),
-              ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.16) : context.cBorder.withValues(alpha: 0.4),
+              width: 0.85,
             ),
           ),
-        ],
+          child: Row(
+            children: [
+              Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor)),
+              const SizedBox(width: 6),
+              Text(statusText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
+              const SizedBox(width: 6),
+              Text('•  $tiempoTrabajado', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
+              const Spacer(),
+              Flexible(
+                child: InkWell(
+                  onTap: () => _openMap(context),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(CupertinoIcons.location_solid, size: 11, color: activeBlue),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            zoneLabel,
+                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: activeBlue),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(CupertinoIcons.chevron_forward, size: 9, color: activeBlue),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

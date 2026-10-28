@@ -1,11 +1,12 @@
 // ============================================================================
 // ARCHIVO: corporate_app_bar.dart
 // QUÉ HACE: Barra superior institucional con tipografía Editorial Profesional,
-//           campana de recordatorios reales y miniatura fotográfica real del
-//           empleado autenticado.
+//           efecto 100% iOS Liquid Glass Transparente Profesional en Modo
+//           Oscuro, campana de recordatorios y miniatura fotográfica real.
 // CÓMO FUNCIONA: Observa `sessionControllerProvider` y `localDayHistoryProvider`
-//                para mostrar la foto real del empleado en el botón de perfil.
-// POR QUÉ: Mantiene coherencia visual con la miniatura real del empleado (< 170 líneas).
+//                y aplica `BackdropFilter` gaussiano real de 24px.
+// POR QUÉ: Cumple la directiva de modo oscuro 100% iOS transparente profesional
+//          y miniatura real del empleado (< 165 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -38,6 +39,8 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = context.isDark;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primary;
     final session = ref.watch(sessionControllerProvider);
     final authUser = session is SessionAuthenticated ? session.user : null;
     final records = ref.watch(localDayHistoryProvider).valueOrNull ?? const <AttendanceEntity>[];
@@ -45,12 +48,12 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final avatarFile = EmployeeAvatarService.resolveFile(authUser?.fotoUrl);
 
     return AppBar(
-      backgroundColor: context.cBackground.withValues(alpha: context.isDark ? 0.82 : 0.90),
+      backgroundColor: isDark ? const Color(0xFF060E1C).withValues(alpha: 0.52) : context.cBackground.withValues(alpha: 0.90),
       elevation: 0,
       scrolledUnderElevation: 0,
       flexibleSpace: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
           child: Container(color: Colors.transparent),
         ),
       ),
@@ -58,7 +61,7 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
         preferredSize: const Size.fromHeight(0.8),
         child: Container(
           height: 0.8,
-          color: context.cBorder.withValues(alpha: context.isDark ? 0.55 : 0.75),
+          color: isDark ? Colors.white.withValues(alpha: 0.15) : context.cBorder.withValues(alpha: 0.75),
         ),
       ),
       title: Row(
@@ -67,10 +70,11 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
           Container(
             padding: const EdgeInsets.all(5.5),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: context.isDark ? 0.25 : 0.12),
+              color: primaryColor.withValues(alpha: isDark ? 0.22 : 0.12),
               shape: BoxShape.circle,
+              border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.7) : null,
             ),
-            child: const Icon(CupertinoIcons.building_2_fill, size: 14, color: AppColors.primary),
+            child: Icon(CupertinoIcons.building_2_fill, size: 14, color: primaryColor),
           ),
           const SizedBox(width: 8),
           Column(
@@ -112,9 +116,9 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
             height: 36,
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: context.cSurface.withValues(alpha: context.isDark ? 0.6 : 0.85),
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : context.cSurface.withValues(alpha: 0.85),
               shape: BoxShape.circle,
-              border: Border.all(color: context.cBorder.withValues(alpha: 0.6), width: 0.8),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.20) : context.cBorder.withValues(alpha: 0.6), width: 0.8),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -142,9 +146,9 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
             margin: const EdgeInsets.only(right: 14),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: context.cTextSecondary.withValues(alpha: 0.18),
+              color: isDark ? Colors.white.withValues(alpha: 0.10) : context.cTextSecondary.withValues(alpha: 0.18),
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.45), width: 1.0),
+              border: Border.all(color: primaryColor.withValues(alpha: 0.55), width: 1.1),
               image: avatarFile != null ? DecorationImage(image: FileImage(avatarFile), fit: BoxFit.cover) : null,
             ),
             child: avatarFile == null

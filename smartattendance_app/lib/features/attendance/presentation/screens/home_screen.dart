@@ -1,17 +1,15 @@
 // ============================================================================
 // ARCHIVO: home_screen.dart
-// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18. Si el usuario es
-//           Administrador/Supervisor (`actor.isAdmin`), habilita la pestaña
-//           `Reportes` (Gestión RRHH). Si es Colaborador normal, oculta por
-//           completo el módulo administrativo y restringe la interfaz a marcar.
+// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18 Liquid Glass con Modo
+//           Oscuro 100% transparente profesional (`extendBody: true`, aurora
+//           ambiental iOS y barra flotante con desenfoque `BackdropFilter`).
 // CÓMO FUNCIONA:
-// 1. Consulta la geocerca asignada a la cuadrilla del usuario autenticado
-//    (`workers -> crews -> work_zones`), su dirección física real y sus Horas
-//    Extras Asignadas (`assignedOvertimeMinutes`).
-// 2. Sincroniza la telemetría GPS con `TraccarService` y vincula la marcación
-//    a la cédula autenticada (`user.cedula`).
-// POR QUÉ: Conecta al 100% la ubicación asignada, las horas extras y Traccar
-//          respetando el aislamiento de roles (< 195 líneas).
+// 1. Consulta la geocerca asignada a la cuadrilla del usuario autenticado, su
+//    dirección física real y sus Horas Extras Asignadas (`assignedOvertimeMinutes`).
+// 2. Sincroniza la telemetría GPS con `TraccarService` y renderiza un lienzo
+//    ambiental iOS en modo oscuro para que los paneles de cristal refracten luz.
+// POR QUÉ: Conecta geocerca, horas extras, Traccar y estética 100% iOS
+//          transparente profesional (< 195 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -132,7 +130,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
     final sel = _currentNav == index;
-    final color = sel ? AppColors.primary : context.cTextSecondary;
+    final activeColor = context.isDark ? AppColors.primaryDark : AppColors.primary;
+    final color = sel ? activeColor : context.cTextSecondary;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -151,6 +150,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
     final isAdmin = ref.watch(localActorProvider).isAdmin;
@@ -172,22 +172,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     return Scaffold(
+      extendBody: true,
       backgroundColor: context.cBackground,
       appBar: CorporateAppBar(user: user, currentNavIndex: navIdx, onProfileTap: () => setState(() => _currentNav = 3)),
-      body: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: KeyedSubtree(key: ValueKey<int>(navIdx), child: pages[navIdx])),
+      body: DecoratedBox(
+        decoration: BoxDecoration(gradient: context.cGradientBackground),
+        child: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: KeyedSubtree(key: ValueKey<int>(navIdx), child: pages[navIdx])),
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
               child: Container(
                 decoration: BoxDecoration(
-                  color: context.cSurface.withValues(alpha: context.isDark ? 0.72 : 0.85),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: context.cBorder.withValues(alpha: context.isDark ? 0.55 : 0.75), width: 0.8),
+                  color: isDark ? const Color(0xFF0B1728).withValues(alpha: 0.52) : context.cSurface.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.20) : context.cBorder.withValues(alpha: 0.75), width: 0.9),
                 ),
                 child: Row(children: [
                   _navItem(0, CupertinoIcons.house, CupertinoIcons.house_fill, 'Inicio'),

@@ -1,13 +1,14 @@
 // ============================================================================
 // ARCHIVO: app_theme.dart
-// QUÉ HACE: Sistema tipográfico y cromático Editorial Profesional (Titanium
-//           Enterprise + High-Contrast Editorial Serif & Precision Sans).
+// QUÉ HACE: Sistema tipográfico Editorial Profesional + Modo Oscuro 100% iOS
+//           Liquid Glass Transparente Profesional.
 // CÓMO FUNCIONA:
 // 1. Aplica tipografía `serif` editorial (`Georgia` / `Noto Serif` / `New York`)
-//    con ligaduras y kerning OpenType (`kern`, `liga`) en titulares ejecutivos.
-// 2. Combina figuras tabulares (`tnum`) y tracking óptico en cuerpo y métricas.
-// POR QUÉ: Cumple la directiva "la fuente debe ser tipo editorial Profesional
-//          lo mas avanzado en font" manteniendo < 155 líneas.
+//    con ligaduras y kerning OpenType (`kern`, `liga`, `tnum`).
+// 2. En modo oscuro (`isDark`), configura superficies translúcidas tipo cristal
+//    iOS (`cSurface` con alpha `0.48` y borde especular blanco `0.16`).
+// POR QUÉ: Cumple la directiva "el modo oscuro debe ser 100% ios trasparente
+//          profesional" manteniendo < 150 líneas.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -28,7 +29,7 @@ class AppTheme {
 
   static ThemeData _buildTheme(bool isDark) {
     final bg = isDark ? AppColors.darkBackground : AppColors.background;
-    final surf = isDark ? AppColors.darkSurface : AppColors.surface;
+    final surf = isDark ? const Color(0xFF101E33).withValues(alpha: 0.52) : AppColors.surface;
     final txt = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final txtSec = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
     final sep = isDark ? AppColors.darkBorder : AppColors.separator;
@@ -42,9 +43,9 @@ class AppTheme {
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: primary,
         onPrimary: Colors.white,
-        secondary: AppColors.accentIndigo,
+        secondary: AppColors.accent,
         onSecondary: Colors.white,
-        error: AppColors.error,
+        error: isDark ? AppColors.errorDark : AppColors.error,
         onError: Colors.white,
         surface: surf,
         onSurface: txt,
@@ -52,7 +53,7 @@ class AppTheme {
       scaffoldBackgroundColor: bg,
       textTheme: _buildTextTheme(isDark),
       appBarTheme: AppBarTheme(
-        backgroundColor: bg,
+        backgroundColor: isDark ? const Color(0xFF050A14).withValues(alpha: 0.55) : bg,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
@@ -91,7 +92,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF1E2B3A) : const Color(0xFFFFFFFF),
+        fillColor: isDark ? Colors.white.withValues(alpha: 0.07) : const Color(0xFFFFFFFF),
         contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton), borderSide: BorderSide(color: sep, width: DesignTokens.borderWidth)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusButton), borderSide: BorderSide(color: sep, width: DesignTokens.borderWidth)),
@@ -125,15 +126,21 @@ extension ThemeColorsX on BuildContext {
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
   Color get cTextPrimary => isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
   Color get cTextSecondary => isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
-  Color get cTextTertiary => isDark ? const Color(0xFF657486) : AppColors.textTertiary;
-  Color get cSurface => isDark ? AppColors.darkSurface : AppColors.surface;
+  Color get cTextTertiary => isDark ? const Color(0xFF7E92AA) : AppColors.textTertiary;
+  Color get cSurface => isDark ? const Color(0xFF101E33).withValues(alpha: 0.48) : AppColors.surface;
   Color get cBackground => isDark ? AppColors.darkBackground : AppColors.background;
-  Color get cBackgroundSecondary => isDark ? const Color(0xFF192431) : AppColors.silver;
-  Color get cBorder => isDark ? AppColors.darkBorder : AppColors.borderColor;
+  Color get cBackgroundSecondary => isDark ? const Color(0xFF0D1829).withValues(alpha: 0.65) : AppColors.silver;
+  Color get cBorder => isDark ? Colors.white.withValues(alpha: 0.16) : AppColors.borderColor;
   Color get cGray => isDark ? AppColors.darkTextSecondary : AppColors.titanium;
-  Color get cGray2 => isDark ? const Color(0xFF657486) : AppColors.systemGray2;
-  Color get cGray4 => isDark ? AppColors.darkBorder : AppColors.systemGray4;
-  Color get cGray5 => isDark ? const Color(0xFF1E2B3A) : AppColors.systemGray5;
+  Color get cGray2 => isDark ? const Color(0xFF7E92AA) : AppColors.systemGray2;
+  Color get cGray4 => isDark ? Colors.white.withValues(alpha: 0.16) : AppColors.systemGray4;
+  Color get cGray5 => isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.systemGray5;
   Color get cWhite => isDark ? const Color(0xFFE2ECF5) : Colors.white;
-  LinearGradient get cGradientBackground => LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [cBackground, cBackground]);
+  LinearGradient get cGradientBackground => isDark
+      ? const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0A192F), Color(0xFF050A14), Color(0xFF091526)],
+        )
+      : LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [cBackground, cBackground]);
 }

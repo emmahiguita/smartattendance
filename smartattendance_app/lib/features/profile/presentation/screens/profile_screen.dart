@@ -1,14 +1,16 @@
 // ============================================================================
 // ARCHIVO: profile_screen.dart
-// QUÉ HACE: Pantalla de Perfil Corporativo estilo Apple iOS Inset Grouped con
-//           fotografía real interactiva del empleado, información de expediente
-//           y acciones según rol.
+// QUÉ HACE: Pantalla de Perfil Corporativo estilo Apple iOS 18 Liquid Glass
+//           100% transparente profesional en Modo Oscuro, con fotografía real
+//           interactiva del empleado e información de expediente.
 // CÓMO FUNCIONA: Lee el usuario autenticado desde `sessionControllerProvider`,
-//                permite tomar o seleccionar su foto real con `EmployeeAvatarService`
-//                y verifica `localActorProvider.isAdmin`.
-// POR QUÉ: Permite agregar la foto real del empleado y mantiene < 145 líneas.
+//                aplica cristal translúcido `BackdropFilter` y permite cambiar
+//                la foto real con `EmployeeAvatarService`.
+// POR QUÉ: Cumple la estética 100% iOS transparente profesional y permite
+//          agregar la foto real del empleado (< 160 líneas).
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +36,8 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = context.isDark;
+    final activeBlue = isDark ? AppColors.primaryDark : AppColors.primary;
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
     final isAdmin = ref.watch(localActorProvider).isAdmin;
@@ -41,46 +45,56 @@ class ProfileScreen extends ConsumerWidget {
     final initial = (user?.nombre ?? '').isEmpty ? '?' : user!.nombre[0].toUpperCase();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-          decoration: BoxDecoration(color: context.cSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: context.cBorder, width: 0.5)),
-          child: Column(children: [
-            GestureDetector(
-              onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.14),
-                    backgroundImage: avatarFile != null ? FileImage(avatarFile) : null,
-                    child: avatarFile == null ? Text(initial, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary)) : null,
-                  ),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, border: Border.all(color: context.cSurface, width: 2)),
-                      child: const Icon(CupertinoIcons.camera_fill, size: 13, color: Colors.white),
-                    ),
-                  ),
-                ],
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.06) : context.cSurface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.18) : context.cBorder, width: 0.8),
               ),
+              child: Column(children: [
+                GestureDetector(
+                  onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: activeBlue.withValues(alpha: 0.16),
+                        backgroundImage: avatarFile != null ? FileImage(avatarFile) : null,
+                        child: avatarFile == null ? Text(initial, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: activeBlue)) : null,
+                      ),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(color: activeBlue, shape: BoxShape.circle, border: Border.all(color: context.cBackground, width: 2)),
+                          child: const Icon(CupertinoIcons.camera_fill, size: 13, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(user?.fullName ?? 'Colaborador', style: TextStyle(fontFamily: AppTheme.editorialSerif, fontFamilyFallback: AppTheme.editorialFallbacks, fontSize: 18, fontWeight: FontWeight.w700, color: context.cTextPrimary, letterSpacing: -0.3)),
+                const SizedBox(height: 2),
+                Text(_cleanCargo(user?.cargo), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: activeBlue)),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user),
+                  child: Text('Toca la foto para agregar o cambiar imagen real', style: TextStyle(fontSize: 11, color: activeBlue)),
+                ),
+              ]),
             ),
-            const SizedBox(height: 10),
-            Text(user?.fullName ?? 'Colaborador', style: TextStyle(fontFamily: AppTheme.editorialSerif, fontFamilyFallback: AppTheme.editorialFallbacks, fontSize: 18, fontWeight: FontWeight.w700, color: context.cTextPrimary, letterSpacing: -0.3)),
-            const SizedBox(height: 2),
-            Text(_cleanCargo(user?.cargo), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
-            const SizedBox(height: 4),
-            GestureDetector(
-              onTap: () => EmployeeAvatarService.pickAndSavePhoto(context, ref, user),
-              child: const Text('Toca la foto para agregar o cambiar imagen real', style: TextStyle(fontSize: 11, color: AppColors.primary)),
-            ),
-          ]),
+          ),
         ),
         const SizedBox(height: 16),
         IosFormGroup(
@@ -114,16 +128,19 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow(this.icon, this.label, this.value);
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        child: Row(children: [
-          Icon(icon, size: 17, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(fontSize: 13.5, color: context.cTextSecondary)),
-          const Spacer(),
-          Flexible(child: Text(value, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.cTextPrimary))),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final activeBlue = context.isDark ? AppColors.primaryDark : AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      child: Row(children: [
+        Icon(icon, size: 17, color: activeBlue),
+        const SizedBox(width: 12),
+        Text(label, style: TextStyle(fontSize: 13.5, color: context.cTextSecondary)),
+        const Spacer(),
+        Flexible(child: Text(value, textAlign: TextAlign.right, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: context.cTextPrimary))),
+      ]),
+    );
+  }
 }
 
 class _ActionRow extends StatelessWidget {
@@ -135,7 +152,8 @@ class _ActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? AppColors.systemRed : AppColors.primary;
+    final activeBlue = context.isDark ? AppColors.primaryDark : AppColors.primary;
+    final color = destructive ? AppColors.systemRed : activeBlue;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),

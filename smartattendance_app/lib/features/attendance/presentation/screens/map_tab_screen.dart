@@ -12,6 +12,7 @@
 // POR QUÉ: Cumple auditoría de mapas reales + Traccar en < 195 líneas.
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -135,47 +136,53 @@ class _MapTabScreenState extends ConsumerState<MapTabScreen> with SingleTickerPr
       ),
       Positioned(
         top: 58, left: 14, right: 14,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-          decoration: BoxDecoration(
-            color: context.cSurface.withValues(alpha: 0.93),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: context.cBorder.withValues(alpha: 0.65), width: 0.8),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Row(children: [
-              Icon(inside ? CupertinoIcons.checkmark_shield_fill : CupertinoIcons.location_north_line_fill, size: 15, color: badgeColor),
-              const SizedBox(width: 6),
-              Expanded(child: Text('${widget.zoneName ?? 'Sede Asignada'} • $distLabel', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: context.cTextPrimary))),
-              if (isAdmin)
-                GestureDetector(onTap: _openZoneManager, child: const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(CupertinoIcons.pencil_circle_fill, size: 18, color: AppColors.primary))),
-              if (hasZone)
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+              decoration: BoxDecoration(
+                color: context.isDark ? const Color(0xFF0A1628).withValues(alpha: 0.62) : context.cSurface.withValues(alpha: 0.90),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: context.isDark ? Colors.white.withValues(alpha: 0.18) : context.cBorder.withValues(alpha: 0.65), width: 0.8),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Row(children: [
+                  Icon(inside ? CupertinoIcons.checkmark_shield_fill : CupertinoIcons.location_north_line_fill, size: 15, color: badgeColor),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text('${widget.zoneName ?? 'Sede Asignada'} • $distLabel', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: context.cTextPrimary))),
+                  if (isAdmin)
+                    GestureDetector(onTap: _openZoneManager, child: const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(CupertinoIcons.pencil_circle_fill, size: 18, color: AppColors.primary))),
+                  if (hasZone)
+                    GestureDetector(
+                      onTap: () => _openGoogleMaps(widget.zoneLat!, widget.zoneLng!),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
+                        child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(CupertinoIcons.map_pin_ellipse, size: 12, color: Colors.white), SizedBox(width: 4), Text('Ruta', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white))]),
+                      ),
+                    ),
+                ]),
+                const SizedBox(height: 3),
+                Text('Dirección: ${widget.zoneAddress ?? 'Dosquebradas, Risaralda'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: context.cTextSecondary)),
+                const SizedBox(height: 3),
                 GestureDetector(
-                  onTap: () => _openGoogleMaps(widget.zoneLat!, widget.zoneLng!),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(CupertinoIcons.map_pin_ellipse, size: 12, color: Colors.white), SizedBox(width: 4), Text('Ruta', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white))]),
-                  ),
+                  onTap: _syncTraccarNow,
+                  child: Row(children: [
+                    const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 12, color: Color(0xFF38BDF8)),
+                    const SizedBox(width: 5),
+                    Expanded(child: Text(_traccarStatus, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF38BDF8)))),
+                    const Text('Sincronizar Traccar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF38BDF8))),
+                  ]),
                 ),
-            ]),
-            const SizedBox(height: 3),
-            Text('Dirección: ${widget.zoneAddress ?? 'Dosquebradas, Risaralda'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: context.cTextSecondary)),
-            const SizedBox(height: 3),
-            GestureDetector(
-              onTap: _syncTraccarNow,
-              child: Row(children: [
-                const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 12, color: Color(0xFF0284C7)),
-                const SizedBox(width: 5),
-                Expanded(child: Text(_traccarStatus, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0284C7)))),
-                const Text('Sincronizar Traccar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.primary)),
               ]),
             ),
-          ]),
+          ),
         ),
       ),
       Positioned(
-        bottom: 24, left: 14, right: 14,
+        bottom: 92, left: 14, right: 14,
         child: MapBottomHudBar(expandLabel: 'Ver geocerca', expandIcon: CupertinoIcons.scope, onExpand: () => _mapController.move(zonePt, 17.0), onZoomIn: () => _zoomBy(1.0), onZoomOut: () => _zoomBy(-1.0), onRecenter: () => _mapController.move(userPt, 17.0)),
       ),
     ]);

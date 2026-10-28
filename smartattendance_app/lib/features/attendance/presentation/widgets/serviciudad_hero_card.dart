@@ -2,19 +2,17 @@
 // ARCHIVO: serviciudad_hero_card.dart
 // QUÉ HACE: Panel con los 4 botones compactos de marcación de la jornada
 //           (`Inicio`, `Salida Almuerzo`, `Regreso Almuerzo`, `Salida`) y el
-//           Marcador de Horas Extras Asignadas cuando `assignedOvertimeMinutes > 0`.
+//           Marcador de Horas Extras Asignadas con cristal translúcido 100% iOS
+//           en Modo Oscuro (`BackdropFilter`).
 // CÓMO FUNCIONA:
-// 1. Determina `nextTipo` evaluando en orden estricto las 4 etapas del día
-//    (`entrada` -> `salida_almuerzo` -> `regreso_almuerzo` -> `salida`) para
-//    que siempre quede habilitada la etapa pendiente inmediata.
-// 2. Si el colaborador tiene Horas Extras Asignadas (`assignedOvertimeMinutes > 0`),
-//    muestra el marcador oficial de Horas Extras, indicando que el sistema las
-//    contabiliza automáticamente al cumplir el horario asignado o al marcar la
-//    Salida al término de las horas extras.
+// 1. Determina `nextTipo` evaluando en orden estricto las 4 etapas del día.
+// 2. Renderiza cada botón con cristal esmerilado iOS (`ImageFilter.blur`) y
+//    borde especular en modo oscuro, junto al marcador de Horas Extras Asignadas.
 // POR QUÉ: Cumple la regla de negocio de Horas Extras Asignadas + secuencia
-//          estricta de jornada (< 170 líneas).
+//          estricta + modo oscuro 100% iOS transparente profesional (< 165 líneas).
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -50,6 +48,7 @@ class ServiciudadHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
     final now = DateTime.now();
     final today = records.where((r) {
       final l = r.fecha.toLocal();
@@ -69,7 +68,7 @@ class ServiciudadHeroCard extends StatelessWidget {
 
     final hasExtra = assignedOvertimeMinutes > 0;
     final extraHours = assignedOvertimeMinutes ~/ 60;
-    final extraColor = salida != null ? AppColors.success : const Color(0xFFF59E0B);
+    final extraColor = salida != null ? (isDark ? AppColors.successDark : AppColors.success) : const Color(0xFFF59E0B);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
@@ -85,25 +84,31 @@ class ServiciudadHeroCard extends StatelessWidget {
       ]),
       if (hasExtra) ...[
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: extraColor.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: extraColor.withValues(alpha: 0.45), width: 0.9),
-          ),
-          child: Row(children: [
-            Icon(salida != null ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.bolt_badge_a_fill, size: 16, color: extraColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                salida != null
-                    ? 'Horas Extras Contabilizadas (+${extraHours}h): Jornada y extras cumplidas'
-                    : 'Marcador Horas Extras Asignadas (+${extraHours}h): Se cuentan al cumplir horario o al marcar Salida final',
-                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: salida != null ? AppColors.success : context.cTextPrimary),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(11),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              decoration: BoxDecoration(
+                color: extraColor.withValues(alpha: isDark ? 0.14 : 0.10),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: extraColor.withValues(alpha: isDark ? 0.50 : 0.45), width: 0.9),
               ),
+              child: Row(children: [
+                Icon(salida != null ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.bolt_badge_a_fill, size: 16, color: extraColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    salida != null
+                        ? 'Horas Extras Contabilizadas (+${extraHours}h): Jornada y extras cumplidas'
+                        : 'Marcador Horas Extras Asignadas (+${extraHours}h): Se cuentan al cumplir horario o al marcar Salida final',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: salida != null ? extraColor : context.cTextPrimary),
+                  ),
+                ),
+              ]),
             ),
-          ]),
+          ),
         ),
       ],
     ]);
@@ -114,36 +119,49 @@ class ServiciudadHeroCard extends StatelessWidget {
     final isDone = record != null;
     final isActive = !isDone && nextTipo == tipo;
     final timeStr = isDone ? DateFormat('h:mm a').format(record.hora.toLocal()) : null;
-    final borderColor = isDone ? AppColors.success.withValues(alpha: isDark ? 0.45 : 0.4) : (isActive ? AppColors.primary : context.cBorder.withValues(alpha: isDark ? 0.35 : 0.4));
-    final bgColor = isDone ? AppColors.success.withValues(alpha: isDark ? 0.12 : 0.05) : (isActive ? AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.08) : Colors.transparent);
-    final fgColor = isDone ? AppColors.success : (isActive ? AppColors.primary : context.cTextSecondary);
+    final activeBlue = isDark ? AppColors.primaryDark : AppColors.primary;
+    final doneGreen = isDark ? AppColors.successDark : AppColors.success;
+
+    final borderColor = isDone
+        ? doneGreen.withValues(alpha: isDark ? 0.55 : 0.40)
+        : (isActive ? activeBlue : (isDark ? Colors.white.withValues(alpha: 0.16) : context.cBorder.withValues(alpha: 0.4)));
+    final bgColor = isDone
+        ? doneGreen.withValues(alpha: isDark ? 0.15 : 0.05)
+        : (isActive ? activeBlue.withValues(alpha: isDark ? 0.22 : 0.08) : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.transparent));
+    final fgColor = isDone ? doneGreen : (isActive ? activeBlue : context.cTextSecondary);
     final label = isDone ? '$timeStr  ✓' : (isActive ? 'Toca para marcar' : 'Bloqueado');
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          if (isDone) return _notifyBlocked(context, 'Ya registraste "$title" hoy a las $timeStr.');
-          if (!isActive) {
-            return _notifyBlocked(context, nextTipo.isEmpty ? 'Tu jornada de hoy ya finalizó con tu Salida.' : 'Orden de jornada: primero debes marcar "${MarkSequence.labelOf(nextTipo)}".');
-          }
-          onTap(tipo);
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor, width: isActive ? 1.4 : 0.8)),
-          child: Row(children: [
-            Icon(isDone ? CupertinoIcons.checkmark_alt_circle_fill : (isActive ? icon : CupertinoIcons.lock_fill), size: 19, color: isDone || isActive ? fgColor : fgColor.withValues(alpha: 0.45)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: fgColor, letterSpacing: -0.2)),
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9.5, fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w400, color: fgColor)),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              if (isDone) return _notifyBlocked(context, 'Ya registraste "$title" hoy a las $timeStr.');
+              if (!isActive) {
+                return _notifyBlocked(context, nextTipo.isEmpty ? 'Tu jornada de hoy ya finalizó con tu Salida.' : 'Orden de jornada: primero debes marcar "${MarkSequence.labelOf(nextTipo)}".');
+              }
+              onTap(tipo);
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderColor, width: isActive ? 1.3 : 0.85)),
+              child: Row(children: [
+                Icon(isDone ? CupertinoIcons.checkmark_alt_circle_fill : (isActive ? icon : CupertinoIcons.lock_fill), size: 19, color: isDone || isActive ? fgColor : fgColor.withValues(alpha: 0.55)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: fgColor, letterSpacing: -0.2)),
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9.5, fontWeight: isDone || isActive ? FontWeight.w600 : FontWeight.w400, color: fgColor)),
+                  ]),
+                ),
               ]),
             ),
-          ]),
+          ),
         ),
       ),
     );

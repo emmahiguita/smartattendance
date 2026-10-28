@@ -1,17 +1,18 @@
 // ============================================================================
 // ARCHIVO: settings_widgets.dart
 // QUÉ HACE: Componentes visuales reutilizables para la pantalla de Configuración
-//           (títulos de sección, tarjetas contenedoras, filas e indicadores).
-// CÓMO FUNCIONA: Aplica el sistema de diseño adaptable a modo claro/oscuro.
-// POR QUÉ: Cumple SRP y mantiene todos los archivos bajo < 120 líneas.
+//           con efecto 100% iOS Liquid Glass Transparente Profesional en Modo Oscuro.
+// CÓMO FUNCIONA: Aplica `BackdropFilter` gaussiano real y bordes especulares
+//                en `SettingsGroupCard`.
+// POR QUÉ: Cumple SRP y mantiene todos los archivos bajo < 140 líneas.
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
-/// QUÉ HACE: Renderiza el encabezado de cada bloque en Configuración.
 class SettingsSectionTitle extends StatelessWidget {
   const SettingsSectionTitle(this.title, {super.key});
   final String title;
@@ -26,23 +27,40 @@ class SettingsSectionTitle extends StatelessWidget {
       );
 }
 
-/// QUÉ HACE: Tarjeta agrupada con bordes redondeados para filas de ajustes.
 class SettingsGroupCard extends StatelessWidget {
   const SettingsGroupCard({super.key, required this.children});
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+  Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.16) : context.cBorder,
+              width: 0.85,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(children: children),
         ),
-        child: Column(children: children),
-      );
+      ),
+    );
+  }
 }
 
-/// QUÉ HACE: Fila individual de configuración con ícono, título, subtítulo y acción.
 class SettingItemRow extends StatelessWidget {
   const SettingItemRow({
     super.key,
@@ -71,7 +89,7 @@ class SettingItemRow extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: accentColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: accentColor.withValues(alpha: context.isDark ? 0.18 : 0.10), borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: accentColor, size: 22),
               ),
               const SizedBox(width: 14),
@@ -92,7 +110,6 @@ class SettingItemRow extends StatelessWidget {
       );
 }
 
-/// QUÉ HACE: Muestra el modal de Términos y Políticas de Privacidad.
 void showSettingsTermsModal(BuildContext context) {
   showIosFloatingGlassSheet<void>(
     context: context,
