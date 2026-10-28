@@ -1,18 +1,15 @@
 // ============================================================================
 // ARCHIVO: home_header.dart
 // QUÉ HACE: Encabezado institucional con miniatura fotográfica real del
-//           empleado (interactiva para agregar/cambiar foto desde Cámara o
-//           Galería) e información textual organizada SIN CORTARSE:
-//           1. Sello `SERVICIUDAD E.S.P.` arriba.
+//           empleado e información textual organizada SIN CORTARSE:
+//           1. Sello `SERVICIUDAD E.S.P.` con color adaptativo luminoso en oscuro.
 //           2. Saludo editorial (`¡Hola, Emmanuel!`).
-//           3. Debajo, en su propia línea completa y con `softWrap: true`, el
-//              cargo completo (`Encargado local / Administrador` o `Supervisor`)
-//              para que jamás se corte con `...`.
+//           3. Debajo, en línea completa (`softWrap: true`), el cargo completo
+//              (`Encargado local / Administrador` o `Supervisor`) sin cortarse.
 //           4. Fecha oficial del día.
-// CÓMO FUNCIONA: Resuelve la foto real mediante `EmployeeAvatarService` y
-//                permite actualizarla tocando la miniatura.
-// POR QUÉ: Garantiza que "/ Administrador" o "Supervisor" aparezca siempre
-//          completo sin cortarse (< 175 líneas).
+// CÓMO FUNCIONA: Resuelve la foto real mediante `EmployeeAvatarService` y usa
+//                `context.cPrimary` para contraste perfecto en Modo Oscuro iOS.
+// POR QUÉ: Garantiza legibilidad en Modo Oscuro y cero texto cortado (< 175 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -20,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/auth/session_controller.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/employee_avatar_service.dart';
 import '../../../auth/domain/entities/user_entity.dart';
@@ -49,6 +45,7 @@ class HomeHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = context.isDark;
+    final primaryColor = context.cPrimary;
     final session = ref.watch(sessionControllerProvider);
     final authUser = session is SessionAuthenticated ? session.user : (user is UserEntity ? user as UserEntity : null);
 
@@ -73,8 +70,8 @@ class HomeHeader extends ConsumerWidget {
                 height: 54,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.45), width: 1.6),
-                  color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+                  border: Border.all(color: primaryColor.withValues(alpha: 0.55), width: 1.6),
+                  color: primaryColor.withValues(alpha: isDark ? 0.22 : 0.12),
                   image: avatarFile != null
                       ? DecorationImage(image: FileImage(avatarFile), fit: BoxFit.cover)
                       : null,
@@ -83,12 +80,12 @@ class HomeHeader extends ConsumerWidget {
                 child: avatarFile == null
                     ? Text(
                         initial,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: AppTheme.editorialSerif,
                           fontFamilyFallback: AppTheme.editorialFallbacks,
                           fontSize: 21,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
+                          color: primaryColor,
                         ),
                       )
                     : null,
@@ -100,7 +97,7 @@ class HomeHeader extends ConsumerWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: primaryColor,
                     shape: BoxShape.circle,
                     border: Border.all(color: context.cBackground, width: 1.8),
                   ),
@@ -119,16 +116,17 @@ class HomeHeader extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: isDark ? 0.25 : 0.09),
+                  color: primaryColor.withValues(alpha: isDark ? 0.20 : 0.09),
                   borderRadius: BorderRadius.circular(5),
+                  border: isDark ? Border.all(color: primaryColor.withValues(alpha: 0.35), width: 0.6) : null,
                 ),
-                child: const Text(
+                child: Text(
                   'SERVICIUDAD E.S.P.',
                   style: TextStyle(
                     fontSize: 8.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
-                    color: AppColors.primary,
+                    color: primaryColor,
                   ),
                 ),
               ),

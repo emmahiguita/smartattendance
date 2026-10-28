@@ -1,18 +1,28 @@
 // ============================================================================
 // ARCHIVO: local_actor.dart
-// QUÉ HACE: Define la identidad y el alcance de visibilidad de datos (RBAC)
-//           del operador autenticado en el dispositivo.
-// CÓMO FUNCIONA: Si `isAdmin` es verdadero, tiene visibilidad global (`'1'`).
-//                Si es colaborador o supervisor de cuadrilla, restringe las
-//                consultas SQL exclusivamente a su propia cédula (`w.document`)
-//                o al personal de la cuadrilla a su cargo (`supervisor_document`).
-// POR QUÉ: Aísla los datos entre empleados y evita fugas de información (< 35 líneas).
+// QUÉ HACE: Define la identidad y la jerarquía de 3 roles (RBAC) del operador:
+//           1. `Administrador` (`isAdmin = true`, `isStrictAdmin = true`):
+//              Control total de RRHH, zonas, cuadrillas, bajas y servidor.
+//           2. `Supervisor` (`isAdmin = true`, `isStrictAdmin = false`,
+//              `isSupervisor = true`): Supervisa cuadrilla, asigna turnos y
+//              Horas Extras Asignadas y afilia operarios.
+//           3. `Colaborador` (`isAdmin = false`): Marca sus 4 etapas del día,
+//              ve su geocerca GPS y su marcador de Horas Extras Asignadas.
+// POR QUÉ: Audita y separa formalmente las responsabilidades de cada rol (< 40 líneas).
 // ============================================================================
 
 class LocalActor {
-  const LocalActor(this.document, this.isAdmin);
+  const LocalActor(
+    this.document,
+    this.isAdmin, {
+    this.isStrictAdmin = false,
+    this.isSupervisor = false,
+  });
+
   final String document;
   final bool isAdmin;
+  final bool isStrictAdmin;
+  final bool isSupervisor;
 
   String visibleWorkers(String column) => isAdmin
       ? '1'

@@ -1,14 +1,13 @@
 // ============================================================================
 // ARCHIVO: local_auth_datasource.dart
 // QUÉ HACE: Autentica usuarios contra las tablas SQLite reales (`workers`,
-//           `crews` y `usuarios_locales`), validando contraseña y rol real.
+//           `crews` y `usuarios_locales`), distinguiendo entre `Administrador`,
+//           `Supervisor` y `Colaborador`.
 // CÓMO FUNCIONA:
-// 1. Consulta `workers` y `crews` en `PhotoDatabase` para reflejar al instante
-//    cualquier alta o ascenso a `Supervisor` o `Administrador` hecho en la app.
-// 2. Verifica `password_hash` cuando la cuenta posee clave configurada.
-// 3. Rechaza cédulas inexistentes (0 simulaciones).
-// POR QUÉ: Garantiza que supervisores y administradores asignados desde adentro
-//          inicien sesión de inmediato con sus permisos (< 115 líneas).
+// 1. `isStrictAdministrator` identifica exclusivamente al rol Administrador.
+// 2. `isSupervisorRole` identifica al Supervisor Operativo / Jefe de Cuadrilla.
+// 3. `isRoleAdmin` habilita el módulo de supervisión y gestión operativa.
+// POR QUÉ: Audita y separa con precisión los 3 niveles de acceso (< 130 líneas).
 // ============================================================================
 
 import 'package:uuid/uuid.dart';
@@ -16,29 +15,34 @@ import '../../../../core/localstore/local_database_service.dart';
 import '../../../photo_attendance/data/photo_database.dart';
 import '../models/user_model.dart';
 
-/// Fuente de datos de autenticación local real sobre SQLite.
 final class LocalAuthDataSource {
   LocalAuthDataSource(this._dbService);
   final LocalDatabaseService _dbService;
   static const _uuid = Uuid();
 
-  /// QUÉ HACE: Determina si el rol/cargo o cédula tiene privilegios administrativos.
-  /// POR QUÉ: Centraliza la regla para que Administradores y Supervisores asignados
-  ///          desde dentro de la app obtengan acceso al iniciar sesión.
-  static bool isRoleAdmin(String? roleOrJob, String cedula) {
+  /// QUÉ HACE: Verifica si el usuario es estrictamente Administrador Principal / RRHH.
+  static bool isStrictAdministrator(String? roleOrJob, String cedula) {
     if (cedula.trim() == '1007331963') return true;
     final r = (roleOrJob ?? '').trim().toLowerCase();
     return r == 'admin' ||
         r == 'administrador' ||
-        r == 'supervisor' ||
         r == 'super_admin' ||
         r == 'gerente' ||
         r == 'rrhh' ||
-        r.startsWith('administrador ') ||
-        r.startsWith('supervisor ');
+        r.contains('administrador');
   }
 
-  /// QUÉ HACE: Valida cédula y contraseña contra la nómina local real.
+  /// QUÉ HACE: Verifica si el usuario tiene el rol de Supervisor Operativo.
+  static bool isSupervisorRole(String? roleOrJob) {
+    final r = (roleOrJob ?? '').trim().toLowerCase();
+    return r == 'supervisor' || r.startsWith('supervisor ');
+  }
+
+  /// QUÉ HACE: Determina si el usuario tiene acceso a funciones de gestión/supervisión.
+  static bool isRoleAdmin(String? roleOrJob, String cedula) {
+    return isStrictAdministrator(roleOrJob, cedula) || isSupervisorRole(roleOrJob);
+  }
+
   Future<(String token, String refreshToken, UserModel user)> loginByCedula(
     String cedula, {
     String? password,

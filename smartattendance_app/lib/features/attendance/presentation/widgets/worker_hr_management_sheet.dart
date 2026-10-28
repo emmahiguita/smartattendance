@@ -127,6 +127,7 @@ class _WorkerHrManagementSheetState extends ConsumerState<WorkerHrManagementShee
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isStrictAdmin = ref.watch(localActorProvider).isStrictAdmin;
     final status = calculateStaffStatus(_worker, ColombiaClock.day(DateTime.now()));
     final initial = _worker.name.trim().isEmpty ? '?' : _worker.name.trim()[0].toUpperCase();
     final scheduleLabel = _worker.schedule != null ? (_worker.schedule!.shiftName ?? _worker.schedule!.timeWindowFormatted) : 'Sin horario asignado';
@@ -162,14 +163,16 @@ class _WorkerHrManagementSheetState extends ConsumerState<WorkerHrManagementShee
           onPressed: () { Navigator.pop(context); Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => PhotoCaptureScreen(worker: _worker, initialType: 'entrada'))); },
           child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(CupertinoIcons.viewfinder, size: 17, color: Colors.white), SizedBox(width: 8), Text('Registrar Asistencia Facial', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.white))]),
         ),
-        const SizedBox(height: 12),
-        CupertinoButton(
-          color: AppColors.systemRed.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(11),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          onPressed: _deleteWorker,
-          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(CupertinoIcons.person_badge_minus, size: 16, color: AppColors.systemRed), SizedBox(width: 6), Text('Desvincular de Nómina / Dar de Baja', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed))]),
-        ),
+        if (isStrictAdmin) ...[
+          const SizedBox(height: 12),
+          CupertinoButton(
+            color: AppColors.systemRed.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(11),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            onPressed: _deleteWorker,
+            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(CupertinoIcons.person_badge_minus, size: 16, color: AppColors.systemRed), SizedBox(width: 6), Text('Desvincular de Nómina / Dar de Baja', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.systemRed))]),
+          ),
+        ],
       ]),
     );
   }

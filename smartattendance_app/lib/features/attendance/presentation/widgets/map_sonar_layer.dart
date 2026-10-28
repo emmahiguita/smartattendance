@@ -1,15 +1,14 @@
 // ============================================================================
 // ARCHIVO: map_sonar_layer.dart
-// QUÉ HACE: Define los estilos cartográficos (`MapCartoStyle`) y las capas
-//           visuales semánticas del mapa: teselas satelitales/calles, geocerca
-//           sonar con pin institucional de Sede y marcador en vivo del trabajador.
+// QUÉ HACE: Define los estilos cartográficos (`MapCartoStyle` incluyendo
+//           `dark` CartoDB Dark Matter para Modo Oscuro iOS) y las capas
+//           semánticas del mapa: geocerca sonar y marcador en vivo del trabajador.
 // CÓMO FUNCIONA:
-// 1. Geocerca Asignada: Círculo y ondas en Azul Corporativo (`#0052CC`) o Verde
-//    Esmeralda (`#10B981`) cuando el colaborador está dentro del perímetro, con
-//    ícono de sede (`Icons.business_rounded`).
-// 2. Colaborador GPS: Pin circular animado en Verde (`#10B981`) si está en zona,
-//    Azul (`#2563EB`) con GPS activo en tránsito, o Ámbar (`#F59E0B`) sin fix.
-// POR QUÉ: Aplica una paleta de colores e iconografía semántica clara (< 180 líneas).
+// 1. Geocerca Asignada: Círculo y ondas en Azul iOS (`#0A84FF`) o Verde
+//    Esmeralda (`#10B981`) cuando el colaborador está dentro del perímetro.
+// 2. Colaborador GPS: Pin circular animado en Verde si está en zona, Azul en
+//    tránsito o Ámbar sin fijación GPS.
+// POR QUÉ: Soporta Modo Oscuro cartográfico nativo y mantiene < 185 líneas.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -18,29 +17,17 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_colors.dart';
 
 enum MapCartoStyle {
-  streets(
-    'Calles',
-    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    Icons.map_rounded,
-  ),
-  satellite(
-    'Satélite',
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    Icons.satellite_alt_rounded,
-  ),
-  topo(
-    'Topográfico',
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    Icons.terrain_rounded,
-  );
+  streets('Calles', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', Icons.map_rounded),
+  dark('Nocturno', 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', Icons.dark_mode_rounded),
+  satellite('Satélite', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', Icons.satellite_alt_rounded),
+  topo('Topográfico', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', Icons.terrain_rounded);
 
   final String label;
   final String url;
   final IconData icon;
   const MapCartoStyle(this.label, this.url, this.icon);
 
-  MapCartoStyle get next =>
-      MapCartoStyle.values[(index + 1) % MapCartoStyle.values.length];
+  MapCartoStyle get next => MapCartoStyle.values[(index + 1) % MapCartoStyle.values.length];
 }
 
 class MapBaseTileLayer extends StatelessWidget {
@@ -74,7 +61,7 @@ class MapSonarCircleLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = isInside ? AppColors.success : AppColors.primary;
+    final baseColor = isInside ? AppColors.successDark : AppColors.primaryDark;
     return AnimatedBuilder(
       animation: pulseAnimation,
       builder: (context, _) {
@@ -90,8 +77,8 @@ class MapSonarCircleLayer extends StatelessWidget {
               circles: [
                 CircleMarker(
                   point: point,
-                  color: baseColor.withValues(alpha: 0.14),
-                  borderColor: baseColor.withValues(alpha: 0.85),
+                  color: baseColor.withValues(alpha: 0.16),
+                  borderColor: baseColor.withValues(alpha: 0.88),
                   borderStrokeWidth: 2.2,
                   useRadiusInMeter: true,
                   radius: zoneRadiusMeters,
@@ -106,8 +93,8 @@ class MapSonarCircleLayer extends StatelessWidget {
                 ),
                 CircleMarker(
                   point: point,
-                  color: AppColors.accentIndigo.withValues(alpha: outerAlpha * 0.45),
-                  borderColor: AppColors.accentIndigo.withValues(alpha: outerAlpha),
+                  color: AppColors.accent.withValues(alpha: outerAlpha * 0.45),
+                  borderColor: AppColors.accent.withValues(alpha: outerAlpha),
                   borderStrokeWidth: 1.2,
                   useRadiusInMeter: true,
                   radius: outerRadius,
@@ -123,7 +110,7 @@ class MapSonarCircleLayer extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary,
+                      color: AppColors.primaryDark,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
                     child: const Icon(Icons.business_rounded, size: 16, color: Colors.white),
@@ -158,7 +145,7 @@ class MapUserLocationMarkerLayer extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeColor = !hasFix
         ? AppColors.systemOrange
-        : (isInside ? AppColors.success : const Color(0xFF0EA5E9));
+        : (isInside ? AppColors.successDark : const Color(0xFF0EA5E9));
     return MarkerLayer(
       markers: [
         Marker(

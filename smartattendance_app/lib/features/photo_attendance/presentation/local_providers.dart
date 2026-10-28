@@ -1,12 +1,10 @@
 // ============================================================================
 // ARCHIVO: local_providers.dart
 // QUÉ HACE: Raíz de composición Riverpod para base de datos SQLite, identidad
-//           del operador (`LocalActor`), almacén administrativo (`LocalAdminStore`),
-//           sensor GPS real y verificador biométrico facial.
-// CÓMO FUNCIONA: Vincula el estado de sesión (`sessionControllerProvider`) y
-//                el desbloqueo por PIN (`adminAccessProvider`) para restringir
-//                estrictamente las operaciones administrativas (`adminDocument = null`
-//                cuando el usuario no es Administrador ni Supervisor).
+//           del operador (`LocalActor` con separación Administrador vs
+//           Supervisor vs Colaborador), almacén administrativo y sensores.
+// CÓMO FUNCIONA: Calcula `isStrictAdmin` (exclusivo Administrador / PIN) e
+//                `isSupervisor` (Supervisor de cuadrilla) desde la sesión activa.
 // POR QUÉ: Garantiza control de acceso basado en roles (RBAC) real (< 90 líneas).
 // ============================================================================
 
@@ -32,11 +30,12 @@ final localActorProvider = Provider((ref) {
   final unlocked = ref.watch(adminAccessProvider);
   if (session is SessionAuthenticated) {
     final u = session.user;
-    final isAdm =
-        u.isAdmin || LocalAuthDataSource.isRoleAdmin(u.cargo, u.cedula) || unlocked;
-    return LocalActor(u.cedula, isAdm);
+    final strictAdm = LocalAuthDataSource.isStrictAdministrator(u.cargo, u.cedula) || unlocked;
+    final sup = !strictAdm && LocalAuthDataSource.isSupervisorRole(u.cargo);
+    final isAdm = u.isAdmin || strictAdm || sup;
+    return LocalActor(u.cedula, isAdm, isStrictAdmin: strictAdm, isSupervisor: sup);
   }
-  return LocalActor('', unlocked);
+  return LocalActor('', unlocked, isStrictAdmin: unlocked);
 });
 
 final localAdminStoreProvider = Provider((ref) {

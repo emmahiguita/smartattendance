@@ -1,15 +1,13 @@
 // ============================================================================
 // ARCHIVO: home_screen.dart
-// QUÉ HACE: Contenedor raíz de navegación estilo iOS 18 Liquid Glass con Modo
-//           Oscuro 100% transparente profesional (`extendBody: true`, aurora
-//           ambiental iOS y barra flotante con desenfoque `BackdropFilter`).
+// QUÉ HACE: Contenedor raíz estilo iOS 26 Liquid Glass con Modo Oscuro 100%
+//           transparente profesional (`extendBody: true`, esferas de luz
+//           ambiental refractiva para el `BackdropFilter` y barra flotante).
 // CÓMO FUNCIONA:
-// 1. Consulta la geocerca asignada a la cuadrilla del usuario autenticado, su
-//    dirección física real y sus Horas Extras Asignadas (`assignedOvertimeMinutes`).
-// 2. Sincroniza la telemetría GPS con `TraccarService` y renderiza un lienzo
-//    ambiental iOS en modo oscuro para que los paneles de cristal refracten luz.
-// POR QUÉ: Conecta geocerca, horas extras, Traccar y estética 100% iOS
-//          transparente profesional (< 195 líneas).
+// 1. Consulta geocerca asignada, dirección real y Horas Extras Asignadas.
+// 2. Renderiza esferas de luminancia ambiental en Modo Oscuro detrás del
+//    contenido para que el cristal translúcido refracte luz real al desplazarse.
+// POR QUÉ: Cumple la arquitectura avanzada de Liquid Glass y mantiene < 198 líneas.
 // ============================================================================
 
 import 'dart:ui';
@@ -20,7 +18,6 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/location/location_service.dart';
 import '../../../../core/location/traccar_service.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
@@ -130,8 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
     final sel = _currentNav == index;
-    final activeColor = context.isDark ? AppColors.primaryDark : AppColors.primary;
-    final color = sel ? activeColor : context.cTextSecondary;
+    final color = sel ? context.cPrimary : context.cTextSecondary;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -175,30 +171,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       extendBody: true,
       backgroundColor: context.cBackground,
       appBar: CorporateAppBar(user: user, currentNavIndex: navIdx, onProfileTap: () => setState(() => _currentNav = 3)),
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: context.cGradientBackground),
-        child: AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: KeyedSubtree(key: ValueKey<int>(navIdx), child: pages[navIdx])),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(decoration: BoxDecoration(gradient: context.cGradientBackground)),
+          if (isDark) ...[
+            Positioned(
+              top: -60,
+              right: -40,
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [const Color(0xFF0A84FF).withValues(alpha: 0.16), Colors.transparent]),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 100,
+              left: -50,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [const Color(0xFF1598D3).withValues(alpha: 0.12), Colors.transparent]),
+                ),
+              ),
+            ),
+          ],
+          AnimatedSwitcher(duration: const Duration(milliseconds: 180), child: KeyedSubtree(key: ValueKey<int>(navIdx), child: pages[navIdx])),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0B1728).withValues(alpha: 0.52) : context.cSurface.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.20) : context.cBorder.withValues(alpha: 0.75), width: 0.9),
+          child: RepaintBoundary(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF07101E).withValues(alpha: 0.50) : context.cSurface.withValues(alpha: 0.85),
+                    gradient: isDark
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Colors.white.withValues(alpha: 0.10), Colors.white.withValues(alpha: 0.02)],
+                            stops: const [0.0, 0.65],
+                          )
+                        : null,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.18) : context.cBorder.withValues(alpha: 0.75), width: 0.9),
+                  ),
+                  child: Row(children: [
+                    _navItem(0, CupertinoIcons.house, CupertinoIcons.house_fill, 'Inicio'),
+                    if (isAdmin) _navItem(1, CupertinoIcons.doc_text, CupertinoIcons.doc_text_fill, 'Reportes'),
+                    _navItem(2, CupertinoIcons.map, CupertinoIcons.map_fill, 'Mapa'),
+                    _navItem(3, CupertinoIcons.person, CupertinoIcons.person_fill, 'Perfil'),
+                  ]),
                 ),
-                child: Row(children: [
-                  _navItem(0, CupertinoIcons.house, CupertinoIcons.house_fill, 'Inicio'),
-                  if (isAdmin) _navItem(1, CupertinoIcons.doc_text, CupertinoIcons.doc_text_fill, 'Reportes'),
-                  _navItem(2, CupertinoIcons.map, CupertinoIcons.map_fill, 'Mapa'),
-                  _navItem(3, CupertinoIcons.person, CupertinoIcons.person_fill, 'Perfil'),
-                ]),
               ),
             ),
           ),

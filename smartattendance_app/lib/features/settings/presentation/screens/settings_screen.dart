@@ -109,18 +109,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeControllerProvider);
     final notificationsEnabled = ref.watch(notificationsEnabledProvider).valueOrNull ?? true;
-    final isAdmin = ref.watch(localActorProvider).isAdmin;
+    final isAdmin = ref.watch(localActorProvider).isStrictAdmin;
 
     return Scaffold(
       backgroundColor: context.cBackground,
       appBar: AppAppBar(
         title: 'Configuración',
         centerTitle: true,
-        leadingWidget: IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.systemBlue), onPressed: () => Navigator.of(context).maybePop()),
+        leadingWidget: IconButton(icon: Icon(Icons.arrow_back_ios_new, color: context.cPrimary), onPressed: () => Navigator.of(context).maybePop()),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
+      body: DecoratedBox(
+        decoration: BoxDecoration(gradient: context.cGradientBackground),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
           const SettingsSectionTitle('Apariencia'),
           SettingsGroupCard(children: [
             const SettingItemRow(icon: Icons.dark_mode, accentColor: Color(0xFF8B5CF6), title: 'Tema', subtitle: 'Sistema, claro u oscuro'),
@@ -197,6 +199,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ]),
           const SizedBox(height: 32),
         ],
+      ),
       ),
     );
   }

@@ -66,12 +66,13 @@ class _WorkerDialogState extends ConsumerState<WorkerDialog> {
     } catch (_) {}
   }
 
-  /// QUÉ HACE: Permite elegir si la nueva persona será Colaborador, Supervisor o Administrador.
+  /// QUÉ HACE: Permite elegir el rol según el nivel del operador (Solo Administrador puede crear otro Administrador).
   Future<void> _pickRole() async {
-    const roles = [
+    final isStrictAdmin = ref.read(localActorProvider).isStrictAdmin;
+    final roles = [
       ('Colaborador', 'Solo marca ingreso, almuerzo y salida (sin acceso a RRHH)'),
-      ('Supervisor', 'Inicia sesión con permisos de supervisión de cuadrilla y RRHH'),
-      ('Administrador', 'Inicia sesión con control total de horarios, zonas y reportes'),
+      ('Supervisor', 'Inicia sesión con permisos de supervisión de cuadrilla y turnos'),
+      if (isStrictAdmin) ('Administrador', 'Inicia sesión con control total de horarios, zonas, bajas y reportes'),
     ];
     final selected = await showIosGlassFloatingMenu<String>(
       context: context,
