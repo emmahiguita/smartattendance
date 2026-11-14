@@ -10,8 +10,10 @@ from sqlalchemy.orm import Session
 from app.repositories.user_repository import UserRepository
 from app.core.config import settings
 from app.services.password_reset_service import password_reset_service
+from app.services.google_identity_policy import account_email
+from app.services import session_service
 from app.core.hashing import hash_password, verify_password
-from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
+from app.core.security import decode_refresh_token
 from app.models.user import User
 from app.schemas.user import (
     GoogleAuthRequest,
@@ -44,7 +46,9 @@ class AuthService:
                 detail="CÃ©dula no encontrada o usuario inactivo.",
             )
 
-        # Si la cuenta tiene contraseÃ±a, se exige SIEMPRE.
+        # Una cuenta pendiente de activación no autentica con una identificación pública.
+        if not user.hashed_password or not request.password:
+            raise HTTPException(status_code=401, detail="Establece tu contraseña mediante recuperación de cuenta.")
         if user.hashed_password:
             if not request.password or not verify_password(request.password, user.hashed_password):
                 raise HTTPException(
@@ -56,6 +60,8 @@ class AuthService:
 
     def register(self, request: RegisterRequest) -> LoginResponse:
         """Auto-registro pÃºblico: crea la cuenta con contraseÃ±a y emite tokens (login automÃ¡tico)."""
+        if request.cargo.strip().lower() != "empleado":
+            raise HTTPException(status_code=403, detail="Los roles se asignan por un administrador autorizado.")
         if self._repo.get_by_cedula(request.cedula) is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -84,9 +90,7 @@ class AuthService:
         return self._issue_tokens(user)
 
     def reset_password(self, request: ResetPasswordRequest) -> ResetPasswordResponse:
-        """Recuperación sin SMTP: la identidad se verifica con cédula + correo registrado.
-        Mismo mensaje genérico si cédula o correo no coinciden — no filtra cuál falló."""
-        password_reset_service.verify_code(request.cedula, str(request.correo), request.code)
+        """Consume el código entregado por correo y revoca sesiones en la misma transacción."""
         user = self._repo.get_by_cedula(request.cedula)
 
         if (
@@ -99,6 +103,9 @@ class AuthService:
                 detail="Los datos no coinciden con ninguna cuenta registrada.",
             )
 
+        session_service.lock_credentials(self._db, user)
+        password_reset_service.verify_code(request.cedula, str(request.correo), request.code, self._db)
+        session_service.revoke_user(self._db, user.id)
         user.hashed_password = hash_password(request.new_password)
         self._db.add(user)
         self._db.commit()
@@ -126,10 +133,9 @@ class AuthService:
                 detail="El usuario del token no existe o estÃ¡ inactivo.",
             )
 
-        return RefreshResponse(
-            access_token=create_access_token({"sub": str(user.id), "cedula": user.cedula}),
-            refresh_token=create_refresh_token({"sub": str(user.id)}),
-        )
+        access, refresh = session_service.rotate(self._db, user, request.refresh_token, payload)
+        return RefreshResponse(access_token=access, refresh_token=refresh)
+
 
     def google_login(self, request: GoogleAuthRequest) -> LoginResponse:
         """Inicio de sesiÃ³n con Google.
@@ -167,12 +173,7 @@ class AuthService:
                 detail="No se pudo verificar la identidad con Google.",
             )
 
-        email = info.get("email")
-        if not email:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="La cuenta de Google no tiene correo asociado.",
-            )
+        email = account_email(info)
 
         user = self._repo.get_by_correo(email.strip().lower())
         if user is None or not user.is_active:
@@ -187,11 +188,6 @@ class AuthService:
         return self._issue_tokens(user)
 
     def _issue_tokens(self, user: User) -> LoginResponse:
-        return LoginResponse(
-            access_token=create_access_token({"sub": str(user.id), "cedula": user.cedula}),
-            refresh_token=create_refresh_token({"sub": str(user.id)}),
-            user=UserResponse.model_validate(user),
-        )
-
-
-
+        access, refresh = session_service.issue(self._db, user)
+        return LoginResponse(access_token=access, refresh_token=refresh,
+                             user=UserResponse.model_validate(user))

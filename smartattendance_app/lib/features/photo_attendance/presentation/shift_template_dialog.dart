@@ -119,7 +119,7 @@ class _ShiftTemplateDialogState extends ConsumerState<ShiftTemplateDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(color: context.cBackground, borderRadius: BorderRadius.circular(7), border: Border.all(color: context.cBorder, width: 0.8)),
-              child: Text(time.format(context), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              child: Text(time.format(context), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.cTextPrimary)),
             ),
           ]),
         ),
@@ -128,6 +128,7 @@ class _ShiftTemplateDialogState extends ConsumerState<ShiftTemplateDialog> {
   @override
   Widget build(BuildContext context) {
     final dailyMins = _calculateDailyMinutes();
+    final isDark = context.isDark;
     return IosFloatingModal(
       title: widget.template == null ? 'Nuevo Turno' : 'Editar Turno',
       isSaving: _saving,
@@ -142,7 +143,7 @@ class _ShiftTemplateDialogState extends ConsumerState<ShiftTemplateDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Descontar 1h de almuerzo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.cTextPrimary)),
-              CupertinoSwitch(value: _deductLunch, activeTrackColor: AppColors.primary, onChanged: (v) => setState(() => _deductLunch = v)),
+              CupertinoSwitch(value: _deductLunch, activeTrackColor: AppColors.success, onChanged: (v) => setState(() => _deductLunch = v)),
             ]),
           ),
         ]),
@@ -157,7 +158,7 @@ class _ShiftTemplateDialogState extends ConsumerState<ShiftTemplateDialog> {
                   Text(_enableMarkWindow ? 'Se valida rango horario estricto' : 'Marcación flexible en cualquier hora', style: TextStyle(fontSize: 11, color: context.cTextSecondary)),
                 ]),
               ),
-              CupertinoSwitch(value: _enableMarkWindow, activeTrackColor: AppColors.primary, onChanged: (v) => setState(() => _enableMarkWindow = v)),
+              CupertinoSwitch(value: _enableMarkWindow, activeTrackColor: AppColors.success, onChanged: (v) => setState(() => _enableMarkWindow = v)),
             ]),
           ),
           if (_enableMarkWindow) ...[
@@ -173,6 +174,8 @@ class _ShiftTemplateDialogState extends ConsumerState<ShiftTemplateDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: {1: 'L', 2: 'M', 3: 'X', 4: 'J', 5: 'V', 6: 'S', 7: 'D'}.entries.map((e) {
                 final sel = _selectedDays.contains(e.key);
+                final activeBg = isDark ? Colors.white : const Color(0xFF0F172A);
+                final activeFg = isDark ? Colors.black : Colors.white;
                 return GestureDetector(
                   onTap: () => setState(() => sel ? _selectedDays.remove(e.key) : (_selectedDays..add(e.key)).sort()),
                   child: AnimatedContainer(
@@ -180,8 +183,12 @@ class _ShiftTemplateDialogState extends ConsumerState<ShiftTemplateDialog> {
                     width: 34,
                     height: 34,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: sel ? AppColors.primary : context.cBackground, shape: BoxShape.circle, border: Border.all(color: sel ? AppColors.primary : context.cBorder, width: 0.8)),
-                    child: Text(e.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sel ? Colors.white : context.cTextPrimary)),
+                    decoration: BoxDecoration(
+                      color: sel ? activeBg : context.cBackground,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: sel ? activeBg : context.cBorder, width: 0.8),
+                    ),
+                    child: Text(e.value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: sel ? activeFg : context.cTextPrimary)),
                   ),
                 );
               }).toList(),

@@ -1,16 +1,14 @@
 // ============================================================================
 // ARCHIVO: hr_staff_worker_card.dart
-// QUÉ HACE: Fila de colaborador estilo Apple iOS Inset Grouped dentro del
-//           directorio de Personal con avatar circular sobrio, estado actual,
-//           horario pactado y botón de credencial QR.
-// CÓMO FUNCIONA: Al tocar la fila abre la ventana flotante `WorkerHrManagementSheet`;
-//                al tocar el icono QR abre `EmployeeDetailDialog`.
-// POR QUÉ: Sustituye tarjetas pesadas separadas por filas iOS limpias (< 150 líneas).
+// QUÉ HACE: Fila de colaborador estilo Apple iOS dentro del directorio de
+//           Personal con avatar circular sobrio, estado actual, horario y QR.
+// CÓMO FUNCIONA: Al tocar la fila abre `WorkerHrManagementSheet`; al tocar el
+//                icono QR abre `EmployeeDetailDialog`.
+// POR QUÉ: Sustituye tarjetas pesadas por filas iOS compactas (< 145 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
 import 'staff_status_types.dart';
@@ -41,9 +39,8 @@ class HrStaffWorkerCard extends StatelessWidget {
 
     return InkWell(
       onTap: () => WorkerHrManagementSheet.show(context, worker: worker),
-      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             Container(
@@ -51,13 +48,15 @@ class HrStaffWorkerCard extends StatelessWidget {
               height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.14),
+                color: context.isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
                 shape: BoxShape.circle,
               ),
               child: Text(
                 worker.name.isNotEmpty ? worker.name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: AppColors.primary,
+                style: TextStyle(
+                  color: context.cTextPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: 13.5,
                 ),
@@ -74,49 +73,40 @@ class HrStaffWorkerCard extends StatelessWidget {
                         child: Text(
                           worker.name,
                           style: TextStyle(
-                            fontSize: 13.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: context.cTextPrimary,
                             letterSpacing: -0.2,
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: status.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
                       Text(
                         status.label,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w500,
                           color: context.cTextSecondary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     '${rolePart}C.C. ${worker.document} · $scheduleText$crewPart',
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       color: context.cTextSecondary,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             GestureDetector(
               onTap: () => EmployeeDetailDialog.show(
                 context,

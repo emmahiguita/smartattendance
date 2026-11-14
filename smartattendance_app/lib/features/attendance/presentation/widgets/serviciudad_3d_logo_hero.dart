@@ -3,10 +3,10 @@
 // QUÉ HACE: Logo 3D Oficial flotante interactivo (SIN CARD NI CONTENEDOR),
 //           con rotación 360° (Yaw), perspectiva cónica, inercia cinética,
 //           inclinación giroscópica (Pitch) y transición Hero/Flip 3D.
-// CÓMO FUNCIONA: Flota libremente sobre el fondo de la pantalla usando Transform
-//                con Matrix4 (setEntry 3,2) y Ticker con amortiguamiento inercial.
+// CÓMO FUNCIONA: Flota sobre el fondo usando Transform con Matrix4 (setEntry 3,2)
+//                y Ticker con amortiguamiento inercial y reverso informativo.
 // POR QUÉ: Atiende la directiva: "NO DEBE IR EN UNA CARD EL LOGO, debe ser grande
-//          en la parte superior con estilo 3D profesional y rotación Y-Axis".
+//          en la parte superior con estilo 3D y rotación Y-Axis" (< 180 líneas).
 // ============================================================================
 
 import 'dart:math' as math;
@@ -28,9 +28,7 @@ class Serviciudad3DLogoHero extends StatefulWidget {
 class _Serviciudad3DLogoHeroState extends State<Serviciudad3DLogoHero>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ticker;
-  double _yaw = 0.0;
-  double _pitch = 0.0;
-  double _velocity = 0.004;
+  double _yaw = 0.0, _pitch = 0.0, _velocity = 0.004;
   bool _isDragging = false;
 
   @override
@@ -45,11 +43,11 @@ class _Serviciudad3DLogoHeroState extends State<Serviciudad3DLogoHero>
     if (!_isDragging) {
       if (_velocity.abs() > 0.0001) {
         _yaw += _velocity;
-        _velocity *= 0.95; // Amortiguamiento exponencial inercial
+        _velocity *= 0.95;
       } else {
-        _yaw += 0.003; // Rotación idílica continua de exhibición 360°
+        _yaw += 0.003;
       }
-      _pitch += (0.0 - _pitch) * 0.08; // Retorno elástico de inclinación
+      _pitch += (0.0 - _pitch) * 0.08;
       setState(() {});
     }
   }
@@ -102,7 +100,6 @@ class _Serviciudad3DLogoHeroState extends State<Serviciudad3DLogoHero>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Sombra elíptica 3D flotante reactiva al giro (sin card)
               Positioned(
                 bottom: 12,
                 child: Container(
@@ -111,49 +108,30 @@ class _Serviciudad3DLogoHeroState extends State<Serviciudad3DLogoHero>
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.18),
-                        blurRadius: 18,
-                        spreadRadius: 2,
-                      ),
+                      BoxShadow(color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.18), blurRadius: 18, spreadRadius: 2),
                     ],
                   ),
                 ),
               ),
-              // Transformación 3D pura con perspectiva e inercia cinemática
               Transform(
                 alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.0012)
-                  ..rotateX(_pitch)
-                  ..rotateY(_yaw),
+                transform: Matrix4.identity()..setEntry(3, 2, 0.0012)..rotateX(_pitch)..rotateY(_yaw),
                 child: Hero(
                   tag: 'serviciudad_3d_logo_hero',
                   child: isBack ? _buildBackSide(isDark) : _buildFrontSide(),
                 ),
               ),
-              // Micro-indicador flotante sutil de interactividad 360°
               Positioned(
                 bottom: 0,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.06),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: isDark ? 0.18 : 0.06), borderRadius: BorderRadius.circular(10)),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.threed_rotation_rounded, size: 12, color: AppColors.primary),
                       SizedBox(width: 4),
-                      Text(
-                        '360° Interactivo',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
-                      ),
+                      Text('360° Interactivo', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.primary)),
                     ],
                   ),
                 ),
@@ -170,11 +148,7 @@ class _Serviciudad3DLogoHeroState extends State<Serviciudad3DLogoHero>
         height: 108,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) => Image.asset(
-          AppAssets.logoOficial,
-          height: 108,
-          fit: BoxFit.contain,
-        ),
+        errorBuilder: (_, __, ___) => Image.asset(AppAssets.logoOficial, height: 108, fit: BoxFit.contain),
       );
 
   Widget _buildBackSide(bool isDark) => Transform(
@@ -185,31 +159,9 @@ class _Serviciudad3DLogoHeroState extends State<Serviciudad3DLogoHero>
           children: [
             const Icon(Icons.verified_rounded, size: 28, color: AppColors.primary),
             const SizedBox(height: 2),
-            const Text(
-              'SERVICIUDAD E.S.P.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
-                color: AppColors.primary,
-              ),
-            ),
-            Text(
-              'Agua • Aseo • Alcantarillado',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white70 : Colors.black87,
-              ),
-            ),
-            Text(
-              'Empresa de Todos • Dosquebradas',
-              style: TextStyle(
-                fontSize: 8.5,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.white54 : Colors.black54,
-              ),
-            ),
+            const Text('SERVICIUDAD E.S.P.', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.8, color: AppColors.primary)),
+            Text('Agua • Aseo • Alcantarillado', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black87)),
+            Text('Empresa de Todos • Dosquebradas', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500, color: isDark ? Colors.white54 : Colors.black54)),
           ],
         ),
       );

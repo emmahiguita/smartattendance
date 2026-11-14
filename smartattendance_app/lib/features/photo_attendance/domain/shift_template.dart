@@ -49,6 +49,11 @@ class ShiftTemplate {
     return '$sH:$sM - $eH:$eM';
   }
 
+  String get timeFormatted12h =>
+      '${WorkSchedule.format12h(startMinute)} - ${WorkSchedule.format12h(endMinute)}';
+
+  String get timeFormattedDual => '$timeFormatted ($timeFormatted12h)';
+
   String get durationFormatted {
     final hours = dailyMinutes ~/ 60;
     final mins = dailyMinutes % 60;
@@ -90,6 +95,25 @@ class ShiftTemplate {
         nightEndMinute: nightEndMinute,
         weekdays: weekdays,
       );
+
+  /// A null tolerance permits marking at any time; zero uses the exact shift.
+  WorkSchedule toScheduleWithTolerance(int? toleranceMinutes) {
+    assert(toleranceMinutes == null || toleranceMinutes >= 0);
+    final span = (endMinute - startMinute + 1440) % 1440;
+    final unrestricted = toleranceMinutes == null ||
+        span + 2 * toleranceMinutes >= 1440;
+    return WorkSchedule(
+      dailyMinutes, deductLunch,
+      shiftName: name,
+      startMinute: startMinute,
+      endMinute: endMinute,
+      markStartMinute: unrestricted ? null : (startMinute - toleranceMinutes) % 1440,
+      markEndMinute: unrestricted ? null : (endMinute + toleranceMinutes) % 1440,
+      nightStartMinute: nightStartMinute,
+      nightEndMinute: nightEndMinute,
+      weekdays: weekdays,
+    );
+  }
 
   Map<String, Object?> toMap() => {
         if (id != null) 'id': id,

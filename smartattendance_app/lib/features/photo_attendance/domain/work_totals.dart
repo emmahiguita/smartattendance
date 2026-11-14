@@ -1,16 +1,6 @@
-// ============================================================================
-// ARCHIVO: work_totals.dart
-// QUÉ HACE: Calcula la duración real de la jornada laboral y las Horas Extras.
-// CÓMO FUNCIONA:
-// 1. Verifica la secuencia de marcas (`MarkSequence.validate`) y acumula tiempo
-//    activo (`active`) y almuerzo (`lunch`).
-// 2. Si el trabajador tiene Horas Extras Asignadas (`assignedOvertimeMinutes > 0`)
-//    y cumple su jornada (ya sea marcando Salida al terminar el turno base o
-//    marcando Salida al finalizar las horas extras), el sistema contabiliza
-//    automáticamente esas horas extras asignadas.
-// POR QUÉ: Cumple la regla de negocio donde al cumplir el horario asignado con
-//          horas extras asignadas ya se cuentan dichas horas extras (< 100 líneas).
-// ============================================================================
+// QUÉ HACE: Calcula tiempo observado y adicionales por revisar.
+// CÓMO: Acumula únicamente intervalos acreditados por marcaciones coherentes.
+// POR QUÉ: Las extras asignadas son planificación, no evidencia de trabajo.
 
 import 'photo_record.dart';
 import 'mark_sequence.dart';
@@ -62,21 +52,14 @@ class WorkTotals {
 
   Duration? get worked {
     if (!complete || schedule == null) return null;
-    final baseWorked = active + (schedule!.deductLunch ? Duration.zero : lunch);
-    if (schedule!.assignedOvertimeMinutes > 0) {
-      final minWithOvertime = Duration(minutes: schedule!.dailyMinutes + schedule!.assignedOvertimeMinutes);
-      return baseWorked >= minWithOvertime ? baseWorked : baseWorked + Duration(minutes: schedule!.assignedOvertimeMinutes);
-    }
-    return baseWorked;
+    return active + (schedule!.deductLunch ? Duration.zero : lunch);
   }
 
   Duration? get additional {
     final value = worked;
     if (value == null || schedule == null) return null;
     final extra = value - Duration(minutes: schedule!.dailyMinutes);
-    final assignedExtra = Duration(minutes: schedule!.assignedOvertimeMinutes);
-    final effectiveExtra = extra >= assignedExtra ? extra : assignedExtra;
-    return effectiveExtra.isNegative ? Duration.zero : effectiveExtra;
+    return extra.isNegative ? Duration.zero : extra;
   }
 
   /// Mismos resultados para pantalla, CSV, XLSX y PDF.

@@ -1,10 +1,19 @@
-﻿// lib/features/auth/presentation/screens/forgot_password_screen.dart
+// ============================================================================
+// ARCHIVO: forgot_password_screen.dart
+// QUÉ HACE: Pantalla de recuperación y restablecimiento seguro de contraseña.
+// CÓMO FUNCIONA:
+// 1. Solicita código OTP al correo corporativo según la cédula.
+// 2. Valida cédula, correo, OTP y nueva contraseña contra la API o SQLite.
+// 3. Renderiza tarjeta Liquid Glass en Modo Oscuro sin textos malformados.
+// POR QUÉ: Restaura tipografía limpia y diseño Material Expressive (< 200 líneas).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../../../core/design_system/ios_glass_card.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/exceptions/error_handler.dart';
 import '../../../../core/router/app_router.dart';
@@ -13,16 +22,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/validators/input_validators.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../viewmodels/login_viewmodel.dart' show authRepositoryProvider;
+import '../widgets/forgot_password_success_card.dart';
 
-/// RecuperaciÃ³n REAL de contraseÃ±a: POST /auth/reset-password.
-/// Identidad verificada server-side con cÃ©dula + correo registrado
-/// (sin envÃ­o de email â€” no requiere SMTP).
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() =>
-      _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -34,6 +40,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _codeController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isRequestingCode = false;
   bool _done = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -49,51 +56,70 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     super.dispose();
   }
 
+  // QUÉ HACE: Solicita el envío del código OTP de 6 dígitos al correo registrado.
+  Future<void> _requestCode() async {
+    final ced = _cedulaController.text.trim();
+    final mail = _correoController.text.trim();
+    if (ced.isEmpty || mail.isEmpty) {
+      _showMessage('Ingresa cédula y correo primero para recibir el código.', isError: true);
+      return;
+    }
+    setState(() => _isRequestingCode = true);
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      final msg = await repo.requestPasswordResetCode(cedula: ced, correo: mail);
+      _showMessage(msg.isNotEmpty ? msg : 'Código enviado a tu correo corporativo.', isError: false);
+    } catch (e) {
+      _showMessage(ErrorHandler.handle(e).message, isError: true);
+    } finally {
+      if (mounted) setState(() => _isRequestingCode = false);
+    }
+  }
+
+  // QUÉ HACE: Valida las credenciales y ejecuta el restablecimiento en el repositorio.
   Future<void> _handleReset() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-
     setState(() => _isLoading = true);
     HapticFeedback.lightImpact();
 
     try {
-      final repository = ref.read(authRepositoryProvider);
-      final mensaje = await repository.resetPassword(
-        cedula: _cedulaController.text,
-        correo: _correoController.text,
+      final repo = ref.read(authRepositoryProvider);
+      final msg = await repo.resetPassword(
+        cedula: _cedulaController.text.trim(),
+        correo: _correoController.text.trim(),
         newPassword: _passwordController.text,
-        code: _codeController.text,
+        code: _codeController.text.trim(),
       );
-
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
         _done = true;
-        _serverMessage = mensaje;
+        _serverMessage = msg;
       });
     } on AppException catch (e) {
-      _showError(e.message);
+      _showMessage(e.message, isError: true);
     } catch (e) {
-      _showError(ErrorHandler.handle(e).message);
+      _showMessage(ErrorHandler.handle(e).message, isError: true);
     } finally {
       if (mounted && !_done) setState(() => _isLoading = false);
     }
   }
 
-  void _showError(String message) {
+  void _showMessage(String msg, {required bool isError}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.systemRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ..showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? AppColors.systemRed : AppColors.systemGreen,
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    final primaryColor = context.cPrimary;
+
     return Scaffold(
       backgroundColor: context.cBackground,
       appBar: AppBar(
@@ -104,221 +130,154 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           onPressed: () => context.go(AppRoutes.login),
         ),
         title: Text(
-          'Recuperar ContraseÃ±a',
+          'Recuperar Contraseña',
           style: TextStyle(
-            color: context.cTextPrimary,
+            fontFamily: AppTheme.editorialSerif,
             fontSize: 18,
             fontWeight: FontWeight.w700,
+            color: context.cTextPrimary,
           ),
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: _done ? _successCard() : _formCard(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _successCard() {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: _cardDecoration(),
-      child: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.systemGreen.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check_circle,
-                size: 48, color: AppColors.systemGreen),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'ContraseÃ±a actualizada',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: context.cTextPrimary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _serverMessage,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: context.cTextSecondary),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () => context.go(AppRoutes.login),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
+          DecoratedBox(decoration: BoxDecoration(gradient: context.cGradientBackground)),
+          if (isDark) ...[
+            Positioned(
+              top: -60,
+              right: -50,
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [primaryColor.withValues(alpha: 0.16), Colors.transparent]),
+                ),
               ),
-              child: const Text('Ir a iniciar sesiÃ³n',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ],
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: _done ? ForgotPasswordSuccessCard(message: _serverMessage) : _buildFormCard(primaryColor),
+                ),
+              ),
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 300.ms).scale(begin: const Offset(0.95, 0.95));
+    );
   }
 
-  Widget _formCard() {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: _cardDecoration(),
+  Widget _buildFormCard(Color primaryColor) {
+    return IosGlassCard(
+      padding: const EdgeInsets.all(24),
+      borderRadius: 24,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Restablece tu contraseÃ±a',
+              'Restablece tu contraseña',
               style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: context.cTextPrimary),
+                fontFamily: AppTheme.editorialSerif,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: context.cTextPrimary,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
-              'Verificamos tu identidad con la cÃ©dula y el correo registrados en tu cuenta.',
-              style: TextStyle(
-                  fontSize: 13, color: context.cTextSecondary, height: 1.4),
+              'Verificamos tu identidad con la cédula y el correo registrados en tu cuenta.',
+              style: TextStyle(fontSize: 13, color: context.cTextSecondary, height: 1.4),
             ),
-            const SizedBox(height: 24),
-            const Text('CÃ©dula de Identidad',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 18),
+            _buildFieldLabel('Cédula de Identidad (CC)'),
             const SizedBox(height: 6),
             TextFormField(
               controller: _cedulaController,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: const TextStyle(fontSize: 15),
-              decoration: _decoration('Ej: 1007331963', Icons.badge),
-              validator: (v) => InputValidators.validateCedula(v),
+              validator: InputValidators.validateCedula,
+              decoration: const InputDecoration(hintText: 'Ej: 1007331963', prefixIcon: Icon(Icons.badge_outlined, size: 20)),
             ),
-            const SizedBox(height: 16),
-            const Text('Correo registrado',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 14),
+            _buildFieldLabel('Correo institucional'),
             const SizedBox(height: 6),
             TextFormField(
               controller: _correoController,
               keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(fontSize: 15),
-              decoration: _decoration('correo@empresa.com', Icons.mail),
-              validator: (v) => InputValidators.validateEmail(v),
+              validator: InputValidators.validateEmail,
+              decoration: const InputDecoration(hintText: 'correo@serviciudad.gov.co', prefixIcon: Icon(Icons.mail_outline, size: 20)),
             ),
-            const SizedBox(height: 16),
-            const Text('Nueva contraseÃ±a',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _isRequestingCode ? null : _requestCode,
+                icon: _isRequestingCode
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(Icons.send_rounded, size: 16, color: primaryColor),
+                label: Text('Enviar código OTP al correo', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: primaryColor)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            _buildFieldLabel('Código de 6 dígitos OTP'),
+            const SizedBox(height: 6),
+            TextFormField(
+              controller: _codeController,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              validator: (v) => (v == null || v.trim().length != 6) ? 'Ingresa el código OTP de 6 dígitos' : null,
+              decoration: const InputDecoration(hintText: '123456', counterText: '', prefixIcon: Icon(Icons.pin_outlined, size: 20)),
+            ),
+            const SizedBox(height: 14),
+            _buildFieldLabel('Nueva contraseña'),
             const SizedBox(height: 6),
             TextFormField(
               controller: _passwordController,
               obscureText: _obscurePassword,
-              style: const TextStyle(fontSize: 15),
-              decoration:
-                  _decoration('MÃ­nimo 6 caracteres', Icons.lock).copyWith(
+              validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+              decoration: InputDecoration(
+                hintText: 'Mínimo 6 caracteres',
+                prefixIcon: const Icon(Icons.lock_outline, size: 20),
                 suffixIcon: IconButton(
-                  icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      size: 20),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
-              validator: (v) =>
-                  (v == null || v.length < 6) ? 'MÃ­nimo 6 caracteres' : null,
             ),
-            const SizedBox(height: 16),
-            const Text('Confirmar nueva contraseÃ±a',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 14),
+            _buildFieldLabel('Confirmar nueva contraseña'),
             const SizedBox(height: 6),
             TextFormField(
               controller: _confirmController,
               obscureText: _obscureConfirm,
-              style: const TextStyle(fontSize: 15),
-              decoration:
-                  _decoration('Repite la contraseÃ±a', Icons.lock_open).copyWith(
+              validator: (v) => (v != _passwordController.text) ? 'Las contraseñas no coinciden' : null,
+              decoration: InputDecoration(
+                hintText: 'Repite la contraseña',
+                prefixIcon: const Icon(Icons.lock_outline, size: 20),
                 suffixIcon: IconButton(
-                  icon: Icon(
-                      _obscureConfirm ? Icons.visibility_off : Icons.visibility,
-                      size: 20),
-                  onPressed: () =>
-                      setState(() => _obscureConfirm = !_obscureConfirm),
+                  icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
+                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
               ),
-              validator: (v) => (v != _passwordController.text)
-                  ? 'Las contraseÃ±as no coinciden'
-                  : null,
             ),
-            const SizedBox(height: 16),
-            TextButton.icon(onPressed: _isLoading ? null : () async { if (_cedulaController.text.isEmpty || _correoController.text.isEmpty) { _showError('Ingresa cédula y correo primero'); return; } setState(() => _isLoading = true); try { final ds = ref.read(authRepositoryProvider); await ds.requestPasswordResetCode(cedula: _cedulaController.text, correo: _correoController.text); if (mounted) _showError('Código enviado al correo registrado.'); } catch (e) { if (mounted) _showError(ErrorHandler.handle(e).message); } finally { if (mounted) setState(() => _isLoading = false); } }, icon: const Icon(Icons.email_outlined), label: const Text('Enviar código al correo')),
-            const SizedBox(height: 8),            TextFormField(controller: _codeController, keyboardType: TextInputType.number, decoration: _decoration('Código de 6 dígitos recibido por correo', Icons.verified), validator: (v) => (v == null || v.length != 6) ? 'Ingresa el código OTP' : null),
-            const SizedBox(height: 28),
-            PrimaryButton(
-              label: 'Restablecer contraseÃ±a',
-              expanded: true,
-              isLoading: _isLoading,
-              onPressed: _handleReset,
-            ),
+            const SizedBox(height: 22),
+            PrimaryButton(label: 'Restablecer contraseña', expanded: true, isLoading: _isLoading, onPressed: _handleReset),
           ],
         ),
       ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
+    ).animate().fadeIn(duration: 350.ms);
   }
 
-  BoxDecoration _cardDecoration() => BoxDecoration(
-        color: context.cSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: context.cBorder),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      );
-
-  InputDecoration _decoration(String hint, IconData icon) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: context.cGray2, fontSize: 14),
-      prefixIcon: Icon(icon, size: 20, color: context.cGray),
-      filled: true,
-      fillColor: context.cBackground,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: context.cBorder),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: context.cBorder),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-      ),
-    );
+  Widget _buildFieldLabel(String label) {
+    return Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.cTextPrimary));
   }
 }
-
-

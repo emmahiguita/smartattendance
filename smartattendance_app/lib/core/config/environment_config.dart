@@ -1,12 +1,10 @@
-// lib/core/config/environment_config.dart
-import 'package:flutter/foundation.dart'
-    show kIsWeb, TargetPlatform, defaultTargetPlatform;
-
 enum Environment { development, staging, production }
 
 final class EnvironmentConfig {
-  // CAMBIAR SEGÚN AMBIENTE
-  static const Environment _environment = Environment.development;
+  static const _environmentName = String.fromEnvironment(
+    'APP_ENV',
+    defaultValue: 'production',
+  );
 
   static final _configs = {
     Environment.development: _DevConfig(),
@@ -14,7 +12,8 @@ final class EnvironmentConfig {
     Environment.production: _ProdConfig(),
   };
 
-  static _BaseConfig get _current => _configs[_environment]!;
+  static Environment get environment => environmentFromName(_environmentName);
+  static _BaseConfig get _current => _configs[environment]!;
 
   static String get baseUrl => _current.baseUrl;
   static bool get enableLogging => _current.enableLogging;
@@ -23,11 +22,39 @@ final class EnvironmentConfig {
   static Duration get receiveTimeout => _current.receiveTimeout;
   static bool get enforcedHttps => _current.enforcedHttps;
 
+  // QUÉ HACE: Convierte APP_ENV en un ambiente conocido y falla explícitamente.
+  // CÓMO: Normaliza espacios y mayúsculas antes de resolver el enum.
+  // POR QUÉ: Evita que un release caiga silenciosamente en desarrollo.
+  static Environment environmentFromName(String value) {
+    return switch (value.trim().toLowerCase()) {
+      'development' || 'dev' => Environment.development,
+      'staging' || 'stage' => Environment.staging,
+      'production' || 'prod' => Environment.production,
+      _ => throw ArgumentError.value(value, 'APP_ENV', 'Ambiente desconocido'),
+    };
+  }
+
+  // QUÉ HACE: Valida la URL efectiva antes de entregarla a la capa de red.
+  // CÓMO: Exige host absoluto y HTTPS cuando el ambiente lo requiere.
+  // POR QUÉ: Evita configuraciones que ATS bloquearía en iOS.
+  static String validateBaseUrl(String value, {required bool requireHttps}) {
+    final clean = value.trim();
+    final uri = Uri.tryParse(clean);
+    if (uri == null || !const {'http', 'https'}.contains(uri.scheme) ||
+        uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment) {
+      throw const FormatException('API_BASE_URL debe ser una URL absoluta.');
+    }
+    if (requireHttps && uri.scheme != 'https') {
+      throw const FormatException(
+        'API_BASE_URL debe usar HTTPS en staging y producción.',
+      );
+    }
+    return clean;
+  }
+
   static void validateEnvironment() {
-    assert(
-      _configs.containsKey(_environment),
-      'Unknown environment: $_environment',
-    );
+    final selected = environment;
+    assert(_configs.containsKey(selected), 'Unknown environment: $selected');
   }
 }
 
@@ -47,20 +74,11 @@ final class _DevConfig extends _BaseConfig {
   @override
   Duration get receiveTimeout => const Duration(seconds: 10);
 
-  // baseUrl según plataforma de ejecución:
-  //  - Web / Windows / macOS / Linux  → localhost (el backend corre en la misma máquina)
-  //  - Android (físico / emulador)    → 127.0.0.1 (vía adb reverse) o 10.0.2.2 (emulador)
   @override
-  String get baseUrl {
-    if (kIsWeb) return 'http://localhost:8000/api/v1';
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return const String.fromEnvironment(
+  String get baseUrl => const String.fromEnvironment(
         'API_BASE_URL',
         defaultValue: 'http://localhost:8000/api/v1',
       );
-    }
-    return 'http://localhost:8000/api/v1';
-  }
 
   @override
   bool get enableLogging => true;
@@ -74,7 +92,13 @@ final class _DevConfig extends _BaseConfig {
 
 final class _StagingConfig extends _BaseConfig {
   @override
-  String get baseUrl => 'https://api-staging.smartattendance.io/api/v1';
+  String get baseUrl => EnvironmentConfig.validateBaseUrl(
+        const String.fromEnvironment(
+          'API_BASE_URL',
+          defaultValue: 'https://api-staging.smartattendance.io/api/v1',
+        ),
+        requireHttps: true,
+      );
 
   @override
   bool get enableLogging => true;
@@ -87,12 +111,15 @@ final class _StagingConfig extends _BaseConfig {
 }
 
 final class _ProdConfig extends _BaseConfig {
-  /// Backend desplegado en Render.com — siempre disponible, no depende del PC.
+  /// URL de producción predeterminada; su disponibilidad se verifica al desplegar.
   /// Render URL: https://{service-name}.onrender.com/api/v1
   @override
-  String get baseUrl => const String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'https://smartattendance-api.onrender.com/api/v1',
+  String get baseUrl => EnvironmentConfig.validateBaseUrl(
+        const String.fromEnvironment(
+          'API_BASE_URL',
+          defaultValue: 'https://smartattendance-api.onrender.com/api/v1',
+        ),
+        requireHttps: true,
       );
 
   @override

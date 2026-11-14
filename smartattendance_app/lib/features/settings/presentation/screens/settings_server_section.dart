@@ -7,8 +7,10 @@
 //          y mantiene el archivo bajo < 145 líneas.
 // ============================================================================
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/environment_config.dart';
 import '../../../../core/config/server_config_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'settings_widgets.dart';
@@ -17,7 +19,8 @@ import 'settings_widgets.dart';
 class SettingsServerUrlRow extends ConsumerStatefulWidget {
   const SettingsServerUrlRow({super.key});
   @override
-  ConsumerState<SettingsServerUrlRow> createState() => _SettingsServerUrlRowState();
+  ConsumerState<SettingsServerUrlRow> createState() =>
+      _SettingsServerUrlRowState();
 }
 
 class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
@@ -39,8 +42,9 @@ class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
             controller: controller,
             decoration: const InputDecoration(
               labelText: 'URL del servidor',
-              hintText: 'http://192.168.1.100:8000/api/v1',
-              helperText: 'Incluye el puerto. /api/v1 se agrega automáticamente.',
+              hintText: 'https://servidor.empresa.co/api/v1',
+              helperText:
+                  'Incluye el puerto. /api/v1 se agrega automáticamente.',
               helperMaxLines: 2,
               border: OutlineInputBorder(),
             ),
@@ -48,9 +52,12 @@ class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
             autocorrect: false,
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Ingresa una URL';
-              final uri = Uri.tryParse(v.trim());
-              if (uri == null || !uri.hasScheme) return 'URL inválida';
-              return null;
+              try {
+                EnvironmentConfig.validateBaseUrl(v, requireHttps: EnvironmentConfig.enforcedHttps);
+                return null;
+              } on FormatException catch (error) {
+                return error.message;
+              }
             },
           ),
         ),
@@ -61,12 +68,17 @@ class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
                 notifier.resetToDefault();
                 Navigator.pop(ctx, 'DEFAULT');
               },
-              child: const Text('Restaurar default', style: TextStyle(color: AppColors.systemRed)),
+              child: const Text('Restaurar default',
+                  style: TextStyle(color: AppColors.systemRed)),
             ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
           FilledButton(
             onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(ctx, controller.text.trim());
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(ctx, controller.text.trim());
+              }
             },
             child: const Text('Guardar'),
           ),
@@ -77,14 +89,19 @@ class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
     if (url == 'DEFAULT') {
       _showSnack('URL restaurada al default', ok: true);
     } else if (url != null && url.isNotEmpty) {
-      await ref.read(serverConfigNotifierProvider.notifier).setUrl(url);
-      if (mounted) _showSnack('Servidor actualizado. Reconectando...', ok: true);
+      try {
+        await notifier.setUrl(url);
+        _showSnack('Servidor actualizado. Inicia sesión para usar el nuevo servidor.', ok: true);
+      } catch (_) {
+        _showSnack('No se pudo guardar la dirección del servidor.', ok: false);
+      }
     }
   }
 
   Future<void> _testConnection() async {
     setState(() => (_testing = true, _lastTestResult = null));
-    final ok = await ref.read(serverConfigNotifierProvider.notifier).testConnection();
+    final ok =
+        await ref.read(serverConfigNotifierProvider.notifier).testConnection();
     if (!mounted) return;
     setState(() => (_testing = false, _lastTestResult = ok));
     _showSnack(
@@ -114,11 +131,14 @@ class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
     return Column(
       children: [
         SettingItemRow(
-          icon: Icons.dns,
-          accentColor: const Color(0xFF7C3AED),
+          icon: CupertinoIcons.antenna_radiowaves_left_right,
+          accentColor: const Color(0xFF5856D6),
           title: 'Dirección del servidor',
           subtitle: isCustom ? 'Personalizado: $display' : 'Default: $display',
-          trailing: IconButton(icon: const Icon(Icons.edit, size: 20), onPressed: _showServerDialog, tooltip: 'Cambiar servidor'),
+          trailing: IconButton(
+              icon: const Icon(CupertinoIcons.pencil, size: 20),
+              onPressed: _showServerDialog,
+              tooltip: 'Cambiar servidor'),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -127,8 +147,17 @@ class _SettingsServerUrlRowState extends ConsumerState<SettingsServerUrlRow> {
             child: OutlinedButton.icon(
               onPressed: _testing ? null : _testConnection,
               icon: _testing
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(_lastTestResult == true ? Icons.check_circle : (_lastTestResult == false ? Icons.error : Icons.wifi_find), size: 18),
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(
+                      _lastTestResult == true
+                          ? CupertinoIcons.checkmark_circle_fill
+                          : (_lastTestResult == false
+                              ? CupertinoIcons.exclamationmark_circle_fill
+                              : CupertinoIcons.wifi),
+                      size: 18),
               label: Text(_testing ? 'Probando...' : 'Probar conexión'),
             ),
           ),

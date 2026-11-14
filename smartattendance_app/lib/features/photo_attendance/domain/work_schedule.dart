@@ -63,6 +63,31 @@ class WorkSchedule {
         assignedOvertimeMinutes: assignedOvertimeMinutes ?? this.assignedOvertimeMinutes,
       );
 
+  static String format12h(int minuteOfDay) {
+    final h24 = (minuteOfDay ~/ 60) % 24;
+    final m = (minuteOfDay % 60).toString().padLeft(2, '0');
+    final period = h24 >= 12 ? 'PM' : 'AM';
+    final h12 = h24 == 0 ? 12 : (h24 > 12 ? h24 - 12 : h24);
+    final hStr = h12.toString().padLeft(2, '0');
+    return '$hStr:$m $period';
+  }
+
+  static String format24h(int minuteOfDay) {
+    final h = (minuteOfDay ~/ 60).toString().padLeft(2, '0');
+    final m = (minuteOfDay % 60).toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  String get timeWindowFormatted12h {
+    if (startMinute == null || endMinute == null) return timeWindowFormatted;
+    return '${format12h(startMinute!)} - ${format12h(endMinute!)}';
+  }
+
+  String get timeWindowFormattedDual {
+    if (startMinute == null || endMinute == null) return timeWindowFormatted;
+    return '$timeWindowFormatted (${format12h(startMinute!)} - ${format12h(endMinute!)})';
+  }
+
   String get timeWindowFormatted {
     if (startMinute == null || endMinute == null) {
       final hours = dailyMinutes ~/ 60;
@@ -77,7 +102,7 @@ class WorkSchedule {
   }
 
   String get markWindowFormatted {
-    if (markStartMinute == null || markEndMinute == null) return timeWindowFormatted;
+    if (markStartMinute == null || markEndMinute == null) return 'Sin restricción horaria';
     final effectiveEnd = (markEndMinute! + assignedOvertimeMinutes) % 1440;
     final sH = (markStartMinute! ~/ 60).toString().padLeft(2, '0');
     final sM = (markStartMinute! % 60).toString().padLeft(2, '0');

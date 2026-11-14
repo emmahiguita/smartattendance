@@ -33,12 +33,18 @@ final class LocationService {
   /// Vista del mapa: usa una lectura reciente o solicita otra. La dirección es
   /// opcional porque el GPS puede funcionar sin internet ni geocodificación.
   Future<CapturedLocation?> capture({
-    Duration timeout = const Duration(seconds: 5),
+    Duration timeout = const Duration(seconds: 8),
   }) async {
     try {
       return await _capture().timeout(timeout);
     } catch (e) {
       AppLogger.warning('Location capture timeout/error: $e');
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && !last.isMocked && last.latitude.isFinite && last.longitude.isFinite) {
+          return (lat: last.latitude, lng: last.longitude, dir: null);
+        }
+      } catch (_) {}
       return null;
     }
   }
@@ -73,7 +79,7 @@ final class LocationService {
     }
 
     Position? position = fresh ? null : await Geolocator.getLastKnownPosition();
-    if (position != null && !_valid(position)) {
+    if (position != null && !_valid(position, maxAge: fresh ? const Duration(minutes: 2) : const Duration(hours: 24))) {
       position = null;
     }
 
@@ -81,14 +87,14 @@ final class LocationService {
     position ??= await Geolocator.getCurrentPosition(
       locationSettings: LocationSettings(
         accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: fresh ? 20 : 3),
+        timeLimit: Duration(seconds: fresh ? 20 : 6),
       ),
     );
     if (position.isMocked) {
       throw const FormatException(
           'Desactiva la ubicación simulada de Android.');
     }
-    if (!_valid(position)) {
+    if (!_valid(position, maxAge: fresh ? const Duration(minutes: 2) : const Duration(hours: 24))) {
       throw const FormatException(
           'Ubicación antigua o imprecisa. Acércate a un lugar con señal GPS y reintenta.');
     }
@@ -97,7 +103,7 @@ final class LocationService {
 
   /// Rechaza coordenadas inválidas y lecturas de más de dos minutos o con
   /// error estimado superior a 100 m. Esto no sustituye validar una geocerca.
-  bool _valid(Position position) =>
+  bool _valid(Position position, {Duration maxAge = const Duration(minutes: 2)}) =>
       !position.isMocked &&
       position.latitude.isFinite &&
       position.latitude.abs() <= 90 &&
@@ -106,8 +112,7 @@ final class LocationService {
       position.accuracy.isFinite &&
       position.accuracy >= 0 &&
       position.accuracy <= 100 &&
-      DateTime.now().difference(position.timestamp).abs() <=
-          const Duration(minutes: 2);
+      DateTime.now().difference(position.timestamp).abs() <= maxAge;
 
   Future<CapturedLocation?> _capture() async {
     final position = await _position();

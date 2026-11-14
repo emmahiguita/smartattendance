@@ -9,6 +9,8 @@ smartattendance_app/.flutter-plugins-dependencies
 smartattendance_backend/__pycache__/
 smartattendance_backend/*.pyc
 smartattendance_backend/venv/
+.qa-security-venv/
+qa/**/__pycache__/
 smartattendance_backend/.pytest_cache/
 smartattendance_backend/*.egg-info/
 smartattendance_backend/dist/
@@ -48,9 +50,21 @@ test_results.txt
 *.png
 *.jpg
 *.jpeg
+# Product resources are source files, not disposable artifacts. Keep the broad
+# media ignore for screenshots/exports while allowing everything Flutter and
+# the native launchers reference from a clean checkout.
+!smartattendance_app/assets/**/*.png
+!smartattendance_app/assets/**/*.jpg
+!smartattendance_app/assets/**/*.jpeg
+!smartattendance_app/android/app/src/main/res/**/*.png
+!smartattendance_app/ios/Runner/Assets.xcassets/**/*.png
 *.vsix
 *.ps1
 !run_tests.ps1
+!qa/katalon/Iniciar-Pruebas-Android.ps1
+qa/artifacts/*.apk
+qa/artifacts/*.mp4
+qa/katalon/compiled/
 
 # ── Render.com ───────────────────────────────────────────────────────
 render.yaml

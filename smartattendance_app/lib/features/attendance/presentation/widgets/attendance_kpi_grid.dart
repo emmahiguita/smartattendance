@@ -1,18 +1,14 @@
 // ============================================================================
 // ARCHIVO: attendance_kpi_grid.dart
 // QUÉ HACE: Barra ejecutiva compacta estilo Apple iOS de 4 métricas interactivas
-//           de asistencia (Total, En turno, Pendientes, Cerradas) en una sola
-//           fila limpia que ahorra más de 110px verticales.
+//           de asistencia (Total, En turno, Sin marca, Cerradas) en una fila.
 // CÓMO FUNCIONA: Observa `localWorkersProvider` y permite tocar cualquier celda
-//                para filtrar instantáneamente la lista de colaboradores.
-// POR QUÉ: Sustituye las 4 cajas gigantes por un bloque iOS Inset Grouped
-//          compacto y cumple SRP (< 130 líneas).
+//                para filtrar la lista de colaboradores sin tarjetas pesadas.
+// POR QUÉ: Sustituye cajas por una franja limpia con divisores finos (< 130 líneas).
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/design_system/ios_glass_card.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
 import '../../../photo_attendance/domain/work_schedule.dart';
@@ -52,33 +48,39 @@ class AttendanceKpiGrid extends ConsumerWidget {
     }
 
     final items = [
-      ('todos', 'Total', workers.length, AppColors.primary),
-      ('en_jornada', 'En turno', enJornada, AppColors.systemGreen),
-      ('sin_entrada', 'Sin marca', sinEntrada, AppColors.systemOrange),
-      ('jornada_cerrada', 'Cerradas', finalizadas, AppColors.primary),
+      ('todos', 'Total', workers.length),
+      ('en_jornada', 'En turno', enJornada),
+      ('sin_entrada', 'Sin marca', sinEntrada),
+      ('jornada_cerrada', 'Cerradas', finalizadas),
     ];
 
-    return IosGlassCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 14,
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            Expanded(
-              child: _buildCell(
-                context,
-                keyId: items[i].$1,
-                label: items[i].$2,
-                count: items[i].$3,
-                dotColor: items[i].$4,
-                selected: (selectedFilter ?? 'todos') == items[i].$1,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              Expanded(
+                child: _buildCell(
+                  context,
+                  keyId: items[i].$1,
+                  label: items[i].$2,
+                  count: items[i].$3,
+                  selected: (selectedFilter ?? 'todos') == items[i].$1,
+                ),
               ),
-            ),
-            if (i < items.length - 1)
-              Container(width: 0.8, height: 38, color: context.cBorder.withValues(alpha: 0.5)),
+              if (i < items.length - 1)
+                Container(
+                  width: 0.5,
+                  height: 30,
+                  color: context.cBorder,
+                ),
+            ],
           ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Divider(height: 1, thickness: 0.5, color: context.cBorder),
+      ],
     );
   }
 
@@ -87,7 +89,6 @@ class AttendanceKpiGrid extends ConsumerWidget {
     required String keyId,
     required String label,
     required int count,
-    required Color dotColor,
     required bool selected,
   }) {
     return GestureDetector(
@@ -95,37 +96,27 @@ class AttendanceKpiGrid extends ConsumerWidget {
       onTap: () => onFilterTap?.call(keyId),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.12)
+              ? (context.isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : Colors.black.withValues(alpha: 0.05))
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration:
-                      BoxDecoration(color: dotColor, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? AppColors.primary : context.cTextPrimary,
-                  ),
-                ),
-              ],
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+                color: context.cTextPrimary,
+              ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Text(
               label,
               maxLines: 1,
@@ -133,7 +124,7 @@ class AttendanceKpiGrid extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? AppColors.primary : context.cTextSecondary,
+                color: selected ? context.cTextPrimary : context.cTextSecondary,
               ),
             ),
           ],

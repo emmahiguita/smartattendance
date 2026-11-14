@@ -21,29 +21,24 @@ import '../domain/face_verifier.dart';
 import '../domain/local_actor.dart';
 import '../domain/photo_record.dart';
 import '../domain/shift_template.dart';
-import 'admin_access.dart';
 
 final localPhotoDatabaseProvider = Provider((ref) => PhotoDatabase());
 
 final localActorProvider = Provider((ref) {
   final session = ref.watch(sessionControllerProvider);
-  final unlocked = ref.watch(adminAccessProvider);
   if (session is SessionAuthenticated) {
     final u = session.user;
-    final strictAdm = LocalAuthDataSource.isStrictAdministrator(u.cargo, u.cedula) || unlocked;
+    final strictAdm = LocalAuthDataSource.isStrictAdministrator(u.cargo, u.cedula);
     final sup = !strictAdm && LocalAuthDataSource.isSupervisorRole(u.cargo);
     final isAdm = u.isAdmin || strictAdm || sup;
     return LocalActor(u.cedula, isAdm, isStrictAdmin: strictAdm, isSupervisor: sup);
   }
-  return LocalActor('', unlocked, isStrictAdmin: unlocked);
+  return const LocalActor('', false);
 });
 
 final localAdminStoreProvider = Provider((ref) {
   final actor = ref.watch(localActorProvider);
-  final admin = actor.isAdmin
-      ? (actor.document.isNotEmpty ? actor.document : '1007331963')
-      : null;
-  return LocalAdminStore(ref.watch(localPhotoDatabaseProvider), admin);
+  return LocalAdminStore(ref.watch(localPhotoDatabaseProvider), actor);
 });
 
 final localPhotoRepositoryProvider = Provider<LocalAttendanceRepository>(

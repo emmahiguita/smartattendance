@@ -11,6 +11,7 @@ from app.database.base import get_db
 from app.core.security import decode_access_token
 from app.repositories.user_repository import UserRepository
 from app.models.user import User
+from app.services.session_service import check_access
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=True)
 
@@ -50,6 +51,7 @@ def get_current_user(
         )
     
     repo = UserRepository(db)
+    check_access(db, user_id, payload)
     user = repo.get_by_id(user_id)
     if not user or not user.is_active:
         raise HTTPException(

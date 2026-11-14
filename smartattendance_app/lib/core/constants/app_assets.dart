@@ -1,30 +1,47 @@
 // ============================================================================
 // ARCHIVO: app_assets.dart
 // QUÉ HACE: Registro centralizado de recursos gráficos (logos, banners e iconos)
-//           del kit visual oficial de Serviciudad E.S.P.
+//           del kit visual oficial de Serviciudad E.S.P. sin duplicados.
 // CÓMO FUNCIONA: Constantes fuertemente tipadas organizadas por categoría con
 //                soporte para carga directa mediante `Image.asset`.
-// POR QUÉ: Evita strings mágicos y centraliza rutas de assets (< 180 líneas).
+// POR QUÉ: Evita strings mágicos y archivos duplicados en el bundle (< 180 líneas).
 // ============================================================================
 
 abstract final class AppAssets {
   // ── LOGOS ──
-  static const String logoOficialReal = 'assets/logos/serviciudad_oficial_real.png';
-  static const String logoCompletoVertical = 'assets/logos/logo_completo_vertical.png';
+  static const String logoOficialReal =
+      'assets/logos/serviciudad_oficial_logo.png';
+  static const String logoCompletoVertical =
+      'assets/logos/logo_completo_vertical.png';
   static const String logoHorizontal = 'assets/logos/logo_horizontal.png';
   static const String simboloSinFondo = 'assets/logos/simbolo_sin_fondo.png';
-  static const String logoOficial = 'assets/images/serviciudad_logo.png';
+  static const String logoOficial = 'assets/logos/serviciudad_oficial_logo.png';
 
-  // ── BANNERS INSTITUCIONALES ──
-  static const String bannerInicioCiudadLimpia = 'assets/banners/banner_inicio_ciudad_limpia.jpg';
-  static const String bannerInicioMantenimientoRedes = 'assets/banners/banner_inicio_mantenimiento_redes.jpg';
-  static const String bannerInicioCalidadVida = 'assets/banners/banner_inicio_calidad_vida.jpg';
-  static const String bannerInicioRedesTuberia = 'assets/banners/banner_inicio_redes_tuberia.jpg';
-  static const String bannerInicioAlcantarillado = 'assets/banners/banner_inicio_alcantarillado.jpg';
-  static const String bannerInicioCuadrillaDia = 'assets/banners/banner_inicio_cuadrilla_dia.jpg';
-  static const String bannerInicioNocturno = 'assets/banners/banner_inicio_nocturno.jpg';
+  // ── FONDOS Y WALLPAPERS ──
+  static const String fondoPantalla = 'assets/images/fondo_pantalla.png';
+
+  // ── BANNERS INSTITUCIONALES (1024x576 — 16:9 sin recortes ni duplicados) ──
+  static const String bannerServiciudadCiudadLimpia =
+      'assets/banners/banner_serviciudad_ciudad_limpia.jpg';
+  static const String bannerServiciudadAlcantarillado =
+      'assets/banners/banner_serviciudad_alcantarillado.jpg';
+  static const String bannerInicioCiudadLimpia =
+      bannerServiciudadCiudadLimpia;
+  static const String bannerInicioMantenimientoRedes =
+      'assets/banners/banner_inicio_mantenimiento_redes.jpg';
+  static const String bannerInicioCalidadVida =
+      bannerServiciudadAlcantarillado;
+  static const String bannerInicioRedesTuberia =
+      'assets/banners/banner_inicio_redes_tuberia.jpg';
+  static const String bannerInicioAlcantarillado =
+      bannerServiciudadAlcantarillado;
+  static const String bannerInicioCuadrillaDia =
+      'assets/banners/banner_inicio_cuadrilla_dia.jpg';
+  static const String bannerInicioNocturno =
+      'assets/banners/banner_inicio_nocturno.jpg';
   static const String bannerAcueducto = 'assets/banners/banner_acueducto.png';
-  static const String bannerAlcantarillado = 'assets/banners/banner_alcantarillado.png';
+  static const String bannerAlcantarillado =
+      'assets/banners/banner_alcantarillado.png';
   static const String bannerAseo = 'assets/banners/banner_aseo.png';
   static const String bannerZonas = 'assets/banners/banner_zonas.png';
 

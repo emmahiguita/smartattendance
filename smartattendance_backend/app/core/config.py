@@ -5,6 +5,7 @@ SRP: single place for all environment/config values.
 OCP: extend with new fields without modifying existing callers.
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./smartattendance.db"
     DB_ECHO: bool = False
+    STATIC_DIRECTORY: str = ''  # Vacío conserva backend/static en desarrollo.
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_TIMEOUT_SECONDS: int = 30
@@ -27,6 +29,14 @@ class Settings(BaseSettings):
 
     # Security
     SECRET_KEY: str
+    @field_validator('SECRET_KEY')
+    @classmethod
+    def require_private_signing_secret(cls, value: str) -> str:
+        unsafe = {'smartattendance-jwt-secret-change-in-production',
+                  'CAMBIAR_POR_SECRETO_ALEATORIO_DE_64_CHARS'}
+        if len(value.strip()) < 32 or value.strip() in unsafe:
+            raise ValueError('Configura un secreto aleatorio propio de al menos 32 caracteres.')
+        return value
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # refresh token lifetime
@@ -34,6 +44,7 @@ class Settings(BaseSettings):
     # Google Sign-In Ã¢â‚¬â€ client ID del proyecto OAuth (web/server) de Google Cloud.
     # VacÃ­o Ã¢â€¡â€™ el endpoint /auth/google responde 503 con mensaje claro.
     GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_SHEET_NAME: str = 'Asistencias_SmartAttendance'
 
     # Zona horaria del NEGOCIO (paÃ­s de la empresa). Todas las marcas de
     # asistencia se registran en ESTA zona, independiente de dÃ³nde corra el

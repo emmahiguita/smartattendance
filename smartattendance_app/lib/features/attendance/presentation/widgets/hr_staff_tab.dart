@@ -2,17 +2,15 @@
 // ARCHIVO: hr_staff_tab.dart
 // QUÉ HACE: Directorio de Personal en Gestión RRHH con barra de métricas
 //           compacta estilo iOS, buscador `CupertinoSearchTextField`, botón
-//           "+ Nuevo" y lista agrupada estilo Apple iOS Inset Grouped.
+//           "Nuevo" y lista abierta con divisores finos (0.5px).
 // CÓMO FUNCIONA: Filtra por estado o búsqueda y presenta a todos los
-//                colaboradores dentro de un contenedor agrupado con divisores
-//                finos (0.5px) como en Ajustes / Contactos de iOS.
-// POR QUÉ: Elimina cajas pesadas redundantes y cumple SRP (< 155 líneas).
+//                colaboradores con espaciado compacto estilo iOS Ajustes.
+// POR QUÉ: Elimina cajas pesadas redundantes y cumple SRP (< 170 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/work_schedule.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
@@ -36,7 +34,9 @@ class _HrStaffTabState extends ConsumerState<HrStaffTab> {
   @override
   void didUpdateWidget(covariant HrStaffTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedFilter != widget.selectedFilter) _filter = widget.selectedFilter;
+    if (oldWidget.selectedFilter != widget.selectedFilter) {
+      _filter = widget.selectedFilter;
+    }
   }
 
   void _setFilter(String? f) {
@@ -46,7 +46,7 @@ class _HrStaffTabState extends ConsumerState<HrStaffTab> {
   }
 
   void _openNewWorkerModal() {
-    showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => const WorkerDialog()).then((created) {
+    WorkerDialog.open(context).then((created) {
       if (created == true && mounted) ref.invalidate(localWorkersProvider);
     });
   }
@@ -65,10 +65,12 @@ class _HrStaffTabState extends ConsumerState<HrStaffTab> {
   Widget build(BuildContext context) {
     final workersAsync = ref.watch(localWorkersProvider);
     final today = ColombiaClock.day(DateTime.now());
+    final isDark = context.isDark;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AttendanceKpiGrid(selectedFilter: _filter ?? 'todos', onFilterTap: _setFilter),
-      const SizedBox(height: 12),
+      AttendanceKpiGrid(
+          selectedFilter: _filter ?? 'todos', onFilterTap: _setFilter),
+      const SizedBox(height: 8),
       Row(children: [
         Expanded(
           child: CupertinoSearchTextField(
@@ -83,18 +85,29 @@ class _HrStaffTabState extends ConsumerState<HrStaffTab> {
           child: Container(
             height: 36,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(9)),
+            decoration: BoxDecoration(
+              color:
+                  isDark ? const Color(0xFF1C1C1E) : const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.cBorder, width: 0.5),
+            ),
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(CupertinoIcons.person_add_solid, size: 14, color: Colors.white),
+              Icon(CupertinoIcons.person_add, size: 15, color: Colors.white),
               SizedBox(width: 5),
-              Text('Nuevo', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white)),
+              Text('Nuevo',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white)),
             ]),
           ),
         ),
       ]),
-      const SizedBox(height: 14),
+      const SizedBox(height: 10),
       workersAsync.when(
-        loading: () => const Padding(padding: EdgeInsets.all(28), child: Center(child: CupertinoActivityIndicator())),
+        loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CupertinoActivityIndicator())),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (workers) {
           final filtered = workers.where((w) {
@@ -102,33 +115,55 @@ class _HrStaffTabState extends ConsumerState<HrStaffTab> {
             if (!_matchesFilter(status, _filter)) return false;
             if (_search.isEmpty) return true;
             final term = _search.toLowerCase();
-            return w.name.toLowerCase().contains(term) || w.document.contains(term) || w.job.toLowerCase().contains(term);
+            return w.name.toLowerCase().contains(term) ||
+                w.document.contains(term) ||
+                w.job.toLowerCase().contains(term);
           }).toList();
 
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 12, right: 4, bottom: 6),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('DIRECTORIO DE PERSONAL (${filtered.length})', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: context.cTextSecondary)),
-                if (_filter != null)
-                  GestureDetector(onTap: () => _setFilter(null), child: const Text('Ver todos', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.primary))),
-              ]),
-            ),
-            Container(
-              decoration: BoxDecoration(color: context.cSurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: context.cBorder, width: 0.5)),
-              child: filtered.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(child: Text('Sin colaboradores en esta vista', style: TextStyle(fontSize: 12.5, color: context.cTextSecondary))),
-                    )
-                  : Column(children: [
-                      for (var i = 0; i < filtered.length; i++) ...[
-                        HrStaffWorkerCard(worker: filtered[i], status: calculateStaffStatus(filtered[i], today)),
-                        if (i < filtered.length - 1) Divider(height: 1, thickness: 0.5, indent: 58, color: context.cBorder),
-                      ],
-                    ]),
-            ),
-          ]);
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('DIRECTORIO DE PERSONAL (${filtered.length})',
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                                color: context.cTextSecondary)),
+                        if (_filter != null)
+                          GestureDetector(
+                            onTap: () => _setFilter(null),
+                            child: Text('Ver todos',
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.cTextPrimary)),
+                          ),
+                      ]),
+                ),
+                Divider(height: 1, thickness: 0.5, color: context.cBorder),
+                if (filtered.isEmpty)
+                  Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text('Sin colaboradores en esta vista',
+                          style: TextStyle(
+                              fontSize: 13, color: context.cTextSecondary)))
+                else
+                  for (var i = 0; i < filtered.length; i++) ...[
+                    HrStaffWorkerCard(
+                        worker: filtered[i],
+                        status: calculateStaffStatus(filtered[i], today)),
+                    Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        indent: i < filtered.length - 1 ? 46 : 0,
+                        color: context.cBorder),
+                  ],
+              ]);
         },
       ),
     ]);

@@ -46,42 +46,54 @@ class SessionController extends StateNotifier<SessionState> {
     final c = role.trim().toLowerCase();
     return flag == true ||
         flag == 1 ||
-        cedula == '1007331963' ||
         c == 'administrador' ||
         c == 'supervisor' ||
+        c == 'encargado' ||
+        c == 'encargada' ||
         c.startsWith('administrador ') ||
-        c.startsWith('supervisor ');
+        c.startsWith('supervisor ') ||
+        c.startsWith('encargado ') ||
+        c.startsWith('encargada ');
   }
 
   /// QUÉ HACE: Restaura la sesión autenticada al iniciar la aplicación.
   Future<void> restore() async {
+    if (state is! SessionUnknown) return;
+    final generation = _tokens.generation;
     try {
       final token = await _storage.read(key: AppConfig.keyAccessToken).timeout(const Duration(seconds: 3));
       final refreshToken = await _storage.read(key: AppConfig.keyRefreshToken).timeout(const Duration(seconds: 3));
+      final serverUrl = await _storage.read(key: AppConfig.keySessionServer).timeout(const Duration(seconds: 3));
       final user = await _readUserFromStorage().timeout(const Duration(seconds: 3));
-      if (user == null) {
+      if (!mounted || _tokens.generation != generation || state is! SessionUnknown) return;
+      // QUÉ HACE: Un perfil residual no autentica por sí solo. CÓMO: exige
+      // credencial persistida para respetar la opción de no recordar sesión.
+      if (user == null || token == null || token.trim().isEmpty ||
+          (!TokenStore.isLocalToken(token) && (serverUrl == null || serverUrl.isEmpty))) {
         await _safeClear();
-        _set(const SessionUnauthenticated());
         return;
       }
       _tokens
         ..accessToken = token
-        ..refreshToken = refreshToken;
+        ..refreshToken = refreshToken
+        ..serverUrl = serverUrl;
       _set(SessionAuthenticated(user));
     } catch (_) {
-      await _safeClear();
-      _set(const SessionUnauthenticated());
+      if (mounted && _tokens.generation == generation && state is SessionUnknown) await _safeClear();
     }
   }
 
   Future<void> _safeClear() async {
     try {
-      await clear().timeout(const Duration(seconds: 2));
+      await logout().timeout(const Duration(seconds: 2));
     } catch (_) {}
   }
 
   /// QUÉ HACE: Autentica al usuario y persiste su sesión y rol en el almacén cifrado.
-  Future<void> authenticate(UserEntity user, {bool remember = true}) async {
+  Future<void> authenticate(UserEntity user, {bool remember = true}) {
+    final generation = _tokens.generation;
+    return _tokens.serialize(() async {
+    if (_tokens.generation != generation) return;
     await Future.wait([
       _storage.write(key: AppConfig.keyUserId, value: user.id.toString()),
       _storage.write(key: AppConfig.keyUserCedula, value: user.cedula),
@@ -105,20 +117,25 @@ class SessionController extends StateNotifier<SessionState> {
       await Future.wait([
         _storage.delete(key: AppConfig.keyAccessToken),
         _storage.delete(key: AppConfig.keyRefreshToken),
+        _storage.delete(key: AppConfig.keySessionServer),
       ]);
     }
-    _set(SessionAuthenticated(user));
+    if (mounted && _tokens.generation == generation) _set(SessionAuthenticated(user));
+    });
   }
 
   void setEphemeralTokens({required String accessToken, String? refreshToken}) {
+    if (_tokens.accessToken == accessToken && refreshToken == null) return;
+    _tokens.clear();
     _tokens
       ..accessToken = accessToken
       ..refreshToken = refreshToken;
   }
 
   Future<void> logout() async {
-    await clear();
+    final clearing = clear();
     _set(const SessionUnauthenticated());
+    await clearing;
   }
 
   void _set(SessionState next) {
@@ -126,17 +143,18 @@ class SessionController extends StateNotifier<SessionState> {
     state = next;
   }
 
-  Future<void> clear() async {
+  Future<void> clear() {
     _tokens.clear();
-    await Future.wait([
+    return _tokens.serialize(() async { await Future.wait([
       _storage.delete(key: AppConfig.keyAccessToken),
       _storage.delete(key: AppConfig.keyRefreshToken),
+      _storage.delete(key: AppConfig.keySessionServer),
       _storage.delete(key: AppConfig.keyUserName),
       _storage.delete(key: AppConfig.keyUserId),
       _storage.delete(key: AppConfig.keyUserCedula),
       _storage.delete(key: AppConfig.keyUserRole),
       _storage.delete(key: AppConfig.keyUserJson),
-    ]);
+    ]); });
   }
 
   Future<UserEntity?> _readUserFromStorage() async {
@@ -152,6 +170,7 @@ class SessionController extends StateNotifier<SessionState> {
           apellido: m['apellido'] as String? ?? '',
           cedula: cedula,
           correo: m['correo'] as String? ?? '',
+          telefono: m['telefono'] as String?,
           cargo: cargo,
           fotoUrl: m['foto_url'] as String?,
           isAdmin: _isStrictAdmin(cargo, cedula, flag: m['is_admin']),

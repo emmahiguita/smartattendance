@@ -1,0 +1,11 @@
+{
+  "android_version": "1.0.2",
+  "version_code": 20261110,
+  "sha256": {
+    "qa/artifacts/BuenTiempo-1.0.2-debug.apk": "ce23d4533bf72ee5a9877268bbaa591c47d04e4fe56d3c8e1d106c9d2b623445",
+    "smartattendance_app/lib/features/auth/data/datasources/local_auth_datasource.dart": "e3255eb57327149f1504045e0e03f25429ab351147336f143f8f57cfba989a2f",
+    "smartattendance_backend/app/core/security.py": "80139118f7899aa29b7744739eeda179fa292e9bd47c67af0c385ef440fc5731",
+    "smartattendance_backend/app/services/auth_service.py": "c5d26970ca2d9f0f7bb152c65314e10b54f9a40232dc81e0e805ecb006e0a2ad",
+    "smartattendance_backend/requirements.txt": "041134b050b8db9a6fd1210c5fb7522887c0d6034e98c2ca49ab5c8f88809f65"
+  }
+}

@@ -1,22 +1,23 @@
 // ============================================================================
 // ARCHIVO: serviciudad_status_grid.dart
-// QUÉ HACE: Barra de estado 100% iOS Liquid Glass transparente con:
-//           1. Estado de jornada en vivo (bullet + En curso / Finalizada).
-//           2. Tiempo laborado acumulado (sumando Horas Extras Asignadas).
-//           3. Geocerca GPS con acceso al mapa interactivo.
-// CÓMO FUNCIONA: Envuelve la barra en `BackdropFilter` con cristal translúcido
-//                y borde especular iOS en Modo Oscuro.
-// POR QUÉ: Integra el conteo automático de Horas Extras Asignadas y Modo Oscuro
-//          100% iOS transparente profesional (< 160 líneas).
+// QUÉ HACE: Barra de estado 100% Apple Liquid Glass transparente con:
+//           1. Indicador circular de estado de jornada (bullet verde/ámbar/azul).
+//           2. Tiempo acumulado con tipografía editorial profesional en cTextPrimary.
+//           3. Chip de geocerca GPS interactivo para inspección de mapa.
+// CÓMO FUNCIONA: Usa `BackdropFilter` con desenfoque de 20px, gradiente de refracción
+//                vítrea y jerarquía tipográfica sin colores de texto excesivos.
+// POR QUÉ: Atiende la directiva "NO DEBE TENER COLORES DE TEXTO INNECESARIOS,
+//          ORGANIZA DE FORMA PROFESIONAL, LIQUID GLASSED 100%" (< 160 líneas).
 // ============================================================================
 
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../photo_attendance/domain/work_schedule.dart';
 import '../../domain/entities/attendance_entity.dart';
 import 'explorable_map_dialog.dart';
+import 'serviciudad_status_bar.dart';
 
 class ServiciudadStatusGrid extends StatelessWidget {
   const ServiciudadStatusGrid({
@@ -61,101 +62,55 @@ class ServiciudadStatusGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final activeBlue = isDark ? AppColors.primaryDark : AppColors.primary;
-    final activeGreen = isDark ? AppColors.successDark : AppColors.success;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    final success = isDark ? AppColors.successDark : AppColors.success;
     final now = DateTime.now();
     final today = records.where((r) {
-      final l = r.fecha.toLocal();
-      return l.year == now.year && l.month == now.month && l.day == now.day;
-    }).toList()..sort((a, b) => a.hora.compareTo(b.hora));
+      return ColombiaClock.day(r.fecha) == ColombiaClock.day(now);
+    }).toList()
+      ..sort((a, b) => a.hora.compareTo(b.hora));
 
     final lastMark = today.isNotEmpty ? today.last.tipo.toLowerCase() : '';
-    final entrada = today.where((r) => r.tipo.toLowerCase() == 'entrada').firstOrNull;
-    final salida = today.where((r) => r.tipo.toLowerCase() == 'salida').firstOrNull;
-    final extraDur = Duration(minutes: assignedOvertimeMinutes);
+    final entrada =
+        today.where((r) => r.tipo.toLowerCase() == 'entrada').firstOrNull;
+    final salida =
+        today.where((r) => r.tipo.toLowerCase() == 'salida').firstOrNull;
 
     final String statusText;
-    final Color statusColor;
+    final Color bulletColor;
     String tiempoTrabajado = '0h 00m';
 
     if (entrada != null) {
       if (salida != null) {
-        statusText = assignedOvertimeMinutes > 0 ? 'Finalizada (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'Jornada finalizada';
-        statusColor = activeBlue;
-        final diff = salida.hora.difference(entrada.hora) + extraDur;
-        tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
+        statusText = 'Jornada finalizada';
+        bulletColor = primary;
+        tiempoTrabajado = calculateWorkedHoursLabel(today, now: now);
       } else if (lastMark == 'salida_almuerzo') {
         statusText = 'En almuerzo';
-        statusColor = const Color(0xFFF59E0B);
-        final diff = today.last.hora.difference(entrada.hora);
-        tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
+        bulletColor = const Color(0xFFF59E0B);
+        tiempoTrabajado = calculateWorkedHoursLabel(today, now: now);
       } else {
-        statusText = assignedOvertimeMinutes > 0 ? 'En curso (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'En curso';
-        statusColor = activeGreen;
-        final diff = now.difference(entrada.hora.toLocal());
-        tiempoTrabajado = '${diff.inHours}h ${diff.inMinutes.remainder(60).abs()}m';
+        statusText = 'En curso';
+        bulletColor = success;
+        tiempoTrabajado = calculateWorkedHoursLabel(today, now: now);
       }
     } else {
-      statusText = assignedOvertimeMinutes > 0 ? 'Por iniciar (+${assignedOvertimeMinutes ~/ 60}h Ext)' : 'Por iniciar';
-      statusColor = context.cTextSecondary;
+      statusText = 'Por iniciar';
+      bulletColor = context.cTextSecondary.withValues(alpha: 0.5);
     }
 
     final zoneLabel = isInsideZone == true
         ? '${zoneName ?? 'Sede'} (En geocerca)'
-        : (zoneName ?? 'Sede Central');
+        : (zoneName ?? 'Sin sede asignada');
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.16) : context.cBorder.withValues(alpha: 0.4),
-              width: 0.85,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: statusColor)),
-              const SizedBox(width: 6),
-              Text(statusText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
-              const SizedBox(width: 6),
-              Text('•  $tiempoTrabajado', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
-              const Spacer(),
-              Flexible(
-                child: InkWell(
-                  onTap: () => _openMap(context),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(CupertinoIcons.location_solid, size: 11, color: activeBlue),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            zoneLabel,
-                            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: activeBlue),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        Icon(CupertinoIcons.chevron_forward, size: 9, color: activeBlue),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return ServiciudadStatusBar(
+      statusText: statusText,
+      workedTime: tiempoTrabajado,
+      zoneLabel: zoneLabel,
+      bulletColor: bulletColor,
+      primary: primary,
+      isDark: isDark,
+      onOpenMap: () => _openMap(context),
     );
   }
 }

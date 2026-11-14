@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-10",
+  "runs": [
+    {
+      "passed": true,
+      "stage": "preflight",
+      "serial": "VGL7MVFMDYQG8T55",
+      "model": "CPH2557",
+      "android": "15",
+      "report_directory": "C:\\Users\\emman\\AppData\\Local\\SmartAttendanceQA\\automation_1794288014233413800"
+    },
+    {
+      "passed": true,
+      "stage": "smoke",
+      "serial": "VGL7MVFMDYQG8T55",
+      "model": "CPH2557",
+      "android": "15",
+      "screen": "registration-preserved",
+      "report_directory": "C:\\Users\\emman\\AppData\\Local\\SmartAttendanceQA\\automation_1794288016081773400"
+    },
+    {
+      "passed": false,
+      "stage": "preflight",
+      "error": "El dispositivo seleccionado no est\u00e1 conectado y autorizado.",
+      "report_directory": "C:\\Users\\emman\\AppData\\Local\\SmartAttendanceQA\\automation_1794288023124551700"
+    }
+  ],
+  "katalon_console": {
+    "passed": false,
+    "exit_code": 2,
+    "reason": "No active Katalon Runtime Engine license"
+  },
+  "artemis": {
+    "diagnosis": "ready",
+    "exploration": "cancelled; not treated as a passed test"
+  }
+}

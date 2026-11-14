@@ -2,26 +2,14 @@
 // ============================================================================
 // ARCHIVO: export_preview_sheet.dart
 // CAPA: Presentation / Widgets (Hoja de Previsualización y Descarga)
-// ----------------------------------------------------------------------------
-// QUÉ HACE:
-// Despliega la interfaz modal interactiva que permite al directivo/supervisor
-// inspeccionar la tabla consolidada de asistencias antes de presionar "Exportar".
-//
-// CÓMO FUNCIONA:
-// - Observa `exportPreviewViewModelProvider` y reacciona a sus estados sellados.
-// - Aplica diseño responsivo: Detecta si la pantalla está en modo vertical
-//   u horizontal (Landscape) ajustando la altura de la tabla y la distribución.
-// - Ofrece botones ergonómicos de Cancelar y Exportar (.xlsx o .csv).
-//
-// POR QUÉ:
-// Responde directamente al requerimiento: "DEBE VISUALIZAR EL INFORME ANTES DE
-// EXPORTAR, NO CAMBIES EL DISEÑO ACTUAL, CORRIGE MODO HORIZONTAL" (< 190 líneas).
+// QUÉ HACE: Despliega la interfaz modal interactiva para previsualizar antes de exportar.
+// CÓMO FUNCIONA: Observa `exportPreviewViewModelProvider` y adapta la altura.
+// POR QUÉ: HIG ejecutiva sin colores saturados, adaptativo horizontal/vertical < 185 líneas.
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../viewmodels/export_preview_viewmodel.dart';
 import 'export_preview_widgets.dart';
 
@@ -43,7 +31,6 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
   @override
   void initState() {
     super.initState();
-    // Carga anticipada diferida sin bloquear el build inicial de Riverpod.
     Future.microtask(() {
       if (mounted && ref.read(exportPreviewViewModelProvider) is! ExportPreviewLoaded) {
         _load();
@@ -101,7 +88,6 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
     };
   }
 
-  /// Construye la vista cargada adaptándose a orientación vertical u horizontal.
   Widget _buildLoaded(
     BuildContext context,
     ExportPreviewData data,
@@ -110,6 +96,7 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
   ) {
     final tieneDatos = data.totalRegistros > 0;
     final isLandscape = MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
+    final isDark = context.isDark;
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, isLandscape ? 4 : 8, 16, 14),
@@ -125,7 +112,6 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
             onSelect: (f) => notifier.setFormat(f, data),
           ),
           SizedBox(height: isLandscape ? 8 : 10),
-          // Contenedor de tabla previa: Altura adaptada para no empujar botones
           if (data.sample.isNotEmpty)
             SizedBox(
               height: isLandscape ? 135 : 190,
@@ -137,7 +123,6 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
               child: Center(child: Text('No hay registros en el período seleccionado.')),
             ),
           SizedBox(height: isLandscape ? 8 : 12),
-          // Botones de acción inferiores
           Row(
             children: [
               Expanded(
@@ -156,7 +141,8 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
                 child: FilledButton.icon(
                   onPressed: tieneDatos ? () => _export() : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -174,13 +160,12 @@ class _ExportPreviewSheetState extends ConsumerState<ExportPreviewSheet> {
     );
   }
 
-  /// Mensaje de error con opción para reintentar la carga previa.
   Widget _buildError(String message) => Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.red, size: 36),
+            Icon(Icons.error_outline_rounded, color: context.cTextSecondary, size: 36),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 12),

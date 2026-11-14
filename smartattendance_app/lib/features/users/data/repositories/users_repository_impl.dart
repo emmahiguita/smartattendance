@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/logging/app_logger.dart';
+import '../../../auth/data/datasources/local_auth_datasource.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../domain/repositories/users_repository.dart';
 import '../datasources/users_remote_datasource.dart';
@@ -97,7 +98,8 @@ final class UsersRepositoryImpl implements UsersRepository {
         telefono: telefono,
         direccion: direccion,
       );
-      // Cache the new employee locally
+      // QUÉ HACE: Asigna permisos administrativos reales según el cargo seleccionado.
+      final isAdminFlag = LocalAuthDataSource.isRoleAdmin(cargo, cedula) ? 1 : 0;
       await _localDb.insertLocalEmpleado({
         'id': model.id,
         'cedula': model.cedula,
@@ -107,7 +109,7 @@ final class UsersRepositoryImpl implements UsersRepository {
         'cargo': model.cargo,
         'foto_url': model.fotoUrl,
         'telefono': model.telefono,
-        'is_admin': 0,
+        'is_admin': isAdminFlag,
       });
       return model.toEntity();
     } on DioException catch (e) {
@@ -115,6 +117,7 @@ final class UsersRepositoryImpl implements UsersRepository {
       // Offline: create locally with temp ID
       AppLogger.info('Offline mode: creating employee locally');
       final tempId = -1 * DateTime.now().millisecondsSinceEpoch;
+      final isAdminFlag = LocalAuthDataSource.isRoleAdmin(cargo, cedula) ? 1 : 0;
       await _localDb.insertLocalEmpleado({
         'id': tempId,
         'cedula': cedula,
@@ -124,7 +127,7 @@ final class UsersRepositoryImpl implements UsersRepository {
         'cargo': cargo,
         'foto_url': null,
         'telefono': telefono,
-        'is_admin': 0,
+        'is_admin': isAdminFlag,
       });
       return UserEntity(
         id: tempId,

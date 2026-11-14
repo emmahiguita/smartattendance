@@ -58,11 +58,78 @@ class _LocalAttendanceHomeState extends ConsumerState<LocalAttendanceHome> {
     } catch (_) {}
   }
 
-  void _create() => showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => const WorkerDialog());
+  void _create() => WorkerDialog.open(context);
+
+  // QUÉ HACE: Muestra un selector de tipo de marcación (CupertinoActionSheet) y
+  //           luego navega a PhotoCaptureScreen con el tipo elegido.
+  // CÓMO: Si `widget.initialType` está definido (llamada desde atajo rápido),
+  //       navega directo. Si no, muestra las 4 opciones disponibles sin restricción
+  //       de secuencia para permitir grabar pruebas libremente.
+  // POR QUÉ: Elimina la restricción de continuidad en la capa de presentación.
+  Future<void> _openCapture(LocalWorker worker) async {
+    if (widget.initialType != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute<bool>(
+          builder: (_) => PhotoCaptureScreen(
+            worker: worker,
+            initialType: widget.initialType!,
+          ),
+        ),
+      );
+      return;
+    }
+
+    const types = [
+      ('entrada', 'Inicio (Entrada)', CupertinoIcons.arrow_right_circle),
+      ('salida_almuerzo', 'Salida a Almuerzo', CupertinoIcons.moon_zzz),
+      ('regreso_almuerzo', 'Regreso de Almuerzo', CupertinoIcons.sunrise),
+      ('salida', 'Salida Final', CupertinoIcons.arrow_left_circle),
+    ];
+
+    final chosen = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (_) => CupertinoActionSheet(
+        title: Text(worker.name),
+        message: const Text('Selecciona el tipo de marcación a registrar'),
+        actions: [
+          for (final t in types)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, t.$1),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(t.$3, size: 17),
+                  const SizedBox(width: 8),
+                  Text(t.$2),
+                ],
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+      ),
+    );
+
+    if (!mounted || chosen == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<bool>(
+        builder: (_) => PhotoCaptureScreen(worker: worker, initialType: chosen),
+      ),
+    );
+  }
 
   Widget _workerItem(LocalWorker worker) {
+    // QUÉ HACE: Muestra la próxima marca sugerida solo como indicador visual (badge),
+    //           pero la navegación permite elegir cualquier tipo sin restricción.
+    // CÓMO: `MarkSequence.next` se usa solo para el badge verde informativo.
+    // POR QUÉ: Mantiene la UX informativa sin bloquear el registro libre.
     final next = MarkSequence.next(worker.lastMark);
-    final requested = widget.initialType ?? next;
+    final badgeLabel = next.isEmpty ? 'Completado' : next;
     final initial = worker.name.trim().isEmpty ? '?' : worker.name.trim().substring(0, 1).toUpperCase();
     final isAdmin = ref.watch(localActorProvider).isAdmin;
 
@@ -71,7 +138,7 @@ class _LocalAttendanceHomeState extends ConsumerState<LocalAttendanceHome> {
       child: IosGlassCard(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         borderRadius: 14,
-        onTap: () => Navigator.push(context, MaterialPageRoute<bool>(builder: (_) => PhotoCaptureScreen(worker: worker, initialType: requested))),
+        onTap: () => _openCapture(worker),
         child: Row(
           children: [
             Container(
@@ -102,12 +169,13 @@ class _LocalAttendanceHomeState extends ConsumerState<LocalAttendanceHome> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppColors.systemGreen.withValues(alpha: 0.3), width: 0.5),
               ),
-              child: Text(next, style: const TextStyle(color: AppColors.systemGreen, fontSize: 10.5, fontWeight: FontWeight.w700)),
+              child: Text(badgeLabel, style: const TextStyle(color: AppColors.systemGreen, fontSize: 10.5, fontWeight: FontWeight.w700)),
             ),
             if (isAdmin) ...[
               const SizedBox(width: 4),
               IconButton(
                 icon: Icon(CupertinoIcons.slider_horizontal_3, size: 16, color: context.cTextSecondary),
+                tooltip: 'Editar asignación',
                 onPressed: () => showDialog<bool>(context: context, barrierDismissible: false, builder: (_) => WorkerAssignmentDialog(worker: worker)),
               ),
             ],

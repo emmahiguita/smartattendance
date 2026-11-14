@@ -1,34 +1,33 @@
 // ============================================================================
 // ARCHIVO: settings_screen.dart
-// QUÉ HACE: Pantalla de Configuración con control de tema, permisos de hardware,
-//           recordatorios, caché y sección de servidor exclusiva para Admin.
-// CÓMO FUNCIONA: Consulta `localActorProvider` para ocultar la configuración de
-//                servidor backend (`SettingsServerUrlRow`) a usuarios normales.
-// POR QUÉ: Impide que colaboradores alteren la infraestructura de red y cumple
-//          estrictamente el límite de < 195 líneas.
+// QUÉ HACE: Pantalla de Configuración profesional estilo Apple iOS nativo
+//           (CupertinoIcons, Inset Grouped cards, controles adaptativos).
+// CÓMO FUNCIONA: Squircles con glifos blancos, switches y segmented controls
+//                iOS, consulta `localActorProvider` para panel admin.
+// POR QUÉ: Elimina estilo vibecoder y cumple < 190 líneas con arquitectura sólida.
 // ============================================================================
 
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
-import '../../../../core/location/location_service.dart';
 import '../../../../core/notifications/journey_reminders.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_controller.dart';
 import '../../../../core/utils/confirm_logout.dart';
 import '../../../../shared/widgets/app_appbar.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
+import '../../../profile/presentation/widgets/app_info_modal.dart';
+import 'settings_legal_sheets.dart';
+import 'settings_permissions_card.dart';
 import 'settings_server_section.dart';
 import 'settings_widgets.dart';
 
-/// Módulo Configuración — preferencias reales y estado de permisos.
+/// Módulo Configuración — estilo iOS Human Interface Guidelines.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
   @override
@@ -36,48 +35,14 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  static const _location = LocationService();
   final String _appVersion = AppConfig.appVersion;
-  bool _cameraOk = false, _checkingCamera = false, _locationOk = false, _locationService = false, _clearingCache = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshPermissions();
-  }
-
-  Future<void> _refreshPermissions() async {
-    final status = await _location.checkStatus();
-    if (!mounted) return;
-    setState(() => (_locationOk = status.permissionGranted, _locationService = status.serviceEnabled));
-  }
+  bool _clearingCache = false;
 
   Future<void> _toggleNotifications(bool value) async {
-    await ref.read(secureStorageProvider).write(key: AppConfig.keyNotificationsEnabled, value: value.toString());
+    await ref
+        .read(secureStorageProvider)
+        .write(key: AppConfig.keyNotificationsEnabled, value: value.toString());
     ref.invalidate(notificationsEnabledProvider);
-  }
-
-  Future<void> _checkCamera() async {
-    if (_checkingCamera) return;
-    setState(() => _checkingCamera = true);
-    bool cam = false;
-    try {
-      final ctrl = MobileScannerController();
-      await ctrl.start();
-      cam = true;
-      await ctrl.stop();
-      await ctrl.dispose();
-    } catch (_) {}
-    if (mounted) setState(() => (_cameraOk = cam, _checkingCamera = false));
-  }
-
-  Future<void> _requestLocationPermission() async {
-    try {
-      var p = await Geolocator.checkPermission();
-      if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
-      if (p == LocationPermission.deniedForever) await Geolocator.openAppSettings();
-      await _refreshPermissions();
-    } catch (_) {}
   }
 
   Future<void> _clearCache() async {
@@ -94,21 +59,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (_) {}
     if (!mounted) return;
     setState(() => _clearingCache = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Caché temporal liberado correctamente'), backgroundColor: AppColors.systemGreen),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Caché temporal liberado correctamente'),
+        backgroundColor: Color(0xFF34C759)));
   }
 
-  Widget _statusChip(bool ok) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: (ok ? AppColors.systemGreen : AppColors.systemRed).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-        child: Text(ok ? 'OK' : 'Falta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ok ? AppColors.systemGreen : AppColors.systemRed)),
+  Widget get _disclosureChevron => Icon(
+        CupertinoIcons.chevron_forward,
+        size: 15,
+        color:
+            context.isDark ? const Color(0xFF545458) : const Color(0xFFC7C7CC),
       );
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeControllerProvider);
-    final notificationsEnabled = ref.watch(notificationsEnabledProvider).valueOrNull ?? true;
+    final notificationsEnabled =
+        ref.watch(notificationsEnabledProvider).valueOrNull ?? true;
     final isAdmin = ref.watch(localActorProvider).isStrictAdmin;
 
     return Scaffold(
@@ -116,90 +83,119 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppAppBar(
         title: 'Configuración',
         centerTitle: true,
-        leadingWidget: IconButton(icon: Icon(Icons.arrow_back_ios_new, color: context.cPrimary), onPressed: () => Navigator.of(context).maybePop()),
+        leadingWidget: IconButton(
+          icon: Icon(CupertinoIcons.chevron_back,
+              size: 22, color: context.cPrimary),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: context.cGradientBackground),
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        children: [
           const SettingsSectionTitle('Apariencia'),
           SettingsGroupCard(children: [
-            const SettingItemRow(icon: Icons.dark_mode, accentColor: Color(0xFF8B5CF6), title: 'Tema', subtitle: 'Sistema, claro u oscuro'),
+            const SettingItemRow(
+              icon: CupertinoIcons.moon_fill,
+              accentColor: Color(0xFF5856D6),
+              title: 'Tema',
+              subtitle: 'Automático, claro u oscuro',
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
               child: SizedBox(
                 width: double.infinity,
-                child: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(value: ThemeMode.system, label: Text('Auto')),
-                    ButtonSegment(value: ThemeMode.light, label: Text('Claro')),
-                    ButtonSegment(value: ThemeMode.dark, label: Text('Oscuro')),
-                  ],
-                  selected: {themeMode},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (sel) => ref.read(themeControllerProvider.notifier).setMode(sel.first),
+                child: CupertinoSlidingSegmentedControl<ThemeMode>(
+                  groupValue: themeMode,
+                  children: const {
+                    ThemeMode.system: Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Text('Auto', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                    ThemeMode.light: Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Text('Claro', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                    ThemeMode.dark: Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Text('Oscuro', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                  },
+                  onValueChanged: (val) {
+                    if (val != null) ref.read(themeControllerProvider.notifier).setMode(val);
+                  },
                 ),
               ),
             ),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           const SettingsSectionTitle('Notificaciones'),
           SettingsGroupCard(children: [
             SettingItemRow(
-              icon: Icons.notifications,
-              accentColor: const Color(0xFFF59E0B),
+              icon: CupertinoIcons.bell_fill,
+              accentColor: const Color(0xFFFF9500),
               title: 'Recordatorios de jornada',
-              subtitle: notificationsEnabled ? 'Alertas activas para marcas de entrada y salida' : 'Notificaciones desactivadas',
-              trailing: Switch(value: notificationsEnabled, activeThumbColor: AppColors.primary, onChanged: _toggleNotifications),
+              subtitle: notificationsEnabled
+                  ? 'Alertas activas para marcas de jornada'
+                  : 'Notificaciones desactivadas',
+              trailing: CupertinoSwitch(
+                value: notificationsEnabled,
+                activeTrackColor: const Color(0xFF34C759),
+                onChanged: _toggleNotifications,
+              ),
             ),
           ]),
           if (isAdmin) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             const SettingsSectionTitle('Servidor (Solo Administrador)'),
             const SettingsGroupCard(children: [SettingsServerUrlRow()]),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           const SettingsSectionTitle('Permisos'),
+          const SettingsPermissionsCard(),
+          const SizedBox(height: 18),
+          const SettingsSectionTitle('Información y Legal'),
           SettingsGroupCard(children: [
             SettingItemRow(
-              icon: Icons.photo_camera,
-              accentColor: const Color(0xFF3B82F6),
-              title: 'Cámara',
-              subtitle: _cameraOk ? 'Disponible para captura biométrica' : 'Toca para verificar el acceso a la cámara',
-              trailing: _checkingCamera ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : _statusChip(_cameraOk),
-              onTap: _checkCamera,
+              icon: CupertinoIcons.info_circle_fill,
+              accentColor: const Color(0xFF007AFF),
+              title: 'Acerca de ${AppConfig.appName}',
+              subtitle: 'Versión v$_appVersion · dev emm ai · Autoría y Canales',
+              trailing: _disclosureChevron,
+              onTap: () => showAppInfoModal(context),
             ),
-            const Divider(height: 1),
+            const SettingsGroupDivider(),
             SettingItemRow(
-              icon: Icons.location_on,
-              accentColor: const Color(0xFF22C55E),
-              title: 'Ubicación GPS',
-              subtitle: _locationOk ? 'Permiso concedido' : 'Sin permiso — requerido para validar geocerca',
-              trailing: _statusChip(_locationOk),
-              onTap: _requestLocationPermission,
+              icon: CupertinoIcons.doc_text_fill,
+              accentColor: const Color(0xFF5856D6),
+              title: 'Términos de Servicio',
+              subtitle: 'Licencia propietaria comercial y condiciones de uso',
+              trailing: _disclosureChevron,
+              onTap: () => showLegalTermsModal(context),
             ),
-            const Divider(height: 1),
+            const SettingsGroupDivider(),
             SettingItemRow(
-              icon: Icons.my_location,
-              accentColor: const Color(0xFF14B8A6),
-              title: 'Servicio de ubicación',
-              subtitle: _locationService ? 'Activado' : 'Desactivado en el sistema',
-              trailing: const TextButton(onPressed: Geolocator.openLocationSettings, child: Text('Ajustes')),
+              icon: CupertinoIcons.shield_lefthalf_fill,
+              accentColor: const Color(0xFF34C759),
+              title: 'Política de Privacidad y Habeas Data',
+              subtitle: 'Protección de datos personales, biometría y GPS',
+              trailing: _disclosureChevron,
+              onTap: () => showPrivacyPolicyModal(context),
+            ),
+            const SettingsGroupDivider(),
+            SettingItemRow(
+              icon: CupertinoIcons.trash_fill,
+              accentColor: const Color(0xFFFF9500),
+              title: 'Limpiar caché local',
+              subtitle: 'Elimina archivos temporales de la aplicación',
+              trailing: _disclosureChevron,
+              onTap: _clearingCache ? null : _clearCache,
             ),
           ]),
-          const SizedBox(height: 20),
-          const SettingsSectionTitle('Acerca de & Sesión'),
+          const SizedBox(height: 18),
+          const SettingsSectionTitle('Sesión'),
           SettingsGroupCard(children: [
-            SettingItemRow(icon: Icons.description, accentColor: const Color(0xFF6366F1), title: 'Términos y Privacidad', subtitle: 'Tratamiento de datos personales y ubicación', trailing: Icon(Icons.chevron_right, color: context.cGray), onTap: () => showSettingsTermsModal(context)),
-            const Divider(height: 1),
-            SettingItemRow(icon: Icons.cleaning_services, accentColor: const Color(0xFFF59E0B), title: 'Limpiar caché local', subtitle: 'Elimina archivos temporales v$_appVersion', trailing: Icon(Icons.chevron_right, color: context.cGray), onTap: _clearingCache ? null : _clearCache),
-            const Divider(height: 1),
-            SettingItemRow(icon: Icons.logout, accentColor: AppColors.systemRed, title: 'Cerrar sesión', subtitle: 'Sal de la cuenta en este dispositivo', trailing: Icon(Icons.chevron_right, color: context.cGray), onTap: () => confirmLogout(context, ref)),
+            SettingItemRow(
+              icon: CupertinoIcons.square_arrow_right,
+              accentColor: const Color(0xFFFF3B30),
+              title: 'Cerrar sesión',
+              subtitle: 'Sal de la cuenta en este dispositivo',
+              trailing: _disclosureChevron,
+              onTap: () => confirmLogout(context, ref),
+            ),
           ]),
           const SizedBox(height: 32),
         ],
-      ),
       ),
     );
   }

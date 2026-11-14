@@ -18,8 +18,7 @@ COPY . .
 # Create data directory for SQLite database (persisted via Fly volume)
 RUN mkdir -p /data
 
-# Generate SECRET_KEY at build time if not provided
-ENV SECRET_KEY="smartattendance-jwt-secret-change-in-production"
+# SECRET_KEY debe inyectarse como secreto del entorno al ejecutar el contenedor.
 ENV DATABASE_URL="sqlite:////data/smartattendance.db"
 
 # Expose port (Fly uses 8000 internally, routes 80/443 via fly.toml)

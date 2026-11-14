@@ -1,6 +1,7 @@
 import 'attendance_location.dart';
 import 'work_schedule.dart';
 import 'work_totals.dart';
+import 'worker_site.dart';
 
 /// Dominio local: no depende de Flutter, SQLite, red ni autenticación remota.
 class LocalWorker {
@@ -70,7 +71,8 @@ abstract interface class LocalAttendanceRepository {
       {int skip = 0, int limit = 20, String search = ''});
   Future<List<LocalWorker>> workers();
   Future<void> addWorker(String name, String document, String job,
-      {int? crewId, WorkSchedule? schedule, String? authorizationReference});
+      {int? crewId, WorkSchedule? schedule, String? authorizationReference,
+        String? password, WorkerSite? site});
   Future<PhotoRecord> capture(LocalWorker worker, String type, String imagePath,
       {required AttendanceLocation location, String? captureId});
   Future<List<PhotoRecord>> history(

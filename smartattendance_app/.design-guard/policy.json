@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "mode": "preserve-existing-ui",
+  "readonly_mcp": true,
+  "approved_change_scope": ["icon_replacement_with_confirmation", "semantic_label_correction"],
+  "locks": {
+    "layout": true,
+    "spacing": true,
+    "card_geometry": true,
+    "images": true,
+    "navigation_structure": true,
+    "colors": true,
+    "typography": true,
+    "animations": true,
+    "business_logic": true
+  },
+  "icons": {"prefer_existing_package": true, "preferred_family_for_new_icons": "lucide", "dp": 22, "nav_dp": 24, "min_touch_target_dp": 48, "selected_fill_only": true, "max_families_per_screen": 1},
+  "fonts": {"preserve_existing": true, "never_download_unlicensed_fonts": true, "require_proven_license": true, "avoid_network_fonts_at_runtime": true},
+  "colors": {"preserve_existing": true, "source_of_truth": "Flutter ThemeData / ColorScheme presente en el repo", "minimum_text_contrast": 4.5, "minimum_large_text_contrast": 3.0, "minimum_ui_contrast": 3.0},
+  "audit": {"max_dart_files": 1500, "max_file_bytes": 1048576, "unverified_icon_symbol": "needs_verification", "on_uncertain_result": "report_not_guess"},
+  "scope": {"allow_whole_app_redesign": false, "new_widgets": false, "new_dependencies_without_approval": false}
+}

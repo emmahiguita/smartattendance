@@ -15,6 +15,7 @@ import '../../../../core/design_system/ios_glass_card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'explorable_map_dialog.dart';
+import 'map_carto_style.dart';
 
 class ServiciudadAssignedLocationCard extends StatelessWidget {
   const ServiciudadAssignedLocationCard({
@@ -112,10 +113,7 @@ class ServiciudadAssignedLocationCard extends StatelessWidget {
                       interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
                     ),
                     children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'io.smartattendance.attendance',
-                      ),
+                      const MapBaseTileLayer(style: MapCartoStyle.streets),
                       CircleLayer(circles: [
                         CircleMarker(
                           point: centerPoint,

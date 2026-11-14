@@ -21,6 +21,7 @@ from app.schemas.user import (
 from app.repositories.user_repository import UserRepository
 from app.api.v1.deps import get_current_user, require_admin
 from app.models.user import User
+from app.core.file_storage import PROFILE_PHOTOS_DIRECTORY
 
 router = APIRouter(prefix="/users", tags=["Empleados"])
 
@@ -97,7 +98,7 @@ def update_me(
 
 
 # â”€â”€ FOTO DE PERFIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-FOTOS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "static" / "fotos"
+FOTOS_DIR = PROFILE_PHOTOS_DIRECTORY
 FOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -121,7 +122,8 @@ async def upload_foto(
     if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         raise HTTPException(status_code=400, detail="Solo imÃ¡genes JPEG, PNG o WebP.")
 
-    content = await file.read()
+    # Se lee como máximo el límite y un byte para detectar el exceso.
+    content = await file.read(2 * 1024 * 1024 + 1)
     if len(content) > 2 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="La imagen no puede superar 2MB.")
 

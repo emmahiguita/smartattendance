@@ -1,5 +1,17 @@
 # 📚 ÍNDICE DE DOCUMENTACIÓN - SmartAttendance
 
+> **Auditoría Principal de Seguridad y Roles (14 Noviembre 2026):** [Auditoría de Seguridad, Funcionalidad y Arquitectura RBAC](AUDITORIA_SEGURIDAD_RBAC_2026-11-14.md): Análisis exhaustivo de permisos (Super Administrador, Supervisor, Colaborador), Requisitos Funcionales (RF), Requisitos No Funcionales (RNF), Casos de Uso (CU) y validación en hardware real.
+
+> **Estado actual:** [Cierre de sesiones y autenticación](CIERRE_SESIONES_2026-11-10.md): correcciones de sesión, revocación, 179 pruebas móviles y 59 del servidor aprobadas, con pendientes de despliegue.
+
+> **Auditoría de referencia:** [Revisión de preparación para producción](REVISION_PREPRODUCCION_2026-11-10.md): hallazgos de despliegue, datos y distribución.
+
+> **Implementación anterior:** [Lógica de sesiones y recuperación](LOGICA_AUTENTICACION_2026-11-10.md), con cambios, pruebas y compatibilidad de tokens existentes.
+
+> **Auditoría anterior:** [Auditoría de producción del 10 de noviembre de 2026](AUDITORIA_PRODUCCION_2026-11-10.md). Los informes anteriores conservan sus fechas y alcance.
+
+> **Actualización del 9 de noviembre de 2026:** empieza por la [Auditoría de seguridad y preparación para producción](AUDITORIA_SEGURIDAD_PRODUCCION_2026-11-09.md) y los [Requisitos móviles](REQUISITOS_Y_PRUEBAS_MOBILE.md). Los documentos de fases y porcentajes enumerados a continuación son registros históricos y no acreditan el estado actual.
+
 **Fecha:** Junio 12, 2026  
 **Status:** Fase 1 + 2 Completadas  
 **Total Documentos:** 13

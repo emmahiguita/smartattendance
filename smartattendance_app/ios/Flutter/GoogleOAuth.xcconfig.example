@@ -1,0 +1,6 @@
+// Copy to GoogleOAuth.xcconfig and fill values from Google Cloud Console.
+// The real file stays ignored because OAuth identifiers vary by environment.
+GOOGLE_IOS_CLIENT_ID=com.googleusercontent.apps.replace-me
+GOOGLE_SERVER_CLIENT_ID=replace-me.apps.googleusercontent.com
+GOOGLE_IOS_REVERSED_CLIENT_ID=com.googleusercontent.apps.replace-me
+IOS_TEAM_ID=ABCDE12345

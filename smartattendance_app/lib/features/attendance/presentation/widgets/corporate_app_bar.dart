@@ -1,12 +1,11 @@
 // ============================================================================
 // ARCHIVO: corporate_app_bar.dart
 // QUÉ HACE: Barra superior institucional con tipografía Editorial Profesional,
-//           efecto 100% iOS Liquid Glass Transparente Profesional en Modo
-//           Oscuro, campana de recordatorios y miniatura fotográfica real.
+//           fondo negro puro OLED (#000000) en modo oscuro, campana de
+//           recordatorios y miniatura fotográfica real sin bordes azules.
 // CÓMO FUNCIONA: Observa `sessionControllerProvider` y `localDayHistoryProvider`
-//                y aplica `BackdropFilter` gaussiano real de 24px.
-// POR QUÉ: Cumple la directiva de modo oscuro 100% iOS transparente profesional
-//          y miniatura real del empleado (< 165 líneas).
+//                y aplica `BackdropFilter` gaussiano real de 24px con divisor 0.5px.
+// POR QUÉ: Unifica el color de cabecera con el cuerpo negro absoluto iOS (< 175 líneas).
 // ============================================================================
 
 import 'dart:ui';
@@ -35,20 +34,23 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback onProfileTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(50);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = context.isDark;
-    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primary;
     final session = ref.watch(sessionControllerProvider);
     final authUser = session is SessionAuthenticated ? session.user : null;
-    final records = ref.watch(localDayHistoryProvider).valueOrNull ?? const <AttendanceEntity>[];
+    final records = ref.watch(localDayHistoryProvider).valueOrNull ??
+        const <AttendanceEntity>[];
     final hasPendingReminders = computeJourneyReminders(records).isNotEmpty;
     final avatarFile = EmployeeAvatarService.resolveFile(authUser?.fotoUrl);
 
     return AppBar(
-      backgroundColor: isDark ? const Color(0xFF060E1C).withValues(alpha: 0.52) : context.cBackground.withValues(alpha: 0.90),
+      toolbarHeight: 50,
+      backgroundColor: isDark
+          ? Colors.black.withValues(alpha: 0.90)
+          : Colors.white.withValues(alpha: 0.92),
       elevation: 0,
       scrolledUnderElevation: 0,
       flexibleSpace: ClipRect(
@@ -58,23 +60,32 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
         ),
       ),
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(0.8),
+        preferredSize: const Size.fromHeight(0.5),
         child: Container(
-          height: 0.8,
-          color: isDark ? Colors.white.withValues(alpha: 0.15) : context.cBorder.withValues(alpha: 0.75),
+          height: 0.5,
+          color: context.cBorder,
         ),
       ),
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(5.5),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: isDark ? 0.22 : 0.12),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFF0F172A).withValues(alpha: 0.06),
               shape: BoxShape.circle,
-              border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.18), width: 0.7) : null,
+              border: Border.all(
+                color: context.cBorder,
+                width: 0.5,
+              ),
             ),
-            child: Icon(CupertinoIcons.building_2_fill, size: 14, color: primaryColor),
+            child: Icon(
+              CupertinoIcons.building_2_fill,
+              size: 13.5,
+              color: context.cTextPrimary,
+            ),
           ),
           const SizedBox(width: 8),
           Column(
@@ -84,23 +95,20 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
               Text(
                 'SERVICIUDAD E.S.P.',
                 style: TextStyle(
-                  fontFamily: AppTheme.editorialSerif,
                   fontFamilyFallback: AppTheme.editorialFallbacks,
                   fontFeatures: AppTheme.editorialFeatures,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                   color: context.cTextPrimary,
                 ),
               ),
               Text(
                 'Dosquebradas · Risaralda',
                 style: TextStyle(
-                  fontFamily: AppTheme.editorialSerif,
                   fontFamilyFallback: AppTheme.editorialFallbacks,
-                  fontStyle: FontStyle.italic,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w400,
                   color: context.cTextSecondary,
                 ),
               ),
@@ -112,26 +120,35 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
         GestureDetector(
           onTap: () => showJourneyNotificationsSheet(context, ref),
           child: Container(
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.08) : context.cSurface.withValues(alpha: 0.85),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : context.cSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.20) : context.cBorder.withValues(alpha: 0.6), width: 0.8),
+              border: Border.all(color: context.cBorder, width: 0.5),
             ),
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(Icons.notifications_rounded, size: 18, color: context.cTextPrimary),
+                Icon(
+                  CupertinoIcons.bell,
+                  size: 17,
+                  color: context.cTextPrimary,
+                ),
                 if (hasPendingReminders)
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 7,
+                    right: 7,
                     child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+                      width: 6.5,
+                      height: 6.5,
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
               ],
@@ -141,18 +158,29 @@ class CorporateAppBar extends ConsumerWidget implements PreferredSizeWidget {
         GestureDetector(
           onTap: onProfileTap,
           child: Container(
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             margin: const EdgeInsets.only(right: 14),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.10) : context.cTextSecondary.withValues(alpha: 0.18),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : context.cSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: primaryColor.withValues(alpha: 0.55), width: 1.1),
-              image: avatarFile != null ? DecorationImage(image: FileImage(avatarFile), fit: BoxFit.cover) : null,
+              border: Border.all(color: context.cBorder, width: 0.5),
+              image: avatarFile != null
+                  ? DecorationImage(
+                      image: FileImage(avatarFile),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
             child: avatarFile == null
-                ? Icon(CupertinoIcons.person_fill, size: 19, color: context.cTextSecondary)
+                ? Icon(
+                    CupertinoIcons.person_fill,
+                    size: 17,
+                    color: context.cTextSecondary,
+                  )
                 : null,
           ),
         ),

@@ -30,10 +30,12 @@ class ServerConfigNotifier extends StateNotifier<String> {
   final FlutterSecureStorage _storage;
 
   Future<void> _load() async {
-    final saved = await _storage.read(key: _keyServerUrl);
-    if (saved != null && saved.isNotEmpty) {
-      state = saved;
-    }
+    try {
+      final saved = await _storage.read(key: _keyServerUrl);
+      if (mounted && saved != null && saved.isNotEmpty) {
+        state = EnvironmentConfig.validateBaseUrl(saved, requireHttps: EnvironmentConfig.enforcedHttps);
+      }
+    } catch (_) {} // Una URL antigua inválida no reemplaza la configuración segura.
     // Si no hay guardada, state ya es el default por ambiente.
   }
 
@@ -46,7 +48,7 @@ class ServerConfigNotifier extends StateNotifier<String> {
 
   /// Guarda una nueva URL y notifica a los listeners.
   Future<void> setUrl(String url) async {
-    final trimmed = url.trim();
+    final trimmed = EnvironmentConfig.validateBaseUrl(url, requireHttps: EnvironmentConfig.enforcedHttps);
     // Normalizar: quitar trailing slash y forzar /api/v1 si no lo tiene
     String normalized = trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
     if (!normalized.endsWith('/api/v1')) {

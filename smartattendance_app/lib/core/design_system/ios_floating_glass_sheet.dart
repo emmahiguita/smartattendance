@@ -1,21 +1,20 @@
 // ============================================================================
 // ARCHIVO: ios_floating_glass_sheet.dart
-// QUÉ HACE: Presenta un diálogo modal suspendido con desenfoque gaussiano de
-//           32px (`BackdropFilter`), bordes cristalinos translúcidos y esquinas
-//           redondeadas 28dp 100% iOS Liquid Glass.
-// CÓMO FUNCIONA: En modo oscuro aplica cristal translúcido (`0.54` de opacidad)
-//                con borde especular blanco (`0.22`) y desenfoque profundo.
-// POR QUÉ: Cumple la directiva de modo oscuro 100% iOS transparente profesional
-//          sin abrir nunca desde abajo (< 165 líneas).
+// QUÉ HACE: Presenta selectores y sábanas modales con superficie Liquid Glass
+//           profesional: BackdropFilter 24px + borde 0.8px + transición iOS.
+// CÓMO FUNCIONA: showGeneralDialog con curva easeOutCubic + ClipRRect +
+//                BackdropFilter rodea el Dialog para el efecto glass real.
+// POR QUÉ: Unifica estética iOS Liquid Glass en todos los modales < 120 líneas.
 // ============================================================================
 
-import 'dart:math';
 import 'dart:ui';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter/services.dart';
 export 'ios_glass_menu.dart';
 
+/// QUÉ HACE: Despliega una hoja modal con superficie Liquid Glass real (blur 24px).
+/// CÓMO: BackdropFilter + BoxDecoration borde 0.8px blanco/15% opacidad.
+/// POR QUÉ: Estética iOS Apple sin alterar el contenido interno.
 Future<T?> showIosFloatingGlassSheet<T>({
   required BuildContext context,
   required Widget child,
@@ -24,118 +23,100 @@ Future<T?> showIosFloatingGlassSheet<T>({
   double maxHeightFactor = 0.78,
   bool showCloseButton = true,
 }) {
+  final disableAnim = MediaQuery.disableAnimationsOf(context);
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Cerrar',
-    barrierColor: Colors.black.withValues(alpha: context.isDark ? 0.50 : 0.35),
-    transitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (ctx, anim, secAnim) {
-      final size = MediaQuery.of(ctx).size;
-      final isLandscape = size.width > size.height;
-      final isDark = ctx.isDark;
-      final dialogMaxWidth = isLandscape ? min(size.width * 0.90, 820.0) : min(size.width * 0.94, 480.0);
-      final dialogMaxHeight = isLandscape ? size.height * 0.92 : size.height * maxHeightFactor;
+    barrierColor: Colors.black.withValues(alpha: 0.50),
+    transitionDuration:
+        disableAnim ? Duration.zero : const Duration(milliseconds: 260),
+    pageBuilder: (ctx, _, __) {
+      final size = MediaQuery.sizeOf(ctx);
+      final theme = Theme.of(ctx);
+      final radius = BorderRadius.circular(20);
 
-      return Material(
-        color: Colors.transparent,
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: isLandscape ? 24 : 18, vertical: isLandscape ? 12 : 24),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-                child: Container(
-                  constraints: BoxConstraints(maxHeight: dialogMaxHeight, maxWidth: dialogMaxWidth),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0C1829).withValues(alpha: 0.54) : ctx.cSurface.withValues(alpha: 0.86),
-                    gradient: isDark
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.11),
-                              const Color(0xFF0A1526).withValues(alpha: 0.52),
-                            ],
-                          )
-                        : null,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: isDark ? 0.22 : 0.65),
-                      width: 1.1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.48 : 0.16),
-                        blurRadius: 38,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 16),
-                      ),
-                    ],
+      // QUÉ HACE: Superficie Liquid Glass real con BackdropFilter 24px.
+      // CÓMO: ClipRRect contiene el BackdropFilter, luego DecoratedBox
+      //       aplica el tint semitransparente y el borde ultra-fino.
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                // Tint oscuro noche profundo en dark, blanco translúcido en light
+                color: isDark
+                    ? const Color(0xFF07101E).withValues(alpha: 0.80)
+                    : Colors.white.withValues(alpha: 0.82),
+                borderRadius: radius,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: isDark ? 0.13 : 0.55),
+                  width: 0.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.10),
+                    blurRadius: 32,
+                    offset: const Offset(0, 8),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Container(
-                          width: 38,
-                          height: 4.5,
-                          decoration: BoxDecoration(
-                            color: ctx.cBorder.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                      ),
-                      if (title != null) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 14, 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      title,
-                                      style: TextStyle(
-                                        fontSize: isLandscape ? 16 : 18,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.4,
-                                        color: ctx.cTextPrimary,
-                                      ),
-                                    ),
-                                    if (subtitle != null) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        subtitle,
-                                        style: TextStyle(fontSize: isLandscape ? 11 : 12, color: ctx.cTextSecondary),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                ],
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 640,
+                  maxHeight: (size.height -
+                          MediaQuery.viewInsetsOf(ctx).bottom) *
+                      maxHeightFactor,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (title != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 8, 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(title,
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(fontWeight: FontWeight.w700)),
+                                  if (subtitle != null)
+                                    Text(subtitle,
+                                        style: theme.textTheme.bodyMedium),
+                                ],
                               ),
-                              if (showCloseButton)
-                                GestureDetector(
-                                  onTap: () => Navigator.pop(ctx),
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(color: ctx.cBorder.withValues(alpha: 0.4), shape: BoxShape.circle),
-                                    child: Icon(CupertinoIcons.xmark, size: 14, color: ctx.cTextPrimary),
-                                  ),
-                                ),
-                            ],
-                          ),
+                            ),
+                            if (showCloseButton)
+                              IconButton(
+                                tooltip: 'Cerrar',
+                                onPressed: () {
+                                  HapticFeedback.selectionClick();
+                                  Navigator.pop(ctx);
+                                },
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                          ],
                         ),
-                        Divider(height: 1, thickness: 0.7, color: ctx.cBorder.withValues(alpha: 0.5)),
-                      ],
-                      Flexible(child: child),
+                      ),
+                      Divider(
+                          height: 1,
+                          thickness: 0.6,
+                          color: Colors.white.withValues(alpha: 0.12)),
                     ],
-                  ),
+                    Flexible(child: child),
+                  ],
                 ),
               ),
             ),
@@ -143,9 +124,26 @@ Future<T?> showIosFloatingGlassSheet<T>({
         ),
       );
     },
-    transitionBuilder: (ctx, anim, secAnim, pageChild) {
-      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return ScaleTransition(scale: Tween<double>(begin: 0.92, end: 1.0).animate(curved), child: FadeTransition(opacity: curved, child: pageChild));
+    transitionBuilder: (ctx, anim, secAnim, dialogChild) {
+      if (disableAnim) return dialogChild;
+      final curved = CurvedAnimation(
+        parent: anim,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(curved),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+            child: dialogChild,
+          ),
+        ),
+      );
     },
   );
 }

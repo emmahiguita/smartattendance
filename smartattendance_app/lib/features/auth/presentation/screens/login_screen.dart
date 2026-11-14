@@ -1,31 +1,27 @@
 // ============================================================================
 // ARCHIVO: login_screen.dart
-// QUÉ HACE: Pantalla de inicio de sesión real con arquitectura iOS 26 Liquid
-//           Glass (4 capas ópticas), tipografía Editorial Profesional y
-//           restauración automática de sesión sin bloqueos.
-// CÓMO FUNCIONA:
-// 1. Valida cédula y contraseña contra SQLite / Backend real (`loginViewModelProvider`).
-// 2. Renderiza tarjeta `IosGlassCard` sobre lienzo de luminancia profunda con
-//    esferas refractivas en Modo Oscuro.
-// POR QUÉ: Refactoriza el archivo de 634 a < 185 líneas con el diseño Modo
-//          Oscuro más avanzado de Flutter.
+// QUÉ HACE: Pantalla de inicio de sesión de Serviciudad E.S.P. con Liquid Glass,
+//           acceso con documento y contraseña propia u OAuth Google.
+// CÓMO FUNCIONA: Enlaza `LoginFormCard` con `LoginViewModel` y `SessionController`.
+// POR QUÉ: Cumple estrictamente la regla modular < 160 líneas bajo Clean Architecture.
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/auth/session_controller.dart';
 import '../../../../core/config/app_config.dart';
-import '../../../../core/design_system/ios_glass_card.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/validators/input_validators.dart';
 import '../../../../shared/widgets/app_buttons.dart';
-import '../../../../shared/widgets/primary_button.dart';
 import '../viewmodels/login_viewmodel.dart';
+import '../widgets/login_form_card.dart';
+import '../widgets/login_header_logo.dart';
+import '../widgets/login_role_toggle.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -39,18 +35,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
   bool _rememberSession = true;
+  LoginRole _selectedRole = LoginRole.user;
 
   @override
   void initState() {
     super.initState();
     _loadSavedCredentials();
-    Future.microtask(() => ref.read(sessionControllerProvider.notifier).restore().catchError((_) {}));
   }
 
   Future<void> _loadSavedCredentials() async {
     try {
       final saved = await ref.read(secureStorageProvider).read(key: AppConfig.keySavedCedula).timeout(const Duration(seconds: 3));
-      if (mounted && saved != null && saved.isNotEmpty) setState(() => _cedulaController.text = saved);
+      if (mounted && saved != null && saved.isNotEmpty) {
+        setState(() {
+          _cedulaController.text = saved;
+        });
+      }
     } catch (_) {}
   }
 
@@ -69,7 +69,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _completeLogin(LoginSuccess next) async {
     await ref.read(sessionControllerProvider.notifier).authenticate(next.user, remember: _rememberSession);
-    if (!_rememberSession) ref.read(sessionControllerProvider.notifier).setEphemeralTokens(accessToken: next.token);
     if (mounted) context.go(AppRoutes.home);
   }
 
@@ -94,141 +93,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(decoration: BoxDecoration(gradient: context.cGradientBackground)),
-          if (isDark) ...[
-            Positioned(
-              top: -50,
-              right: -40,
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [primaryColor.withValues(alpha: 0.18), Colors.transparent])),
+          Positioned.fill(
+            child: Image.asset(
+              AppAssets.fondoPantalla,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned.fill(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF060E1C).withValues(alpha: 0.85)
+                        : const Color(0xFFE2E8F0).withValues(alpha: 0.65),
+                  ),
+                ),
               ),
             ),
+          ),
+          if (isDark) ...[
             Positioned(
-              bottom: 40,
-              left: -50,
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.14), Colors.transparent])),
-              ),
+              top: -50, right: -40,
+              child: Container(width: 240, height: 240, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [primaryColor.withValues(alpha: 0.18), Colors.transparent]))),
+            ),
+            Positioned(
+              bottom: 40, left: -50,
+              child: Container(width: 220, height: 220, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [AppColors.accent.withValues(alpha: 0.14), Colors.transparent]))),
             ),
           ],
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(22, 20, 22, 28 + MediaQuery.viewInsetsOf(context).bottom),
+                padding: EdgeInsets.fromLTRB(22, 16, 22, 24 + MediaQuery.viewInsetsOf(context).bottom),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [primaryColor, AppColors.primary], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [BoxShadow(color: primaryColor.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8))],
-                        ),
-                        child: const Icon(Icons.qr_code_scanner, size: 36, color: Colors.white),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'SERVICIUDAD E.S.P.',
-                        style: TextStyle(
-                          fontFamily: AppTheme.editorialSerif,
-                          fontFamilyFallback: AppTheme.editorialFallbacks,
-                          fontFeatures: AppTheme.editorialFeatures,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: context.cTextPrimary,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('Control inteligente de asistencia y geocerca GPS', style: TextStyle(fontSize: 13, color: context.cTextSecondary)),
-                      const SizedBox(height: 24),
-                      IosGlassCard(
-                        padding: const EdgeInsets.all(24),
-                        borderRadius: 24,
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Iniciar sesión',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.editorialSerif,
-                                  fontFamilyFallback: AppTheme.editorialFallbacks,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: context.cTextPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              Text('Cédula de Identidad', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: _cedulaController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                validator: InputValidators.validateCedula,
-                                decoration: InputDecoration(
-                                  hintText: 'Ej: 1007331963',
-                                  prefixIcon: Icon(Icons.person_outline, size: 20, color: context.cGray),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text('Contraseña', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscurePassword,
-                                onFieldSubmitted: (_) => _submit(),
-                                decoration: InputDecoration(
-                                  hintText: 'Tu contraseña (vacío si es primer ingreso)',
-                                  prefixIcon: Icon(Icons.lock_outline, size: 20, color: context.cGray),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 19, color: context.cGray),
-                                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: Checkbox(value: _rememberSession, activeColor: primaryColor, onChanged: (v) => setState(() => _rememberSession = v ?? true)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text('Recordar sesión', style: TextStyle(fontSize: 12.5, color: context.cTextSecondary)),
-                                  ]),
-                                  TextButton(
-                                    onPressed: () => context.go(AppRoutes.forgotPassword),
-                                    child: Text('¿Olvidaste tu clave?', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: primaryColor)),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              PrimaryButton(label: 'Iniciar sesión', expanded: true, isLoading: loginState is LoginLoading, onPressed: _submit),
-                              const SizedBox(height: 10),
-                              Center(
-                                child: TextButton(
-                                  onPressed: () => context.go(AppRoutes.register),
-                                  child: Text.rich(TextSpan(text: '¿No tienes cuenta? ', style: TextStyle(color: context.cTextSecondary, fontSize: 12.5), children: [TextSpan(text: 'Regístrate aquí', style: TextStyle(color: primaryColor, fontWeight: FontWeight.w700))])),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      const LoginHeaderLogo(),
+                      const SizedBox(height: 20),
+                      LoginFormCard(
+                        formKey: _formKey,
+                        cedulaController: _cedulaController,
+                        passwordController: _passwordController,
+                        selectedRole: _selectedRole,
+                        onRoleChanged: (role) => setState(() {
+                          _selectedRole = role;
+                        }),
+                        obscurePassword: _obscurePassword,
+                        onToggleObscure: () => setState(() => _obscurePassword = !_obscurePassword),
+                        rememberSession: _rememberSession,
+                        onRememberChanged: (v) => setState(() => _rememberSession = v ?? true),
+                        isLoading: loginState is LoginLoading,
+                        onSubmit: _submit,
                       ),
                       const SizedBox(height: 16),
                       AppButtons.googleAuth(

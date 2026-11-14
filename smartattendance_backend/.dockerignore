@@ -1,0 +1,27 @@
+# Secretos y configuración privada nunca forman parte de la imagen.
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+google_credentials.json
+credentials.json
+*.pem
+*.key
+*.jks
+*.keystore
+*.p12
+*.pfx
+# Dependencias locales, bases y artefactos del equipo anfitrión.
+venv/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.db
+*.db-*
+*.sqlite*
+*.log
+.git/
+static/fotos/
+app/static/fotos/

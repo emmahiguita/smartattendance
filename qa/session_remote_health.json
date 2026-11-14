@@ -1,0 +1,6 @@
+{
+  "url": "https://smartattendance-api.onrender.com/health",
+  "checked_at_utc": "2026-11-11T01:06:41.286535+00:00",
+  "healthy": false,
+  "error_type": "ReadTimeout"
+}

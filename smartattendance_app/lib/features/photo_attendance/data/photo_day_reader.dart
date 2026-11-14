@@ -1,17 +1,30 @@
+// ============================================================================
+// ARCHIVO: photo_day_reader.dart
+// QUÉ HACE: Pagina jornadas completas de asistencia desde SQLite respetando
+//           permisos de visibilidad por rol (Administrador, Supervisor, Empleado).
+// CÓMO FUNCIONA: Une `photo_marks`, `journeys`, `workers`, `crews` y `work_zones`
+//                priorizando `COALESCE(j.zone_name, z.name)` para conservar
+//                correcciones administrativas de sede.
+// POR QUÉ: Garantiza que las ediciones en el Consolidado de Asistencias se
+//          persistan y reflejen fielmente (< 70 líneas).
+// ============================================================================
+
+import '../domain/local_actor.dart';
 import '../domain/photo_record.dart';
 import '../domain/work_schedule.dart';
 import 'photo_database.dart';
 import 'photo_row_mapper.dart';
-import '../domain/local_actor.dart';
 
-/// Pagina jornadas completas, sin separar los turnos que cruzan medianoche.
-/// El JOIN usa el identificador de entrada, no la fecha de cada foto.
 class PhotoDayReader {
   PhotoDayReader(this.database, this.actor);
   final PhotoDatabase database;
   final LocalActor actor;
-  Future<List<PhotoDay>> read(
-      {int skip = 0, int limit = 20, String search = ''}) async {
+
+  Future<List<PhotoDay>> read({
+    int skip = 0,
+    int limit = 20,
+    String search = '',
+  }) async {
     final db = await database.database;
     final term = search
         .replaceAll('\\', '\\\\')
@@ -21,7 +34,7 @@ class PhotoDayReader {
         'WHERE ${actor.visibleWorkers('worker_id')}${search.isEmpty ? '' : " AND (name LIKE ? ESCAPE '\\' OR document LIKE ? ESCAPE '\\')"}';
     final rows = await db.rawQuery('''SELECT m.*, j.schedule_json, j.status,
       j.approved_seconds, j.reviewed_by, j.reviewed_at, j.review_note,
-      z.name zone_name
+      COALESCE(j.zone_name, z.name) zone_name
       FROM photo_marks m JOIN journeys j ON j.id=m.journey_id
       LEFT JOIN workers w ON w.id=m.worker_id
       LEFT JOIN crews c ON c.id=w.crew_id
@@ -42,14 +55,16 @@ class PhotoDayReader {
     }
     return groups.values.map((rows) {
       final info = rows.first;
-      return PhotoDay(rows.map(photoRecordFromRow).toList(),
-          schedule: WorkSchedule.decode(info['schedule_json'] as String?),
-          status: info['status'] as String,
-          approvedSeconds: info['approved_seconds'] as int?,
-          reviewedBy: info['reviewed_by'] as String?,
-          reviewedAt: info['reviewed_at'] as String?,
-          reviewNote: info['review_note'] as String?,
-          zoneName: info['zone_name'] as String?);
+      return PhotoDay(
+        rows.map(photoRecordFromRow).toList(),
+        schedule: WorkSchedule.decode(info['schedule_json'] as String?),
+        status: info['status'] as String,
+        approvedSeconds: info['approved_seconds'] as int?,
+        reviewedBy: info['reviewed_by'] as String?,
+        reviewedAt: info['reviewed_at'] as String?,
+        reviewNote: info['review_note'] as String?,
+        zoneName: info['zone_name'] as String?,
+      );
     }).toList();
   }
 }

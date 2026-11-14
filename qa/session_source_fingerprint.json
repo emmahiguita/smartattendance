@@ -1,0 +1,73 @@
+{
+  "checked_at_utc": "2026-11-11T01:12:35.962625+00:00",
+  "files": {
+    "smartattendance_app/lib/core/auth/token_store.dart": {
+      "sha256": "c689a009cc3808a5415913e08f9c01c8154342c64319eea002c96f75751f6db1",
+      "lines": 39
+    },
+    "smartattendance_app/lib/core/auth/session_controller.dart": {
+      "sha256": "1e2668892dc78fa1a9123af3dc0e8a49856163bf7851fc9e18fbcbcd6fb8dce6",
+      "lines": 200
+    },
+    "smartattendance_app/lib/core/network/token_refresh.dart": {
+      "sha256": "30371f41d5d8becb0b3f47ac038a503c0f65addf535f1f0541978c617361a37a",
+      "lines": 72
+    },
+    "smartattendance_app/lib/core/network/dio_provider.dart": {
+      "sha256": "1dd3a0d67bfa6bd2df2974e3f776d039f4160dcd8d61fef5342c2d1698b937db",
+      "lines": 156
+    },
+    "smartattendance_app/lib/core/network/session_revocation.dart": {
+      "sha256": "60b757f71610685393b7be79712a0398ba6a2a3ddcc5889876e835c325c5f370",
+      "lines": 23
+    },
+    "smartattendance_app/lib/core/utils/confirm_logout.dart": {
+      "sha256": "edf46fa6241c3b7396e3c9da42a0a07f1263ce30d3349cd64fca3bde8fae39af",
+      "lines": 53
+    },
+    "smartattendance_app/lib/core/network/connectivity_service.dart": {
+      "sha256": "fde84f5048ff38c537df35ce187c4210f3dfdb602b47805a91bfbad84652b78c",
+      "lines": 75
+    },
+    "smartattendance_app/lib/core/config/server_config_provider.dart": {
+      "sha256": "900520f6fbe8494fb09986ffa6b370c2f3986851db8aad29159f7928b2293fe6",
+      "lines": 100
+    },
+    "smartattendance_app/lib/core/config/environment_config.dart": {
+      "sha256": "b9c63514a5058d48efd382c7cd16939e728fe0dcaa32e946862933e82644a458",
+      "lines": 133
+    },
+    "smartattendance_app/lib/core/config/app_config.dart": {
+      "sha256": "ee53f4979ac0acfb2f4fd901b04e4ec6998d8cd15168f90c7003d353e3090c0d",
+      "lines": 53
+    },
+    "smartattendance_app/lib/features/auth/data/datasources/auth_remote_datasource.dart": {
+      "sha256": "c5fb1bc7aca39f40bce81a2fd874191c56826ef4508f766dc992682caea08755",
+      "lines": 142
+    },
+    "smartattendance_app/lib/features/auth/data/repositories/auth_repository_impl.dart": {
+      "sha256": "e760e4ca33035d5be6e75096c6296e21b76cad425416e9b4936fdaef90070f3c",
+      "lines": 195
+    },
+    "smartattendance_app/lib/features/auth/presentation/viewmodels/login_viewmodel.dart": {
+      "sha256": "93f96e6c3671023f84f197639deee17c0cf2bdef5ae70775c90393fc917a566d",
+      "lines": 161
+    },
+    "smartattendance_app/lib/features/auth/presentation/screens/login_screen.dart": {
+      "sha256": "ed800a6b39232cd8b4c701a0dbefa18d609e9eeb5e6eb701f5f37dc2f98bb42c",
+      "lines": 169
+    },
+    "smartattendance_app/lib/features/settings/presentation/screens/settings_server_section.dart": {
+      "sha256": "ed5f4ad1ebd36f2f737871ea03b52be8387c750360e25cbba6bf92bcf8fd8ce0",
+      "lines": 168
+    },
+    "smartattendance_backend/app/services/session_service.py": {
+      "sha256": "bdfd9873eb38265c9f22583052e78d072b8e6906f5fc2d435c10dbe707485603",
+      "lines": 80
+    },
+    "smartattendance_backend/app/api/v1/endpoints/auth.py": {
+      "sha256": "380190d58f8785c91e0562bf8f5a109ff84f112e503463d9306044a9f4891924",
+      "lines": 90
+    }
+  }
+}

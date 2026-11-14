@@ -5,11 +5,11 @@
 //           coordenadas (`geocodeAddress`) y geocodificación inversa al tocar.
 // CÓMO FUNCIONA:
 // 1. Muestra siempre el mapa interactivo (centrado en la geocerca o Dosquebradas).
-// 2. Permite escribir una dirección real y pulsar "Buscar dirección en mapa"
+// 2. Permite escribir una dirección real y pulsar "Buscar dirección"
 //    para ubicar automáticamente el punto GPS mediante `TraccarService`.
-// 3. Permite tocar cualquier punto del mapa o usar "Autodetectar GPS actual".
+// 3. Permite tocar cualquier punto del mapa o usar "Mi GPS actual".
 // POR QUÉ: Garantiza que las direcciones y ubicaciones asignadas sean 100%
-//          reales, verificables y visuales (< 195 líneas).
+//          reales, verificables y legibles en modo oscuro (< 225 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -22,6 +22,7 @@ import '../../../../core/location/location_service.dart';
 import '../../../../core/location/traccar_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../attendance/presentation/widgets/map_carto_style.dart';
 import 'local_providers.dart';
 
 class ZoneDialog extends ConsumerStatefulWidget {
@@ -37,6 +38,7 @@ class _ZoneDialogState extends ConsumerState<ZoneDialog> {
   final _radius = TextEditingController(text: '100');
   final _mapController = MapController();
   LatLng _point = const LatLng(4.8333, -75.6833);
+  bool _pointSelected = false;
   bool _busy = false;
   String? _error;
 
@@ -50,6 +52,7 @@ class _ZoneDialogState extends ConsumerState<ZoneDialog> {
     super.initState();
     final z = widget.zone;
     if (z != null) {
+      _pointSelected = true;
       _name.text = (z['name'] ?? '').toString();
       _address.text = (z['address'] ?? '').toString();
       _radius.text = '${z['radius_m'] ?? 100}';
@@ -67,8 +70,13 @@ class _ZoneDialogState extends ConsumerState<ZoneDialog> {
   }
 
   void _moveMap(LatLng pt) {
-    setState(() => _point = pt);
-    try { _mapController.move(pt, 16.5); } catch (_) {}
+    setState(() {
+      _point = pt;
+      _pointSelected = true;
+    });
+    try {
+      _mapController.move(pt, 16.5);
+    } catch (_) {}
   }
 
   /// QUÉ HACE: Busca la dirección física escrita y mueve el mapa a sus coordenadas.
@@ -110,14 +118,19 @@ class _ZoneDialogState extends ConsumerState<ZoneDialog> {
       setState(() => _error = 'Ingresa el nombre oficial de la sede o geocerca.');
       return;
     }
+    final radius = double.tryParse(_radius.text.trim());
+    if (!_pointSelected || radius == null || !radius.isFinite || radius < 20 || radius > 50000) {
+      setState(() => _error = 'Selecciona la ubicación en el mapa o con GPS e ingresa un radio de 20 a 50000 metros.');
+      return;
+    }
     setState(() => (_busy = true, _error = null));
     try {
       await ref.read(localAdminStoreProvider).saveZone({
         'name': _name.text.trim(),
-        'address': _address.text.trim().isNotEmpty ? _address.text.trim() : 'Dosquebradas, Risaralda',
+        'address': _address.text.trim(),
         'latitude': _point.latitude,
         'longitude': _point.longitude,
-        'radius_m': double.tryParse(_radius.text) ?? 100,
+        'radius_m': radius,
       }, id: widget.zone?['id'] as int?);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -158,8 +171,8 @@ class _ZoneDialogState extends ConsumerState<ZoneDialog> {
                 Expanded(
                   child: TextButton.icon(
                     onPressed: _busy ? null : _searchTypedAddress,
-                    icon: const Icon(CupertinoIcons.search, size: 15, color: AppColors.primary),
-                    label: const Text('Buscar dirección', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                    icon: Icon(CupertinoIcons.search, size: 15, color: context.cTextPrimary),
+                    label: Text('Buscar dirección', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.cTextPrimary)),
                   ),
                 ),
                 Expanded(
@@ -188,9 +201,9 @@ class _ZoneDialogState extends ConsumerState<ZoneDialog> {
                     },
                   ),
                   children: [
-                    TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'io.smartattendance.attendance'),
-                    CircleLayer(circles: [CircleMarker(point: _point, useRadiusInMeter: true, radius: _visualRadius, color: AppColors.primary.withValues(alpha: 0.18), borderColor: AppColors.primary, borderStrokeWidth: 2)]),
-                    MarkerLayer(markers: [Marker(point: _point, width: 36, height: 36, child: const Icon(CupertinoIcons.location_solid, color: AppColors.primary, size: 28))]),
+                    const MapBaseTileLayer(style: MapCartoStyle.streets),
+                    CircleLayer(circles: [CircleMarker(point: _point, useRadiusInMeter: true, radius: _visualRadius, color: AppColors.success.withValues(alpha: 0.18), borderColor: AppColors.success, borderStrokeWidth: 2)]),
+                    MarkerLayer(markers: [Marker(point: _point, width: 36, height: 36, child: const Icon(CupertinoIcons.location_solid, color: AppColors.systemRed, size: 28))]),
                   ],
                 ),
               ),

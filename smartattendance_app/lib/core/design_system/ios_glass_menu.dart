@@ -1,23 +1,21 @@
 // lib/core/design_system/ios_glass_menu.dart
 // ============================================================================
 // ARCHIVO: ios_glass_menu.dart
-// CAPA: Core / Design System (Menús y Acciones Flotantes iOS Glass)
+// CAPA: Core / Design System (Menús y Acciones Flotantes iOS Liquid Glass)
 // ----------------------------------------------------------------------------
 // QUÉ HACE:
-// Despliega menús contextuales flotantes de selección única con estética
-// iOS Liquid Glass (filas translúcidas con chevron, iconos y opción destructiva).
+// Despliega menús contextuales flotantes con estética iOS Liquid Glass real:
+// BackdropFilter 20px + borde 0.8px + divisores ultra-finos 0.5px.
 //
 // CÓMO FUNCIONA:
-// - [IosGlassAction]: Modelo genérico para cada opción (label, value, icon, destructive).
-// - [showIosGlassFloatingMenu]: Función auxiliar que invoca `showIosFloatingGlassSheet`
-//   presentando una lista de tarjetas translúcidas con separadores finos.
+// - [IosGlassAction]: Modelo genérico (label, value, icon, destructive).
+// - [showIosGlassFloatingMenu]: Llama a `showIosFloatingGlassSheet` con
+//   lista de tarjetas ClipRRect + BackdropFilter y botón Cancelar glass.
 //
-// POR QUÉ:
-// Aplica el Principio de Responsabilidad Única (SRP) de SOLID:
-// Desacopla la lógica de menús de acción de la sábana modal base, manteniendo
-// archivos compactos (< 130 líneas) y facilitando el mantenimiento.
+// POR QUÉ: SRP — desacopla menús de acción del modal base < 150 líneas.
 // ============================================================================
 
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
@@ -40,7 +38,7 @@ class IosGlassAction<T> {
   final bool isDestructive;
 }
 
-/// Muestra un menú de opciones estilizado flotando con desenfoque gaussiano.
+/// Muestra un menú de opciones Liquid Glass con desenfoque gaussiano real.
 Future<T?> showIosGlassFloatingMenu<T>({
   required BuildContext context,
   required String title,
@@ -57,38 +55,63 @@ Future<T?> showIosGlassFloatingMenu<T>({
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // QUÉ HACE: Lista de acciones con glass real (blur + borde 0.8px).
+          // CÓMO: ClipRRect + BackdropFilter rodean el Container de acciones.
+          // POR QUÉ: Aplica Liquid Glass dentro del modal ya blureado.
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: context.cSurface.withValues(alpha: context.isDark ? 0.55 : 0.7),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: context.cBorder.withValues(alpha: 0.6), width: 0.8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (int i = 0; i < actions.length; i++) ...[
-                    if (i > 0) Divider(height: 1, thickness: 0.6, color: context.cBorder.withValues(alpha: 0.5)),
-                    _MenuActionTile<T>(action: actions[i]),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: context.cSurface.withValues(
+                      alpha: context.isDark ? 0.45 : 0.65),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(
+                        alpha: context.isDark ? 0.12 : 0.50),
+                    width: 0.8,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int i = 0; i < actions.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: Colors.white.withValues(
+                              alpha: context.isDark ? 0.10 : 0.30),
+                        ),
+                      _MenuActionTile<T>(action: actions[i]),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            color: context.cSurface.withValues(alpha: context.isDark ? 0.6 : 0.85),
+          const SizedBox(height: 12),
+          // QUÉ HACE: Botón Cancelar con superficie glass propia.
+          ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            onPressed: () => Navigator.pop(context),
-            child: Center(
-              child: Text(
-                'Cancelar',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: context.cTextPrimary,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                color: context.cSurface.withValues(
+                    alpha: context.isDark ? 0.50 : 0.80),
+                borderRadius: BorderRadius.circular(16),
+                onPressed: () => Navigator.pop(context),
+                child: Center(
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: context.cTextPrimary,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -107,7 +130,9 @@ class _MenuActionTile<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = action.isDestructive ? CupertinoColors.destructiveRed : context.cTextPrimary;
+    final textColor = action.isDestructive
+        ? CupertinoColors.destructiveRed
+        : context.cTextPrimary;
     return InkWell(
       onTap: () => Navigator.pop(context, action.value),
       child: Padding(
@@ -135,13 +160,18 @@ class _MenuActionTile<T> extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       action.subtitle!,
-                      style: TextStyle(fontSize: 11.5, color: context.cTextSecondary),
+                      style: TextStyle(
+                          fontSize: 11.5, color: context.cTextSecondary),
                     ),
                   ],
                 ],
               ),
             ),
-            Icon(CupertinoIcons.chevron_right, size: 14, color: context.cTextSecondary.withValues(alpha: 0.6)),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 14,
+              color: context.cTextSecondary.withValues(alpha: 0.6),
+            ),
           ],
         ),
       ),

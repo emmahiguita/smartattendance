@@ -16,6 +16,17 @@ class ConnectivityNotifier extends StateNotifier<bool> {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _disposed = false;
 
+  // QUÉ HACE: Solo autoriza acceso offline directo con ausencia de red confirmada.
+  // POR QUÉ: El valor inicial del banner y un fallo del plugin no prueban desconexión.
+  Future<bool> confirmedOffline() async {
+    try {
+      final results = await _connectivity.checkConnectivity().timeout(const Duration(seconds: 2));
+      return results.length == 1 && results.single == ConnectivityResult.none;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _init() async {
     try {
       final results = await _connectivity.checkConnectivity();

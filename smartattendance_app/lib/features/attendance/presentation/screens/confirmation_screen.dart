@@ -18,7 +18,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/time_format.dart';
 import '../../../../shared/widgets/fade_slide_transition.dart';
-import '../../../../shared/widgets/glass_card.dart';
+import '../../../../core/design_system/ios_glass_card.dart';
 import '../../../../shared/widgets/primary_button.dart';
 
 class ConfirmationScreen extends ConsumerStatefulWidget {
@@ -114,7 +114,7 @@ class _ConfirmationScreenState extends ConsumerState<ConfirmationScreen> with Si
             const SizedBox(height: 24),
             FadeSlideTransition(
               delay: const Duration(milliseconds: 220),
-              child: GlassCard(
+              child: IosGlassCard(
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
                   _row(context, 'Hito', cfg.$3, color: cfg.$5),

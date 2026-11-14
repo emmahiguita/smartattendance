@@ -77,7 +77,7 @@ class SmartAttendanceApp extends ConsumerWidget {
           effectiveDark ? Brightness.light : Brightness.dark,
       statusBarBrightness: effectiveDark ? Brightness.dark : Brightness.light,
       systemNavigationBarColor:
-          effectiveDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
+          effectiveDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
       systemNavigationBarIconBrightness:
           effectiveDark ? Brightness.light : Brightness.dark,
     ));

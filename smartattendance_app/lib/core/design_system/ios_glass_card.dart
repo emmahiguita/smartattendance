@@ -1,14 +1,11 @@
 // ============================================================================
 // ARCHIVO: ios_glass_card.dart
-// QUÉ HACE: Contenedor Liquid Glass de 4 capas ópticas (Apple iOS 26 / Flutter
-//           Impeller): RepaintBoundary + Lente Gaussiano + Reflejo Especular
-//           Cenital (`stops: [0.0, 0.65]`) + Borde de Cristal Tallado (`1.0px`).
-// CÓMO FUNCIONA: Aísla el `BackdropFilter` en un `RepaintBoundary` para 120Hz
-//                e incluye fallback automático de accesibilidad (`highContrast`).
-// POR QUÉ: Implementa la especificación más avanzada de Liquid Glass en Flutter
-//          para Modo Oscuro (< 95 líneas).
+// QUÉ HACE: Tarjeta translúcida iOS Liquid Glass con BackdropFilter Gaussiano,
+//           borde ultra-fino y esquinas redondeadas profesionales.
+// CÓMO FUNCIONA: BackdropFilter + ClipRRect + BoxDecoration con border 0.8px.
+//               Si borderRadius==0 cae en modo separador plano (retrocompat).
+// POR QUÉ: SRP — encapsula la superficie glass reutilizable < 60 líneas.
 // ============================================================================
-
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
@@ -17,8 +14,8 @@ class IosGlassCard extends StatelessWidget {
   const IosGlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
-    this.borderRadius = 16,
+    this.padding = const EdgeInsets.symmetric(vertical: 16),
+    this.borderRadius = 0,
     this.border,
     this.onTap,
   });
@@ -31,61 +28,50 @@ class IosGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    final highContrast = MediaQuery.highContrastOf(context);
-    final defaultBorder = Border.all(
-      color: isDark ? Colors.white.withValues(alpha: 0.16) : context.cBorder.withValues(alpha: 0.85),
-      width: 0.95,
-    );
-
-    final decoration = BoxDecoration(
-      color: highContrast
-          ? (isDark ? const Color(0xFF0C182B) : Colors.white)
-          : (isDark ? const Color(0xFF07101E).withValues(alpha: 0.46) : context.cSurface.withValues(alpha: 0.92)),
-      gradient: (!highContrast && isDark)
-          ? LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0.015),
-              ],
-              stops: const [0.0, 0.65],
-            )
-          : null,
-      borderRadius: BorderRadius.circular(borderRadius),
-      border: border ?? defaultBorder,
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.38 : 0.04),
-          blurRadius: 18,
-          spreadRadius: -4,
-          offset: const Offset(0, 8),
+    // QUÉ HACE: Modo plano (separador) cuando borderRadius == 0 — retro-compat.
+    if (borderRadius == 0) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(padding: padding, child: child),
+            const Divider(height: 1),
+          ]),
         ),
-      ],
-    );
+      );
+    }
 
-    final cardContent = RepaintBoundary(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: highContrast
-            ? Container(padding: padding, decoration: decoration, child: child)
-            : BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                child: Container(padding: padding, decoration: decoration, child: child),
-              ),
-      ),
-    );
+    // QUÉ HACE: Tarjeta Liquid Glass con desenfoque 16px y borde 0.8px.
+    // CÓMO: ClipRRect + BackdropFilter rodean el contenido; BoxDecoration
+    //       añade el borde semitransparente y el tint de color de superficie.
+    final radius = BorderRadius.circular(borderRadius);
+    final effectiveBorder = border ??
+        Border.all(
+          color: context.cBorder.withValues(alpha: context.isDark ? 0.45 : 0.55),
+          width: 0.8,
+        );
 
-    if (onTap == null) return cardContent;
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: cardContent,
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: context.cSurface.withValues(alpha: context.isDark ? 0.52 : 0.72),
+            borderRadius: radius,
+            border: effectiveBorder,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: radius,
+            child: InkWell(
+              borderRadius: radius,
+              onTap: onTap,
+              child: Padding(padding: padding, child: child),
+            ),
+          ),
+        ),
       ),
     );
   }

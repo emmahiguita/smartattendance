@@ -4,6 +4,7 @@ from app.models.user import User
 from app.models.attendance import Attendance
 from app.models.qr_code import QRCode
 from app.models.message import Message
+from app.models.auth_state import AuthSession, PasswordChallenge
 
 __all__ = ["User", "Attendance", "QRCode", "Message"]
 

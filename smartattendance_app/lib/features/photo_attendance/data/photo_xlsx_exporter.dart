@@ -29,6 +29,17 @@ class PhotoXlsxExporter {
     return files;
   }
 
+  /// Exporta un conjunto específico de jornadas (filtradas o seleccionadas).
+  Future<String> exportSpecificDays(List<PhotoDay> days) async {
+    if (days.isEmpty) throw StateError('No hay asistencias para exportar.');
+    final root = await getTemporaryDirectory();
+    final stem = 'asistencias_${DateTime.now().millisecondsSinceEpoch}';
+    final path = p.join(root.path, '$stem.xlsx');
+    await Isolate.run(() => _write(days, path));
+    return path;
+  }
+
+
   static String _escape(String text) => const HtmlEscape(HtmlEscapeMode.element)
       .convert(text)
       .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '');

@@ -1,11 +1,11 @@
 // ============================================================================
 // ARCHIVO: hr_overtime_tab.dart
 // QUÉ HACE: Bandeja ejecutiva de auditoría de Horas Extras estilo Apple iOS
-//           con selector segmentado `CupertinoSlidingSegmentedControl` y aviso
-//           formal de la regla del Administrador.
-// CÓMO FUNCIONA: Las horas extras NO son marcadas por el empleado; se calculan
-//                del horario asignado por el Administrador y se aprueban aquí.
-// POR QUÉ: Cumple la regla de negocio y renueva la estética a iOS (< 155 líneas).
+//           sin tarjetas ni bordes azules, con selector segmentado neutro y
+//           divisores finos compactos.
+// CÓMO FUNCIONA: Las horas extras se calculan del horario asignado por el
+//                Administrador y se aprueban o rechazan desde esta vista.
+// POR QUÉ: Unifica la estética iOS profesional sin cajas redundantes (< 155 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -63,7 +63,7 @@ class _HrOvertimeTabState extends ConsumerState<HrOvertimeTab> {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-            color: sel ? Colors.white : context.cTextPrimary,
+            color: context.cTextPrimary,
           ),
         ),
       );
@@ -71,28 +71,26 @@ class _HrOvertimeTabState extends ConsumerState<HrOvertimeTab> {
   @override
   Widget build(BuildContext context) {
     final overtimeDaysAsync = ref.watch(allOvertimeDaysProvider);
+    final isDark = context.isDark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: context.cSurface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.cBorder, width: 0.5),
-          ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              const Icon(CupertinoIcons.shield_lefthalf_fill,
-                  size: 17, color: AppColors.primary),
-              const SizedBox(width: 10),
+              Icon(
+                CupertinoIcons.shield_lefthalf_fill,
+                size: 16,
+                color: context.cTextSecondary,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Regla del Administrador: Las horas extras no se marcan; se calculan del horario asignado y se autorizan aquí.',
+                  'Regla del Administrador: Las horas extras se calculan del horario asignado y se autorizan aquí.',
                   style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
                     color: context.cTextSecondary,
                   ),
                 ),
@@ -100,11 +98,11 @@ class _HrOvertimeTabState extends ConsumerState<HrOvertimeTab> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
         CupertinoSlidingSegmentedControl<String>(
           groupValue: _filter,
-          backgroundColor: context.cSurface,
-          thumbColor: AppColors.primary,
+          backgroundColor:
+              isDark ? const Color(0xFF121214) : const Color(0xFFF2F2F7),
+          thumbColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
           children: {
             'pending': _segLabel('Pendientes', _filter == 'pending'),
             'approved': _segLabel('Aprobadas', _filter == 'approved'),
@@ -115,12 +113,15 @@ class _HrOvertimeTabState extends ConsumerState<HrOvertimeTab> {
             if (v != null) setState(() => _filter = v);
           },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        Divider(height: 1, thickness: 0.5, color: context.cBorder),
         overtimeDaysAsync.when(
           loading: () => const Center(
-              child: Padding(
-                  padding: EdgeInsets.all(28),
-                  child: CupertinoActivityIndicator())),
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CupertinoActivityIndicator(),
+            ),
+          ),
           error: (e, _) =>
               Center(child: Text('Error al cargar horas extras: $e')),
           data: (allDays) {
@@ -140,33 +141,28 @@ class _HrOvertimeTabState extends ConsumerState<HrOvertimeTab> {
             }).toList();
 
             if (filtered.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(28),
-                decoration: BoxDecoration(
-                  color: context.cSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: context.cBorder, width: 0.5),
-                ),
-                child: Column(
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       _filter == 'pending'
-                          ? CupertinoIcons.checkmark_seal_fill
+                          ? CupertinoIcons.checkmark_seal
                           : CupertinoIcons.clock,
-                      size: 32,
-                      color: _filter == 'pending'
-                          ? AppColors.systemGreen
-                          : context.cTextSecondary,
+                      size: 18,
+                      color: context.cTextSecondary,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _filter == 'pending'
-                          ? 'Sin horas extras pendientes de revisión'
-                          : 'No hay registros en esta categoría',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.cTextPrimary,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _filter == 'pending'
+                            ? 'Sin horas extras pendientes de revisión'
+                            : 'No hay registros en esta categoría',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: context.cTextSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -174,20 +170,17 @@ class _HrOvertimeTabState extends ConsumerState<HrOvertimeTab> {
               );
             }
 
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final day = filtered[index];
-                return HrOvertimeCard(
-                  day: day,
-                  busy: _busy,
-                  onApprove: () => _reviewDay(day, approve: true),
-                  onReject: () => _reviewDay(day, approve: false),
-                );
-              },
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final day in filtered)
+                  HrOvertimeCard(
+                    day: day,
+                    busy: _busy,
+                    onApprove: () => _reviewDay(day, approve: true),
+                    onReject: () => _reviewDay(day, approve: false),
+                  ),
+              ],
             );
           },
         ),

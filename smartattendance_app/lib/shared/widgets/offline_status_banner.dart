@@ -35,7 +35,7 @@ class OfflineStatusBanner extends ConsumerWidget {
     String message;
 
     if (!syncState.isOnline) {
-      tintColor = const Color(0xFFF59E0B); // Ámbar cálido iOS
+      tintColor = context.isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
       iconData = Icons.wifi_off_rounded;
       message = syncState.pendingCount > 0
           ? '${syncState.pendingCount} marcas guardadas localmente'

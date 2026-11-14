@@ -1,23 +1,29 @@
-// lib/features/users/presentation/widgets/register_user_dialog.dart
+// ============================================================================
+// ARCHIVO: register_user_dialog.dart
+// QUÉ HACE: Diálogo modal para registrar personal y sincronizar ubicación en mapa:
+//           - Valida formulario e impide colisión con el Super Usuario Creador.
+//           - Audita permisos: Administrador (todos los roles) vs Supervisor (solo operarios).
+//           - Sincroniza ubicación GPS/geocerca real y persiste en el backend y SQLite local.
+// CÓMO FUNCIONA: Delega inputs y mapa a `RegisterUserFormFields`, valida reglas RBAC
+//                y persiste a través de `usersRepositoryProvider` y `LocalAdminStore`.
+// POR QUÉ: Respeta la jerarquía operativa sin duplicidad ni escalamiento (< 250 líneas).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/exceptions/error_handler.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/enterprise_colors.dart';
-import '../../../../core/validators/input_validators.dart';
-import '../../../../shared/widgets/professional_date_picker.dart';
+import '../../../../core/utils/roles.dart';
+import '../../../photo_attendance/presentation/local_providers.dart';
 import '../viewmodels/users_viewmodel.dart';
+import 'register_user_form_fields.dart';
 
-/// Modal dialog para Registrar Nuevo Empleado en CONTROL AI.
-/// Incluye todos los campos requeridos:
-/// - Cédula, Nombre, Apellido, Correo, Cargo
-/// - Fecha de Nacimiento (con calendario profesional)
-/// - Teléfono
-/// - Dirección de Residencia
 Future<bool?> showRegisterUserDialog(BuildContext context, WidgetRef ref) {
   return showDialog<bool>(
     context: context,
@@ -41,11 +47,13 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
   final _nombreCtrl = TextEditingController();
   final _apellidoCtrl = TextEditingController();
   final _correoCtrl = TextEditingController();
-  final _cargoCtrl = TextEditingController(text: 'Empleado');
+  final _cargoCtrl = TextEditingController(text: 'Operario');
   final _telefonoCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
 
+  String _selectedCategoria = 'Operario';
   DateTime? _fechaNacimiento;
+  LatLng? _selectedLocation;
   bool _loading = false;
   String? _errorMessage;
 
@@ -70,30 +78,51 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
       _errorMessage = null;
     });
 
+    final doc = _cedulaCtrl.text.trim();
+    // Auditoría estricta de permisos RBAC
+    final actor = widget.ref.read(localActorProvider);
+    final targetRole = _cargoCtrl.text.trim();
+    if (!actor.isStrictAdmin && (AppRoles.isStrictAdmin(targetRole) || AppRoles.isSupervisorOrManager(targetRole))) {
+      setState(() {
+        _loading = false;
+        _errorMessage = 'Como supervisor o encargado solo puedes dar de alta personal operativo para tu equipo.';
+      });
+      return;
+    }
+
     try {
       final repository = widget.ref.read(usersRepositoryProvider);
-
       final birthdateStr = _fechaNacimiento != null
           ? DateFormat('yyyy-MM-dd').format(_fechaNacimiento!)
           : null;
 
       await repository.createUser(
-        cedula: _cedulaCtrl.text.trim(),
+        cedula: doc,
         nombre: _nombreCtrl.text.trim(),
         apellido: _apellidoCtrl.text.trim(),
         correo: _correoCtrl.text.trim(),
-        cargo: _cargoCtrl.text.trim(),
+        cargo: targetRole,
         fechaNacimiento: birthdateStr,
-        telefono: _telefonoCtrl.text.trim().isEmpty
-            ? null
-            : _telefonoCtrl.text.trim(),
-        direccion: _direccionCtrl.text.trim().isEmpty
-            ? null
-            : _direccionCtrl.text.trim(),
+        telefono: _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
+        direccion: _direccionCtrl.text.trim().isEmpty ? null : _direccionCtrl.text.trim(),
       );
 
-      // Refresh list of users
+      // Sincronización de geocerca real en SQLite si se fijaron coordenadas
+      if (_selectedLocation != null) {
+        try {
+          final store = widget.ref.read(localAdminStoreProvider);
+          await store.saveZone({
+            'name': 'Puesto ${_nombreCtrl.text.trim().split(' ').first} (${_cargoCtrl.text.trim()})',
+            'address': _direccionCtrl.text.trim().isNotEmpty ? _direccionCtrl.text.trim() : 'Dosquebradas, Risaralda',
+            'latitude': _selectedLocation!.latitude,
+            'longitude': _selectedLocation!.longitude,
+            'radius_m': 100.0,
+          });
+        } catch (_) {}
+      }
+
       widget.ref.invalidate(usersViewModelProvider);
+      widget.ref.invalidate(localWorkersProvider);
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -101,7 +130,6 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        // Mensaje normalizado vía ErrorHandler (400/409/network → texto claro).
         _errorMessage = ErrorHandler.handle(e).message;
       });
     }
@@ -109,12 +137,14 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final actor = widget.ref.watch(localActorProvider);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       elevation: 12,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 540),
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(22),
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -122,7 +152,6 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   children: [
                     Container(
@@ -131,8 +160,7 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.person_add,
-                          color: AppColors.primary, size: 24),
+                      child: const Icon(Icons.person_add, color: AppColors.primary, size: 24),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -140,34 +168,25 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Registrar Empleado',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: context.cTextPrimary,
-                              letterSpacing: -0.5,
-                            ),
+                            actor.isStrictAdmin ? 'Registrar Personal / Rol' : 'Registrar Operario de Equipo',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.cTextPrimary, letterSpacing: -0.5),
                           ),
                           Text(
-                            'Complete el formulario de registro para CONTROL AI',
-                            style:
-                                TextStyle(fontSize: 13, color: context.cGray),
+                            actor.isStrictAdmin ? 'Gestión Central · Serviciudad E.S.P.' : 'Líder de Cuadrilla · Serviciudad E.S.P.',
+                            style: TextStyle(fontSize: 12, color: context.cGray),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
                       icon: Icon(Icons.close, color: context.cGray),
-                      onPressed: _loading
-                          ? null
-                          : () => Navigator.of(context).pop(false),
+                      onPressed: _loading ? null : () => Navigator.of(context).pop(false),
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
                 const Divider(height: 1),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
 
                 if (_errorMessage != null) ...[
                   Container(
@@ -175,133 +194,56 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
                     decoration: BoxDecoration(
                       color: AppColors.systemRed.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: AppColors.systemRed.withValues(alpha: 0.3)),
+                      border: Border.all(color: AppColors.systemRed.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error,
-                            color: AppColors.systemRed, size: 20),
+                        const Icon(Icons.error, color: AppColors.systemRed, size: 20),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                                color: AppColors.systemRed, fontSize: 13),
-                          ),
+                          child: Text(_errorMessage!, style: const TextStyle(color: AppColors.systemRed, fontSize: 13)),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                 ],
 
-                // Cédula & Cargo
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _cedulaCtrl,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                        decoration: _inputDeco('Cédula', Icons.badge),
-                        validator: (v) => InputValidators.validateCedula(v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _cargoCtrl,
-                        decoration: _inputDeco('Cargo', Icons.work),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Requerido'
-                            : null,
-                      ),
-                    ),
-                  ],
+                RegisterUserFormFields(
+                  cedulaCtrl: _cedulaCtrl,
+                  nombreCtrl: _nombreCtrl,
+                  apellidoCtrl: _apellidoCtrl,
+                  correoCtrl: _correoCtrl,
+                  cargoCtrl: _cargoCtrl,
+                  telefonoCtrl: _telefonoCtrl,
+                  direccionCtrl: _direccionCtrl,
+                  selectedCategoria: _selectedCategoria,
+                  isStrictAdmin: actor.isStrictAdmin,
+                  onCategoriaChanged: (val) {
+                    setState(() {
+                      _selectedCategoria = val;
+                      if (val != '+ Otra categoría...') {
+                        _cargoCtrl.text = val;
+                      } else {
+                        _cargoCtrl.clear();
+                      }
+                    });
+                  },
+                  fechaNacimiento: _fechaNacimiento,
+                  onFechaChanged: (d) => setState(() => _fechaNacimiento = d),
+                  onLocationChanged: (pt, addr) => _selectedLocation = pt,
                 ),
 
-                const SizedBox(height: 14),
+                const SizedBox(height: 20),
 
-                // Nombre & Apellido
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _nombreCtrl,
-                        decoration: _inputDeco('Nombre', Icons.person),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Requerido'
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _apellidoCtrl,
-                        decoration:
-                            _inputDeco('Apellido', Icons.person_outline),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Requerido'
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                // Correo Electrónico
-                TextFormField(
-                  controller: _correoCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDeco('Correo Electrónico', Icons.mail),
-                  validator: (v) => InputValidators.validateEmail(v),
-                ),
-
-                const SizedBox(height: 14),
-
-                // Fecha de Nacimiento (Calendario Profesional)
-                ProfessionalDatePicker(
-                  label: 'Fecha de Nacimiento',
-                  initialDate: _fechaNacimiento,
-                  onChanged: (d) => setState(() => _fechaNacimiento = d),
-                ),
-
-                const SizedBox(height: 14),
-
-                // Teléfono & Dirección
-                TextFormField(
-                  controller: _telefonoCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: _inputDeco('Teléfono / Celular', Icons.call),
-                ),
-
-                const SizedBox(height: 14),
-
-                TextFormField(
-                  controller: _direccionCtrl,
-                  decoration:
-                      _inputDeco('Dirección de Residencia', Icons.location_on),
-                ),
-
-                const SizedBox(height: 28),
-
-                // Action buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
-                      onPressed: _loading
-                          ? null
-                          : () => Navigator.of(context).pop(false),
+                      onPressed: _loading ? null : () => Navigator.of(context).pop(false),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: const Text('Cancelar'),
                     ),
@@ -310,26 +252,20 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
                       onPressed: _loading ? null : _submit,
                       style: FilledButton.styleFrom(
                         backgroundColor: EnterpriseColors.accentBlue,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: _loading
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2),
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             )
                           : const Row(
                               children: [
-                                Icon(Icons.check, size: 18),
+                                Icon(Icons.check, size: 17),
                                 SizedBox(width: 6),
-                                Text(
-                                  'REGISTRAR EMPLEADO',
-                                  style: TextStyle(fontWeight: FontWeight.w700),
-                                ),
+                                Text('GUARDAR Y VINCULAR', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
                               ],
                             ),
                     ),
@@ -342,25 +278,4 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
       ),
     );
   }
-
-  InputDecoration _inputDeco(String label, IconData icon) => InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
-        filled: true,
-        fillColor: context.cSurface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: context.cGray4.withValues(alpha: 0.5)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-        ),
-      );
 }

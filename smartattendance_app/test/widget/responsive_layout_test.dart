@@ -32,15 +32,19 @@ void main() {
   ];
 
   Widget wrap(Widget child, {double width = 360}) => MediaQuery(
-        data: const MediaQueryData(size: Size(360, 800), alwaysUse24HourFormat: true),
+        data: const MediaQueryData(
+            size: Size(360, 800), alwaysUse24HourFormat: true),
         child: MaterialApp(
           home: Scaffold(
-            body: SizedBox(width: width, child: SingleChildScrollView(child: child)),
+            body: SizedBox(
+                width: width, child: SingleChildScrollView(child: child)),
           ),
         ),
       );
 
-  testWidgets('2 jornadas el mismo día: el resumen muestra la ACTUAL sin mezclar', (tester) async {
+  testWidgets(
+      '2 jornadas el mismo día: el resumen muestra la ACTUAL sin mezclar',
+      (tester) async {
     final records = [
       // Jornada 1 completa: 8:00 → 17:00
       marca(id: 1, fecha: hoy, h: 8, m: 0, tipo: 'entrada'),
@@ -55,7 +59,7 @@ void main() {
     expect(tester.takeException(), isNull);
 
     // Estado = jornada ACTUAL en curso (NO "Jornada completada" por mezcla).
-    expect(find.text('Activa · Almuerzo'), findsOneWidget);
+    expect(find.text('En curso · Almuerzo'), findsOneWidget);
     // Horas de la jornada ACTUAL (18:00 / 19:00), no las de la jornada 1.
     expect(find.text('18:00'), findsOneWidget);
     expect(find.text('19:00'), findsOneWidget);
@@ -65,17 +69,22 @@ void main() {
     expect(find.text('8:00'), findsNothing);
   });
 
-  testWidgets('DaySummaryCard sin overflow a 360dp (grid 2x2, etiquetas completas)', (tester) async {
+  testWidgets(
+      'DaySummaryCard sin overflow a 360dp (grid 2x2, etiquetas completas)',
+      (tester) async {
     await tester.pumpWidget(wrap(DaySummaryCard(records: jornadaCompleta)));
-    expect(tester.takeException(), isNull, reason: 'Overflow en 360dp con jornada completa');
+    expect(tester.takeException(), isNull,
+        reason: 'Overflow en 360dp con jornada completa');
     // Etiquetas completas visibles (grid 2x2, no cortadas).
     expect(find.text('Inicio de almuerzo'), findsOneWidget);
     expect(find.text('Regreso de almuerzo'), findsOneWidget);
-    expect(find.text('Tiempo Laborado Hoy: '), findsOneWidget);
+    expect(find.text('Tiempo acumulado hoy'), findsOneWidget);
   });
 
-  testWidgets('DaySummaryCard sin overflow en pantalla ancha (fila de 4)', (tester) async {
-    await tester.pumpWidget(wrap(DaySummaryCard(records: jornadaCompleta), width: 600));
+  testWidgets('DaySummaryCard sin overflow en pantalla ancha (fila de 4)',
+      (tester) async {
+    await tester
+        .pumpWidget(wrap(DaySummaryCard(records: jornadaCompleta), width: 600));
     expect(tester.takeException(), isNull, reason: 'Overflow en 600dp');
     expect(find.text('Inicio de almuerzo'), findsOneWidget);
   });
@@ -83,12 +92,13 @@ void main() {
   testWidgets('DaySummaryCard vacío (sin marcas) sin overflow', (tester) async {
     await tester.pumpWidget(wrap(const DaySummaryCard(records: [])));
     expect(tester.takeException(), isNull);
-    expect(find.text('Sin registrar hoy'), findsOneWidget);
+    expect(find.text('Pendiente de registro'), findsOneWidget);
   });
 
   testWidgets('Selector de tema no corta "Oscuro" a 360dp', (tester) async {
     await tester.pumpWidget(wrap(const _ThemeSelector()));
-    expect(tester.takeException(), isNull, reason: 'Overflow en el selector de tema');
+    expect(tester.takeException(), isNull,
+        reason: 'Overflow en el selector de tema');
     expect(find.text('Oscuro'), findsOneWidget);
     expect(find.text('Claro'), findsOneWidget);
     expect(find.text('Auto'), findsOneWidget);

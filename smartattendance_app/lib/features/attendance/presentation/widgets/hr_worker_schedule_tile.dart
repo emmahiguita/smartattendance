@@ -1,15 +1,15 @@
 // ============================================================================
 // ARCHIVO: hr_worker_schedule_tile.dart
-// QUÉ HACE: Fila estilo Apple iOS Inset Grouped para asignar, cambiar o quitar
-//           el horario de un colaborador mediante un `CupertinoActionSheet`.
-// CÓMO FUNCIONA: Al tocar la fila o el botón de horario, abre una hoja de
-//                acción nativa iOS con todas las plantillas de turno activas.
-// POR QUÉ: Elimina botones Material recargados y menús desalineados (< 145 líneas).
+// QUÉ HACE: Fila compacta estilo Apple iOS para asignar, cambiar o quitar el
+//           horario de un colaborador mediante un `CupertinoActionSheet`.
+// CÓMO FUNCIONA: Muestra el horario dual colombiano (24h y 12h AM/PM) y al
+//                tocar abre la hoja nativa de selección de turno.
+// POR QUÉ: Elimina espacios excesivos entre divisores (< 95 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/domain/photo_record.dart';
 import '../../../photo_attendance/domain/shift_template.dart';
@@ -35,7 +35,8 @@ class HrWorkerScheduleTile extends StatelessWidget {
       context: context,
       builder: (ctx) => CupertinoActionSheet(
         title: Text('Asignar horario a ${worker.name}'),
-        message: const Text('Selecciona una plantilla de turno oficial'),
+        message: const Text(
+            'Selecciona una plantilla de turno oficial (24h / 12h Colombia)'),
         actions: [
           for (final t in templates)
             CupertinoActionSheetAction(
@@ -43,7 +44,7 @@ class HrWorkerScheduleTile extends StatelessWidget {
                 Navigator.pop(ctx);
                 onAssignShift(t);
               },
-              child: Text('${t.name} (${t.timeFormatted})'),
+              child: Text('${t.name} · ${t.timeFormattedDual}'),
             ),
           if (worker.schedule != null)
             CupertinoActionSheetAction(
@@ -69,37 +70,19 @@ class HrWorkerScheduleTile extends StatelessWidget {
     final worksOnDay = activeWeekday == null ||
         (worker.schedule?.weekdays.contains(activeWeekday) ?? false);
     final scheduleLabel = hasSchedule
-        ? '${worker.schedule!.shiftName ?? "Jornada"} · ${worker.schedule!.timeWindowFormatted}'
+        ? '${worker.schedule!.shiftName ?? "Jornada"} · ${worker.schedule!.timeWindowFormattedDual}'
         : 'Sin horario asignado';
 
     return InkWell(
       onTap: () => _showAssignSheet(context),
-      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            Container(
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: hasSchedule
-                    ? (worksOnDay
-                        ? AppColors.systemGreen.withValues(alpha: 0.14)
-                        : AppColors.primary.withValues(alpha: 0.14))
-                    : AppColors.systemOrange.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                hasSchedule
-                    ? CupertinoIcons.calendar_badge_plus
-                    : CupertinoIcons.exclamationmark_circle,
-                size: 16,
-                color: hasSchedule
-                    ? (worksOnDay ? AppColors.systemGreen : AppColors.primary)
-                    : AppColors.systemOrange,
-              ),
+            Icon(
+              CupertinoIcons.calendar,
+              size: 19,
+              color: context.cTextSecondary,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -109,39 +92,27 @@ class HrWorkerScheduleTile extends StatelessWidget {
                   Text(
                     worker.name,
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: context.cTextPrimary,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    scheduleLabel,
+                    '$scheduleLabel${activeWeekday == null ? "" : worksOnDay ? " · Día laborable" : " · Día no laborable"}',
                     style: TextStyle(
-                      fontSize: 11.5,
-                      color: hasSchedule
-                          ? context.cTextSecondary
-                          : AppColors.systemOrange,
+                      fontSize: 12,
+                      color: context.cTextSecondary,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Text(
-              hasSchedule ? 'Cambiar' : 'Asignar',
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
+            Icon(
+              CupertinoIcons.chevron_forward,
+              size: 14,
+              color: context.cTextSecondary,
             ),
-            const SizedBox(width: 4),
-            Icon(CupertinoIcons.chevron_forward,
-                size: 14, color: context.cTextSecondary),
           ],
         ),
       ),

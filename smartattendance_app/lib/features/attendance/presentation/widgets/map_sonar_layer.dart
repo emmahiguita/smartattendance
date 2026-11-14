@@ -1,49 +1,17 @@
 // ============================================================================
 // ARCHIVO: map_sonar_layer.dart
-// QUÉ HACE: Define los estilos cartográficos (`MapCartoStyle` incluyendo
-//           `dark` CartoDB Dark Matter para Modo Oscuro iOS) y las capas
-//           semánticas del mapa: geocerca sonar y marcador en vivo del trabajador.
-// CÓMO FUNCIONA:
-// 1. Geocerca Asignada: Círculo y ondas en Azul iOS (`#0A84FF`) o Verde
-//    Esmeralda (`#10B981`) cuando el colaborador está dentro del perímetro.
-// 2. Colaborador GPS: Pin circular animado en Verde si está en zona, Azul en
-//    tránsito o Ámbar sin fijación GPS.
-// POR QUÉ: Soporta Modo Oscuro cartográfico nativo y mantiene < 185 líneas.
+// QUÉ HACE: Renderiza las capas de geocerca sonar y el marcador del colaborador
+//           con disco de precisión GPS horizontal y flecha de rumbo satelital.
+// CÓMO FUNCIONA: Usa `CircleMarker` con `useRadiusInMeter` y animación continua.
+// POR QUÉ: Presenta telemetría geoespacial precisa y estética iOS (< 160 líneas).
 // ============================================================================
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_colors.dart';
-
-enum MapCartoStyle {
-  streets('Calles', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', Icons.map_rounded),
-  dark('Nocturno', 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', Icons.dark_mode_rounded),
-  satellite('Satélite', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', Icons.satellite_alt_rounded),
-  topo('Topográfico', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', Icons.terrain_rounded);
-
-  final String label;
-  final String url;
-  final IconData icon;
-  const MapCartoStyle(this.label, this.url, this.icon);
-
-  MapCartoStyle get next => MapCartoStyle.values[(index + 1) % MapCartoStyle.values.length];
-}
-
-class MapBaseTileLayer extends StatelessWidget {
-  const MapBaseTileLayer({super.key, required this.style});
-  final MapCartoStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    return TileLayer(
-      key: ValueKey(style.url),
-      urlTemplate: style.url,
-      userAgentPackageName: 'io.smartattendance.attendance',
-      maxNativeZoom: 19,
-    );
-  }
-}
+export 'map_carto_style.dart';
 
 class MapSonarCircleLayer extends StatelessWidget {
   const MapSonarCircleLayer({
@@ -52,16 +20,19 @@ class MapSonarCircleLayer extends StatelessWidget {
     required this.pulseAnimation,
     this.zoneRadiusMeters = 80,
     this.isInside = false,
+    this.zoneName,
   });
 
   final LatLng point;
   final Animation<double> pulseAnimation;
   final double zoneRadiusMeters;
   final bool isInside;
+  final String? zoneName;
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = isInside ? AppColors.successDark : AppColors.primaryDark;
+    final baseColor =
+        isInside ? AppColors.successDark : const Color(0xFF0A84FF);
     return AnimatedBuilder(
       animation: pulseAnimation,
       builder: (context, _) {
@@ -105,15 +76,46 @@ class MapSonarCircleLayer extends StatelessWidget {
               markers: [
                 Marker(
                   point: point,
-                  width: 34,
-                  height: 34,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primaryDark,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(Icons.business_rounded, size: 16, color: Colors.white),
+                  width: 160,
+                  height: 60,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: baseColor,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(CupertinoIcons.building_2_fill,
+                            size: 14, color: Colors.white),
+                      ),
+                      if (zoneName != null && zoneName!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A).withValues(alpha: 0.90),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.24),
+                                width: 0.7),
+                          ),
+                          child: Text(
+                            '🏢 $zoneName • ${zoneRadiusMeters.toInt()}m',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -131,51 +133,112 @@ class MapUserLocationMarkerLayer extends StatelessWidget {
     required this.point,
     required this.hasFix,
     required this.pulseAnimation,
+    this.accuracyMeters = 0,
+    this.heading = 0,
     this.isInside = false,
     this.onTap,
+    this.userLabel,
   });
 
   final LatLng point;
   final bool hasFix;
+  final double accuracyMeters;
+  final double heading;
   final bool isInside;
   final Animation<double> pulseAnimation;
   final VoidCallback? onTap;
+  final String? userLabel;
 
   @override
   Widget build(BuildContext context) {
     final activeColor = !hasFix
-        ? AppColors.systemOrange
-        : (isInside ? AppColors.successDark : const Color(0xFF0EA5E9));
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: point,
-          width: 54,
-          height: 54,
-          child: GestureDetector(
-            onTap: onTap,
-            child: AnimatedBuilder(
-              animation: pulseAnimation,
-              builder: (context, _) {
-                final scale = 1.0 + (pulseAnimation.value * 0.12);
-                return Center(
-                  child: Transform.scale(
-                    scale: scale,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: activeColor,
-                        border: Border.all(color: Colors.white, width: 2.5),
-                      ),
-                      child: const Icon(Icons.my_location_rounded, size: 16, color: Colors.white),
-                    ),
-                  ),
-                );
-              },
-            ),
+        ? const Color(0xFFFF9500)
+        : (isInside ? AppColors.successDark : const Color(0xFF007AFF));
+
+    return Stack(
+      children: [
+        if (hasFix && accuracyMeters > 0)
+          CircleLayer(
+            circles: [
+              CircleMarker(
+                point: point,
+                radius: accuracyMeters.clamp(5.0, 150.0),
+                useRadiusInMeter: true,
+                color: activeColor.withValues(alpha: 0.12),
+                borderColor: activeColor.withValues(alpha: 0.35),
+                borderStrokeWidth: 1.0,
+              ),
+            ],
           ),
+        MarkerLayer(
+          markers: [
+            Marker(
+              point: point,
+              width: 130,
+              height: 56,
+              child: GestureDetector(
+                onTap: onTap,
+                child: AnimatedBuilder(
+                  animation: pulseAnimation,
+                  builder: (context, _) {
+                    final scale = 1.0 + (pulseAnimation.value * 0.08);
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: activeColor.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.white, width: 0.6),
+                          ),
+                          child: Text(
+                            userLabel ?? 'Tu ubicación (±${accuracyMeters.toInt()}m)',
+                            maxLines: 1,
+                            style: const TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Transform.scale(
+                          scale: scale,
+                          child: Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: activeColor,
+                              border:
+                                  Border.all(color: Colors.white, width: 2.0),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: activeColor.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 1),
+                              ],
+                            ),
+                            child: (heading > 0 && heading <= 360)
+                                ? Transform.rotate(
+                                    angle: (heading * 3.1415926535) / 180,
+                                    child: const Icon(
+                                        CupertinoIcons.location_north_fill,
+                                        size: 13,
+                                        color: Colors.white),
+                                  )
+                                : const Icon(CupertinoIcons.location_fill,
+                                    size: 13, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

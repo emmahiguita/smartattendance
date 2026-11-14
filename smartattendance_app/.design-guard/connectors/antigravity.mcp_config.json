@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "flutter-design-guard": {
+      "command": "C:\\Python314\\python.exe",
+      "args": [
+        "-m",
+        "design_guard.standalone"
+      ],
+      "env": {
+        "PYTHONPATH": "C:\\Users\\emman\\Downloads\\Flutter_Design_Guard_Skills_MCP_v1 (9)\\Flutter_Design_Guard_MCP",
+        "DESIGN_GUARD_PROJECT_ROOT": "C:\\Users\\emman\\Desktop\\Proyectos\\PROYECTO QR\\smartattendance_app"
+      }
+    }
+  }
+}

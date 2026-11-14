@@ -1,0 +1,5 @@
+{
+  "packages_queried": 220,
+  "findings": [],
+  "limitation": "Backend: versiones exactas declaradas; no cubre rangos sin lock ni SDK nativo."
+}

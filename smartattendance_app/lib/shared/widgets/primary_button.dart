@@ -34,7 +34,7 @@ class PrimaryButton extends StatelessWidget {
             isPill ? 999 : DesignTokens.radiusSmall,
           ),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       ),
       onPressed: isLoading ? null : onPressed,
       child: isLoading
@@ -48,7 +48,14 @@ class PrimaryButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(label),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 if (icon != null) ...[
                   const SizedBox(width: 8),
                   Icon(icon, size: 18),

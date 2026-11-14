@@ -20,6 +20,7 @@ from app.schemas.user import (
 )
 from app.services.auth_service import AuthService
 from app.services.password_reset_service import password_reset_service
+from app.services.session_service import revoke_session
 
 router = APIRouter(prefix="/auth", tags=["AutenticaciÃ³n"])
 
@@ -51,14 +52,14 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)) -> LoginRe
 def request_password_reset(request: PasswordResetCodeRequest, db: Session = Depends(get_db)) -> ResetPasswordResponse:
     user = AuthService(db)._repo.get_by_cedula(request.cedula)
     if user and user.is_active and user.correo.strip().lower() == str(request.correo).strip().lower():
-        password_reset_service.request_code(request.cedula, str(request.correo))
+        password_reset_service.request_code(request.cedula, str(request.correo), db)
     return ResetPasswordResponse(mensaje="Si los datos coinciden, enviamos un código al correo registrado.")
 
 @router.post("/reset-password", response_model=ResetPasswordResponse, summary="Recuperar contraseÃ±a")
 def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)) -> ResetPasswordResponse:
     """
-    Password recovery without email delivery: identity is verified by matching
-    cÃ©dula + registered correo. On success the new password is stored (bcrypt).
+    Password recovery requires the one-time code delivered by SMTP.
+    Code consumption, password update and revocation are committed together.
     """
     return AuthService(db).reset_password(request)
 
@@ -70,6 +71,11 @@ def refresh(request: RefreshRequest, db: Session = Depends(get_db)) -> RefreshRe
     The refresh token is rotated (a new one is issued).
     """
     return AuthService(db).refresh(request)
+
+
+@router.post('/logout', status_code=status.HTTP_204_NO_CONTENT, summary='Cerrar sesión')
+def logout(request: RefreshRequest, db: Session = Depends(get_db)) -> None:
+    revoke_session(db, request.refresh_token)
 
 
 @router.post("/google", response_model=LoginResponse, summary="Iniciar sesiÃ³n con Google")

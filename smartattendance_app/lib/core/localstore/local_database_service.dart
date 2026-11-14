@@ -22,8 +22,7 @@ class LocalDatabaseService {
       version: 7,
       onCreate: (db, version) async {
         await _createTables(db);
-        await _seedLocalUsers(db);
-        AppLogger.info('SQLite tables created and seeded');
+        AppLogger.info('SQLite tables created');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -41,11 +40,9 @@ class LocalDatabaseService {
               password_hash TEXT
             )
           ''');
-          await _seedLocalUsers(db);
         }
         if (oldVersion < 4) {
           await _createV3Tables(db);
-          await _seedLocalUsers(db);
         }
         if (oldVersion < 5) {
           await _migrateV5(db);
@@ -69,11 +66,11 @@ class LocalDatabaseService {
     try {
       await db.execute(
           'ALTER TABLE usuarios_locales ADD COLUMN fecha_nacimiento TEXT');
-    } catch (_) { /* ya existe */ }
+    } catch (_) {/* ya existe */}
     try {
-      await db.execute(
-          'ALTER TABLE usuarios_locales ADD COLUMN direccion TEXT');
-    } catch (_) { /* ya existe */ }
+      await db
+          .execute('ALTER TABLE usuarios_locales ADD COLUMN direccion TEXT');
+    } catch (_) {/* ya existe */}
   }
 
   /// v6: añade recipient_cedula a offline_messages para resolver IDs.
@@ -81,7 +78,7 @@ class LocalDatabaseService {
     try {
       await db.execute(
           'ALTER TABLE offline_messages ADD COLUMN recipient_cedula TEXT');
-    } catch (_) { /* ya existe */ }
+    } catch (_) {/* ya existe */}
   }
 
   /// v7: tabla de sync de cambios de perfil offline.
@@ -204,48 +201,6 @@ class LocalDatabaseService {
     ''');
   }
 
-  /// Seed de usuarios locales — permite login offline sin backend.
-  Future<void> _seedLocalUsers(Database db) async {
-    final count = Sqflite.firstIntValue(
-      await db.rawQuery('SELECT COUNT(*) FROM usuarios_locales'),
-    ) ?? 0;
-    if (count > 0) return; // Ya hay datos.
-
-    final users = [
-      {
-        'id': 1, 'cedula': '1007331963', 'nombre': 'Emmanuel',
-        'apellido': 'Higuita', 'correo': 'emmanuel@empresa.co',
-        'cargo': 'Administrador', 'is_admin': 1, 'password_hash': null,
-      },
-      {
-        'id': 2, 'cedula': '1234567890', 'nombre': 'Juan',
-        'apellido': 'Pérez', 'correo': 'juan@empresa.co',
-        'cargo': 'Desarrollador', 'is_admin': 0, 'password_hash': null,
-      },
-      {
-        'id': 3, 'cedula': '0987654321', 'nombre': 'María',
-        'apellido': 'García', 'correo': 'maria@empresa.co',
-        'cargo': 'Diseñadora', 'is_admin': 0, 'password_hash': null,
-      },
-      {
-        'id': 4, 'cedula': '1122334455', 'nombre': 'Carlos',
-        'apellido': 'López', 'correo': 'carlos@empresa.co',
-        'cargo': 'Analista', 'is_admin': 0, 'password_hash': null,
-      },
-      {
-        'id': 5, 'cedula': '5544332211', 'nombre': 'Sofía',
-        'apellido': 'Martínez', 'correo': 'sofia@empresa.co',
-        'cargo': 'QA', 'is_admin': 0, 'password_hash': null,
-      },
-    ];
-
-    for (final u in users) {
-      await db.insert('usuarios_locales', u,
-        conflictAlgorithm: ConflictAlgorithm.ignore);
-    }
-    AppLogger.info('Seeded ${users.length} local users');
-  }
-
   /// Busca usuario local por cédula. Retorna null si no existe.
   Future<Map<String, dynamic>?> getLocalUserByCedula(String cedula) async {
     final db = await database;
@@ -255,7 +210,9 @@ class LocalDatabaseService {
       whereArgs: [cedula],
       limit: 1,
     );
-    return results.isNotEmpty ? results.first : null;
+    if (results.isEmpty) return null;
+    final user = Map<String, dynamic>.from(results.first);
+    return user;
   }
 
   /// Busca en empleados cacheados por cédula.
@@ -270,11 +227,10 @@ class LocalDatabaseService {
     return results.isNotEmpty ? results.first : null;
   }
 
-  /// Inserta o reemplaza un usuario local en la DB.
+  /// Inserta una cuenta local sin reemplazar registros existentes.
   Future<void> insertLocalUser(Map<String, dynamic> user) async {
     final db = await database;
-    await db.insert('usuarios_locales', user,
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('usuarios_locales', user);
   }
 
   /// Retorna todos los usuarios locales.
@@ -286,13 +242,15 @@ class LocalDatabaseService {
   /// Obtiene el próximo ID secuencial para insertar un usuario local.
   Future<int> nextLocalUserId() async {
     final db = await database;
-    final result = await db.rawQuery('SELECT MAX(id) as max_id FROM usuarios_locales');
+    final result =
+        await db.rawQuery('SELECT MAX(id) as max_id FROM usuarios_locales');
     return (Sqflite.firstIntValue(result) ?? 0) + 1;
   }
 
   /// Actualiza los campos editables del perfil de un usuario local.
   /// Solo modifica los campos no nulos pasados — los demás quedan intactos.
-  Future<void> updateLocalUser(int userId, {
+  Future<void> updateLocalUser(
+    int userId, {
     String? nombre,
     String? apellido,
     String? correo,
@@ -300,6 +258,7 @@ class LocalDatabaseService {
     String? direccion,
     String? fechaNacimiento,
     String? fotoUrl,
+    String? passwordHash,
   }) async {
     final db = await database;
     final values = <String, dynamic>{};
@@ -310,6 +269,7 @@ class LocalDatabaseService {
     if (direccion != null) values['direccion'] = direccion;
     if (fechaNacimiento != null) values['fecha_nacimiento'] = fechaNacimiento;
     if (fotoUrl != null) values['foto_url'] = fotoUrl;
+    if (passwordHash != null) values['password_hash'] = passwordHash;
     if (values.isEmpty) return;
 
     await db.update(
@@ -373,10 +333,13 @@ class LocalDatabaseService {
     final db = await database;
     final batch = db.batch();
     for (final e in empleados) {
-      batch.insert('empleados_cache', {
-        ...e,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      batch.insert(
+          'empleados_cache',
+          {
+            ...e,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
     AppLogger.info('Cached ${empleados.length} employees locally');
@@ -446,10 +409,13 @@ class LocalDatabaseService {
 
   Future<void> insertLocalEmpleado(Map<String, dynamic> empleado) async {
     final db = await database;
-    await db.insert('empleados_cache', {
-      ...empleado,
-      'updated_at': DateTime.now().toIso8601String(),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+        'empleados_cache',
+        {
+          ...empleado,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ── Attendance History (local) ─────────────────────────────────
@@ -472,10 +438,12 @@ class LocalDatabaseService {
 
   Future<List<Map<String, dynamic>>> getAllAttendanceHistory() async {
     final db = await database;
-    return await db.query('attendance_history', orderBy: 'fecha DESC, hora DESC');
+    return await db.query('attendance_history',
+        orderBy: 'fecha DESC, hora DESC');
   }
 
-  Future<List<Map<String, dynamic>>> getAttendanceHistoryByDate(String dateStr) async {
+  Future<List<Map<String, dynamic>>> getAttendanceHistoryByDate(
+      String dateStr) async {
     final db = await database;
     return await db.query(
       'attendance_history',
@@ -539,7 +507,8 @@ class LocalDatabaseService {
 
   // ── Offline Messages ──────────────────────────────────────────
 
-  Future<void> insertOfflineMessage(int recipientId, String body, {String? recipientCedula}) async {
+  Future<void> insertOfflineMessage(int recipientId, String body,
+      {String? recipientCedula}) async {
     final db = await database;
     await db.insert('offline_messages', {
       'recipient_id': recipientId,

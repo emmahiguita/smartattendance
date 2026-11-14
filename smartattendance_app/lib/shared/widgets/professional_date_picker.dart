@@ -1,15 +1,18 @@
-// lib/shared/widgets/professional_date_picker.dart
+// ============================================================================
+// ARCHIVO: professional_date_picker.dart
+// QUÉ HACE: Selector de fecha de nacimiento estilo Apple iOS con divisor fino
+//           de 0.5px, cálculo automático de edad y alto contraste en modo oscuro.
+// CÓMO FUNCIONA: Muestra fila compacta con icono de calendario, fecha formateada
+//                `dd/MM/yyyy` y chip de edad sin desbordamientos.
+// POR QUÉ: Unifica la estética iOS con el resto del formulario (< 195 líneas).
+// ============================================================================
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Control de formulario profesional para selección de Fecha de Nacimiento.
-/// Incluye:
-/// - Modal con selector interactivo de año y mes.
-/// - Cálculo automático de la edad en años.
-/// - Formato visual estandarizado `DD/MM/YYYY`.
-/// - Rango de fechas restringido a edades laborales (1940 - fecha actual).
 class ProfessionalDatePicker extends StatefulWidget {
   final String label;
   final DateTime? initialDate;
@@ -63,8 +66,7 @@ class _ProfessionalDatePickerState extends State<ProfessionalDatePicker> {
 
     final now = DateTime.now();
     final firstDate = DateTime(1940, 1, 1);
-    final lastDate =
-        DateTime(now.year - 14, now.month, now.day); // Edad mínima 14 años
+    final lastDate = DateTime(now.year - 14, now.month, now.day);
     final defaultInitial = _selectedDate ?? DateTime(now.year - 25, 1, 1);
 
     final picked = await showDatePicker(
@@ -79,23 +81,6 @@ class _ProfessionalDatePickerState extends State<ProfessionalDatePicker> {
       confirmText: 'SELECCIONAR',
       fieldLabelText: 'Fecha',
       initialDatePickerMode: DatePickerMode.year,
-      builder: (context, child) {
-        // Hereda el brillo del tema activo (antes forzaba ColorScheme.light
-        // siempre → el diálogo de fecha quedaba claro en dark mode).
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: AppColors.primary,
-                  onPrimary: Colors.white,
-                ),
-            dialogTheme: DialogThemeData(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
@@ -111,6 +96,7 @@ class _ProfessionalDatePickerState extends State<ProfessionalDatePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
     final age = _calculateAge;
     final formattedDate = _selectedDate != null
         ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
@@ -118,89 +104,123 @@ class _ProfessionalDatePickerState extends State<ProfessionalDatePicker> {
 
     return FormField<DateTime>(
       initialValue: _selectedDate,
-      validator: (val) => widget.validator?.call(_selectedDate),
+      validator: (_) => widget.validator?.call(_selectedDate),
       builder: (state) {
-        final hasError = state.hasError;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             InkWell(
               onTap: widget.enabled ? _pickDate : null,
-              borderRadius: BorderRadius.circular(14),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: widget.label,
-                  prefixIcon: const Icon(Icons.calendar_month,
-                      color: AppColors.primary),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (age != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.2)),
-                          ),
-                          child: Text(
-                            '$age años',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.07)
+                            : Colors.black.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Icon(
+                        CupertinoIcons.calendar,
+                        size: 15,
+                        color: context.cTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: context.cTextSecondary,
                             ),
                           ),
-                        ),
-                      if (_selectedDate != null && widget.enabled)
-                        IconButton(
-                          icon:
-                              Icon(Icons.close, size: 18, color: context.cGray),
-                          onPressed: _clearDate,
-                          tooltip: 'Borrar fecha',
-                        ),
-                    ],
-                  ),
-                  filled: true,
-                  fillColor: context.cSurface,
-                  errorText: state.errorText,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: hasError
-                          ? AppColors.systemRed
-                          : context.cGray4.withValues(alpha: 0.5),
+                          const SizedBox(height: 2),
+                          Text(
+                            formattedDate ?? 'Seleccionar en calendario',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: formattedDate != null
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
+                              color: formattedDate != null
+                                  ? context.cTextPrimary
+                                  : context.cTextSecondary
+                                      .withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                ),
-                child: Text(
-                  formattedDate ?? 'DD/MM/AAAA (Seleccionar calendario)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: formattedDate != null
-                        ? context.cTextPrimary
-                        : context.cGray,
-                    fontWeight: formattedDate != null
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                  ),
+                    if (age != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: context.cBorder, width: 0.5),
+                        ),
+                        child: Text(
+                          '$age años',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: context.cTextPrimary,
+                          ),
+                        ),
+                      ),
+                    if (_selectedDate != null && widget.enabled)
+                      GestureDetector(
+                        onTap: _clearDate,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            CupertinoIcons.clear_circled_solid,
+                            size: 16,
+                            color: context.cTextSecondary,
+                          ),
+                        ),
+                      )
+                    else
+                      Icon(
+                        CupertinoIcons.chevron_forward,
+                        size: 14,
+                        color: context.cTextSecondary,
+                      ),
+                  ],
                 ),
               ),
             ),
+            if (state.hasError && state.errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 40, bottom: 4),
+                child: Text(
+                  state.errorText!,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.systemRed,
+                  ),
+                ),
+              ),
+            Divider(height: 1, thickness: 0.5, color: context.cBorder),
           ],
         );
       },

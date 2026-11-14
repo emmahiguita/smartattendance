@@ -1,5 +1,8 @@
 // lib/features/auth/presentation/viewmodels/login_viewmodel.dart
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/auth/token_store.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/exceptions/app_exception.dart';
@@ -45,6 +48,23 @@ final class LoginError extends LoginState {
   final String message;
 }
 
+// QUÉ HACE: Valida los identificadores OAuth antes de abrir Google Sign-In.
+// CÓMO: Exige el cliente web del backend y, en iOS, el cliente nativo.
+// POR QUÉ: Convierte una configuración nativa ausente en un error accionable.
+String? googleOAuthConfigurationError({
+  required String serverClientId,
+  required String iosClientId,
+  required bool isIOS,
+}) {
+  if (isIOS && serverClientId.trim().isEmpty) {
+    return 'Google Sign-In requiere GOOGLE_SERVER_CLIENT_ID.';
+  }
+  if (isIOS && iosClientId.trim().isEmpty) {
+    return 'Google Sign-In en iOS requiere GOOGLE_IOS_CLIENT_ID.';
+  }
+  return null;
+}
+
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
 /// SRP: manages only the login UI state.
@@ -55,14 +75,14 @@ class LoginViewModel extends StateNotifier<LoginState> {
   final LoginUseCase _useCase;
   final Ref _ref;
 
-  /// Ejecuta el login. [remember] se propaga al SessionController desde la
-  /// pantalla (LoginSuccess lleva el token para la sesión efímera).
+  /// Ejecuta el login con respuesta inmediata (0ms de latencia en conectividad).
   Future<void> login(String cedula, {String? password}) async {
     state = const LoginLoading();
     try {
-      // Si NO hay internet, login local instantáneo — sin esperar timeout.
-      final isOffline = !_ref.read(connectivityProvider);
-      final (token, user) = await _useCase(cedula, password: password, isOffline: isOffline);
+      // Lectura reactiva inmediata en memoria, sin esperar timeout de plugins nativos.
+      final isOnline = _ref.read(connectivityProvider);
+      final (token, user) =
+          await _useCase(cedula, password: password, isOffline: !isOnline);
       state = LoginSuccess(token: token, user: user);
     } catch (e) {
       final appError = ErrorHandler.handle(e);
@@ -75,7 +95,21 @@ class LoginViewModel extends StateNotifier<LoginState> {
   Future<void> loginWithGoogle() async {
     state = const LoginLoading();
     try {
-      final googleUser = await GoogleSignIn().signIn();
+      const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+      const iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+      final isIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      final configError = googleOAuthConfigurationError(
+        serverClientId: serverClientId,
+        iosClientId: iosClientId,
+        isIOS: isIOS,
+      );
+      if (configError != null) {
+        throw AuthException(message: configError);
+      }
+      final googleUser = await GoogleSignIn(
+        clientId: isIOS ? iosClientId : null,
+        serverClientId: serverClientId.isEmpty ? null : serverClientId,
+      ).signIn();
       if (googleUser == null) {
         // El usuario canceló el diálogo de Google — volver al estado inicial.
         state = const LoginInitial();
@@ -111,6 +145,7 @@ final authRepositoryProvider = Provider<AuthRepository>(
     remoteDataSource: ref.watch(_authRemoteDataSourceProvider),
     storage: ref.watch(secureStorageProvider),
     localDb: ref.watch(localDatabaseServiceProvider),
+    tokens: ref.watch(tokenStoreProvider),
   ),
 );
 

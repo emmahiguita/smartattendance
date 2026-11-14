@@ -52,11 +52,21 @@ Future<T?> showNanoAnchoredPopover<T>({
     barrierLabel: 'Cerrar menú',
     barrierColor: Colors.black.withValues(alpha: 0.28),
     transitionDuration: disableAnim ? Duration.zero : const Duration(milliseconds: 190),
+    // QUÉ HACE: Renderiza la vista del popover dentro de un Overlay local.
+    // CÓMO: Usa Overlay con un OverlayEntry inicial.
+    // POR QUÉ: Impide errores "No Overlay widget found" cuando los items del menú
+    //          despliegan tooltips, menús contextuales o ripples de Material.
     pageBuilder: (ctx, anim, secAnim) {
-      return _NanoPopoverRouteView<T>(
-        anchorRect: Rect.fromLTWH(translation.dx, translation.dy, size.width, size.height),
-        actions: actions,
-        headerTitle: headerTitle,
+      return Overlay(
+        initialEntries: [
+          OverlayEntry(
+            builder: (_) => _NanoPopoverRouteView<T>(
+              anchorRect: Rect.fromLTWH(translation.dx, translation.dy, size.width, size.height),
+              actions: actions,
+              headerTitle: headerTitle,
+            ),
+          ),
+        ],
       );
     },
     transitionBuilder: (ctx, anim, secAnim, child) {

@@ -4,7 +4,6 @@ SmartAttendance FastAPI application entry point.
 SRP: only application factory and startup configuration live here.
 """
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -12,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.file_storage import STATIC_DIRECTORY
 from app.api.v1.router import api_v1_router
 from app.database.base import create_all_tables
 from app.core.rate_limit import rate_limiter
@@ -65,8 +65,8 @@ def create_app() -> FastAPI:
     app.include_router(api_v1_router)
 
     # Fotos de perfil
-    static_dir = Path(__file__).parent / "static"
-    static_dir.mkdir(exist_ok=True)
+    static_dir = STATIC_DIRECTORY
+    static_dir.mkdir(parents=True, exist_ok=True)
     (static_dir / "fotos").mkdir(exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 

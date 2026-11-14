@@ -13,6 +13,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'map_hud_controls.dart';
 import 'map_sonar_layer.dart';
+import 'map_traffic_overlay.dart';
 
 class ExplorableMapDialog extends StatefulWidget {
   final double latitude;
@@ -53,15 +54,25 @@ class ExplorableMapDialog extends StatefulWidget {
       barrierLabel: 'Cerrar mapa',
       barrierColor: Colors.black.withValues(alpha: 0.78),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (ctx, anim, secAnim) => ExplorableMapDialog(
-        latitude: latitude,
-        longitude: longitude,
-        accuracy: accuracy,
-        zoneLat: zoneLat,
-        zoneLng: zoneLng,
-        zoneRadius: zoneRadius,
-        zoneName: zoneName,
-        initialStyle: initialStyle,
+      // QUÉ HACE: Provee un Overlay local a la ruta del diálogo.
+      // CÓMO: Envuelve la vista en un OverlayEntry.
+      // POR QUÉ: Evita la excepción "No Overlay widget found" cuando los
+      //          iconos o controles internos activan tooltips de Material.
+      pageBuilder: (ctx, anim, secAnim) => Overlay(
+        initialEntries: [
+          OverlayEntry(
+            builder: (_) => ExplorableMapDialog(
+              latitude: latitude,
+              longitude: longitude,
+              accuracy: accuracy,
+              zoneLat: zoneLat,
+              zoneLng: zoneLng,
+              zoneRadius: zoneRadius,
+              zoneName: zoneName,
+              initialStyle: initialStyle,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -75,6 +86,7 @@ class _ExplorableMapDialogState extends State<ExplorableMapDialog>
   final MapController _mapController = MapController();
   late final AnimationController _pulseController;
   late MapCartoStyle _style;
+  bool _trafficEnabled = true;
 
   @override
   void initState() {
@@ -121,15 +133,18 @@ class _ExplorableMapDialogState extends State<ExplorableMapDialog>
                   ),
                   children: [
                     MapBaseTileLayer(style: _style),
+                    MapTrafficOverlay(enabled: _trafficEnabled),
                     MapSonarCircleLayer(
                       point: userPoint,
                       pulseAnimation: _pulseController,
                       zoneRadiusMeters: widget.zoneRadius ?? 60,
+                      zoneName: widget.zoneName,
                     ),
                     MapUserLocationMarkerLayer(
                       point: userPoint,
                       hasFix: true,
                       pulseAnimation: _pulseController,
+                      userLabel: 'Tu ubicación',
                     ),
                   ],
                 ),
@@ -142,6 +157,9 @@ class _ExplorableMapDialogState extends State<ExplorableMapDialog>
                     longitude: widget.longitude,
                     hasFix: true,
                     selectedStyle: _style,
+                    trafficEnabled: _trafficEnabled,
+                    onToggleTraffic: () =>
+                        setState(() => _trafficEnabled = !_trafficEnabled),
                     onCycleStyle: () => setState(() => _style = _style.next),
                   ),
                 ),

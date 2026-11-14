@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy.orm import Session
 
 from app.database.base import SessionLocal
+from app.core.config import settings
 from app.models.attendance import Attendance
 from app.models.user import User
 
@@ -258,7 +259,7 @@ class SheetsService:
                 creds  = Credentials.from_service_account_file(creds_file, scopes=scopes)
                 client = gspread.authorize(creds)
 
-                sheet_name = os.getenv("GOOGLE_SHEET_NAME", "Asistencias_SmartAttendance")
+                sheet_name = settings.GOOGLE_SHEET_NAME
                 try:
                     sheet = client.open(sheet_name).sheet1
                 except Exception:

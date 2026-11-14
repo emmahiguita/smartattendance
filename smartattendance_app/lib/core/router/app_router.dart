@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/session_controller.dart';
+import '../../features/messaging/presentation/messages_screen.dart';
+import '../../features/attendance/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/attendance/presentation/screens/confirmation_screen.dart';
 import '../../features/attendance/presentation/screens/home_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
@@ -38,6 +40,7 @@ abstract final class AppRoutes {
   static const settings = '/settings';
   static const employeeToday = '/employee-today';
   static const messages = '/messages';
+  static const adminDashboard = '/admin-dashboard';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -51,7 +54,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (session is SessionUnauthenticated && !public.contains(path)) {
         return AppRoutes.login;
       }
-      const adminOnly = {AppRoutes.facialRecognition, AppRoutes.employeeToday, AppRoutes.qrScan};
+      const adminOnly = {
+        AppRoutes.facialRecognition,
+        AppRoutes.employeeToday,
+        AppRoutes.qrScan,
+        AppRoutes.adminDashboard,
+      };
       if (adminOnly.contains(path) && !ref.read(localActorProvider).isAdmin) {
         return AppRoutes.home;
       }
@@ -63,6 +71,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
       GoRoute(path: AppRoutes.forgotPassword, builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
+      GoRoute(path: AppRoutes.messages, builder: (_, __) => const MessagesScreen()),
+      GoRoute(path: AppRoutes.adminDashboard, builder: (_, __) => const AdminDashboardScreen()),
       GoRoute(
         path: AppRoutes.confirmation,
         builder: (_, state) => ConfirmationScreen(

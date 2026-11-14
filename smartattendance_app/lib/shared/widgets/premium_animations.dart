@@ -1,9 +1,24 @@
+// ============================================================================
+// ARCHIVO: premium_animations.dart
+// QUÉ HACE: Colección de widgets de animación reutilizables: fade, scale, slide,
+//           hover elevation, ripple button, pulse alert y staggered list.
+// CÓMO FUNCIONA: Cada widget envuelve un hijo con una animación específica usando
+//                flutter_animate o AnimationController manual.
+// POR QUÉ: Biblioteca central de motion design para toda la app (Material Expressive 3).
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_theme.dart';
 
-// Fade Animation
+// Re-exporta los skeletons para que los imports existentes sigan funcionando.
+export 'premium_skeletons.dart';
+
+// ─── ANIMACIONES DE ENTRADA ──────────────────────────────────────────────────
+
+// QUÉ HACE: Aparición suave con opacidad de 0 → 1.
+// CÓMO: Usa flutter_animate .fadeIn() con curva easeOut configurable.
+// POR QUÉ: Entrada estándar para cards, textos y contenido que aparece.
 class FadeIn extends StatelessWidget {
   final Widget child;
   final Duration duration;
@@ -26,7 +41,9 @@ class FadeIn extends StatelessWidget {
   }
 }
 
-// Scale Animation
+// QUÉ HACE: Entrada con escala de 0.9 → 1.0 y rebote suave.
+// CÓMO: Usa flutter_animate .scale() con curva easeOutBack.
+// POR QUÉ: Efecto de "pop" sutil para modales, tooltips y elementos interactivos.
 class ScaleIn extends StatelessWidget {
   final Widget child;
   final Duration duration;
@@ -51,7 +68,43 @@ class ScaleIn extends StatelessWidget {
   }
 }
 
-// Hover Elevation Animation
+// QUÉ HACE: Entrada deslizante desde una posición offset hasta el centro.
+// CÓMO: Combina .slide() + .fadeIn() de flutter_animate.
+// POR QUÉ: Efecto "slide up" para listas, paneles y contenido secuencial.
+class SlideIn extends StatelessWidget {
+  final Widget child;
+  final Duration duration;
+  final Duration delay;
+  final Offset beginOffset;
+
+  const SlideIn({
+    super.key,
+    required this.child,
+    this.duration = const Duration(milliseconds: 400),
+    this.delay = Duration.zero,
+    this.beginOffset = const Offset(0, 0.3),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return child
+        .animate()
+        .slide(
+          duration: duration,
+          delay: delay,
+          curve: Curves.easeOut,
+          begin: beginOffset,
+          end: Offset.zero,
+        )
+        .fadeIn();
+  }
+}
+
+// ─── ANIMACIONES INTERACTIVAS ────────────────────────────────────────────────
+
+// QUÉ HACE: Eleva la sombra del hijo cuando el cursor pasa por encima (hover).
+// CÓMO: MouseRegion detecta enter/exit → AnimatedContainer cambia boxShadow.
+// POR QUÉ: Feedback visual para cards y botones en desktop/web.
 class HoverElevation extends StatefulWidget {
   final Widget child;
   final double elevation;
@@ -96,119 +149,98 @@ class _HoverElevationState extends State<HoverElevation> {
   }
 }
 
-// Loading Skeleton
-class LoadingSkeleton extends StatelessWidget {
-  final double width;
-  final double height;
-  final BorderRadius? borderRadius;
+// QUÉ HACE: Botón con efecto ripple de Material 3 (onda de tinta al tocar).
+// CÓMO: InkWell con splashColor/highlightColor personalizables.
+// POR QUÉ: Feedback táctil estándar para cualquier widget interactivo.
+class RippleButton extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final Color? rippleColor;
 
-  const LoadingSkeleton({
+  const RippleButton({
     super.key,
-    required this.width,
-    required this.height,
-    this.borderRadius,
+    required this.child,
+    this.onTap,
+    this.rippleColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: context.cBorder.withValues(alpha: 0.3),
-          borderRadius: borderRadius ?? BorderRadius.circular(8),
-        ),
-      )
-          .animate(
-            onPlay: (controller) => controller.repeat(),
-          )
-          .shimmer(
-            duration: const Duration(milliseconds: 1500),
-            color: context.cBorder.withValues(alpha: 0.5),
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashColor:
+            rippleColor ?? AppColors.primary.withValues(alpha: 0.2),
+        highlightColor:
+            rippleColor ?? AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        child: child,
+      ),
     );
   }
 }
 
-// Card Skeleton
-class CardSkeleton extends StatelessWidget {
-  const CardSkeleton({super.key});
+// ─── ANIMACIONES DE ESTADO ───────────────────────────────────────────────────
+
+// QUÉ HACE: Pulso sutil (scale 1.0↔1.05) para indicar alertas activas.
+// CÓMO: AnimationController con repeat(reverse: true). Se activa/desactiva
+//       según el booleano isActive, limpiando el controller en dispose().
+// POR QUÉ: Feedback visual para indicadores de error o notificaciones urgentes.
+class PulseAlert extends StatefulWidget {
+  final Widget child;
+  final bool isActive;
+
+  const PulseAlert({super.key, required this.child, this.isActive = true});
+
+  @override
+  State<PulseAlert> createState() => _PulseAlertState();
+}
+
+class _PulseAlertState extends State<PulseAlert>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (widget.isActive) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(PulseAlert oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      widget.isActive
+          ? _controller.repeat(reverse: true)
+          : (_controller..stop()).reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: context.cSurface,
-        border: Border.all(color: context.cBorder),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              LoadingSkeleton(
-                  width: 48,
-                  height: 48,
-                  borderRadius: BorderRadius.all(Radius.circular(12))),
-              LoadingSkeleton(
-                  width: 80,
-                  height: 24,
-                  borderRadius: BorderRadius.all(Radius.circular(20))),
-            ],
-          ),
-          SizedBox(height: 20),
-          LoadingSkeleton(width: 120, height: 36),
-          SizedBox(height: 8),
-          LoadingSkeleton(width: 100, height: 16),
-          SizedBox(height: 16),
-          LoadingSkeleton(width: double.infinity, height: 40),
-        ],
-      ),
-    );
+    return ScaleTransition(scale: _animation, child: widget.child);
   }
 }
 
-// Table Row Skeleton
-class TableRowSkeleton extends StatelessWidget {
-  const TableRowSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: const Row(
-        children: [
-          LoadingSkeleton(
-              width: 40,
-              height: 40,
-              borderRadius: BorderRadius.all(Radius.circular(12))),
-          SizedBox(width: 16),
-          Expanded(flex: 2, child: LoadingSkeleton(width: 150, height: 16)),
-          SizedBox(width: 16),
-          Expanded(flex: 1, child: LoadingSkeleton(width: 100, height: 16)),
-          SizedBox(width: 16),
-          Expanded(flex: 1, child: LoadingSkeleton(width: 100, height: 16)),
-          SizedBox(width: 16),
-          Expanded(
-              flex: 1,
-              child: LoadingSkeleton(
-                  width: 80,
-                  height: 24,
-                  borderRadius: BorderRadius.all(Radius.circular(20)))),
-          SizedBox(width: 16),
-          Expanded(flex: 1, child: LoadingSkeleton(width: 80, height: 16)),
-          SizedBox(width: 80),
-        ],
-      ),
-    );
-  }
-}
-
-// Count Animation
+// QUÉ HACE: Animación de contador numérico de 0 → target (ej: 0 → 42).
+// CÓMO: AnimationController + Tween<double> con curva easeOut. Muestra el
+//       valor redondeado en cada frame como Text.
+// POR QUÉ: Efecto premium para KPIs y métricas del dashboard.
 class CountAnimation extends StatefulWidget {
   final int target;
   final Duration duration;
@@ -233,13 +265,11 @@ class _CountAnimationState extends State<CountAnimation>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
-    _animation = Tween<double>(begin: 0, end: widget.target.toDouble()).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
+    _animation = Tween<double>(
+      begin: 0,
+      end: widget.target.toDouble(),
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
   }
 
@@ -254,16 +284,15 @@ class _CountAnimationState extends State<CountAnimation>
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
-        return Text(
-          _animation.value.round().toString(),
-          style: widget.style,
-        );
+        return Text(_animation.value.round().toString(), style: widget.style);
       },
     ).animate().fadeIn(duration: const Duration(milliseconds: 300));
   }
 }
 
-// Staggered Animation for Lists
+// QUÉ HACE: Aplica animación escalonada (stagger) a una lista de widgets.
+// CÓMO: Envuelve cada hijo en FadeIn con delay incrementado por índice.
+// POR QUÉ: Efecto cascada para listas de cards, empleados, registros, etc.
 class StaggeredListView extends StatelessWidget {
   final List<Widget> children;
   final Duration staggerDelay;
@@ -280,160 +309,11 @@ class StaggeredListView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children.asMap().entries.map((entry) {
         return FadeIn(
-          delay:
-              Duration(milliseconds: entry.key * staggerDelay.inMilliseconds),
+          delay: Duration(
+              milliseconds: entry.key * staggerDelay.inMilliseconds),
           child: entry.value,
         );
       }).toList(),
-    );
-  }
-}
-
-// Ripple Effect Button
-class RippleButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-  final Color? rippleColor;
-
-  const RippleButton({
-    super.key,
-    required this.child,
-    this.onTap,
-    this.rippleColor,
-  });
-
-  @override
-  State<RippleButton> createState() => _RippleButtonState();
-}
-
-class _RippleButtonState extends State<RippleButton> {
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: widget.onTap,
-        splashColor:
-            widget.rippleColor ?? AppColors.primary.withValues(alpha: 0.2),
-        highlightColor:
-            widget.rippleColor ?? AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-// Slide In Animation
-class SlideIn extends StatelessWidget {
-  final Widget child;
-  final Duration duration;
-  final Duration delay;
-  final Offset beginOffset;
-
-  const SlideIn({
-    super.key,
-    required this.child,
-    this.duration = const Duration(milliseconds: 400),
-    this.delay = Duration.zero,
-    this.beginOffset = const Offset(0, 0.3),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return child
-        .animate()
-        .slide(
-          duration: duration,
-          delay: delay,
-          curve: Curves.easeOut,
-          begin: beginOffset,
-          end: Offset.zero,
-        )
-        .fadeIn();
-  }
-}
-
-// Pulse Animation for Alerts
-class PulseAlert extends StatefulWidget {
-  final Widget child;
-  final bool isActive;
-
-  const PulseAlert({
-    super.key,
-    required this.child,
-    this.isActive = true,
-  });
-
-  @override
-  State<PulseAlert> createState() => _PulseAlertState();
-}
-
-class _PulseAlertState extends State<PulseAlert>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _animation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    if (widget.isActive) {
-      _controller.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void didUpdateWidget(PulseAlert oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive) {
-        _controller.repeat(reverse: true);
-      } else {
-        _controller.stop();
-        _controller.reset();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _animation,
-      child: widget.child,
-    );
-  }
-}
-
-// Shimmer Effect for Loading
-class ShimmerLoading extends StatelessWidget {
-  final Widget child;
-
-  const ShimmerLoading({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: child
-          .animate(
-            onPlay: (controller) => controller.repeat(),
-          )
-          .shimmer(
-            duration: const Duration(milliseconds: 1500),
-            color: context.cBorder.withValues(alpha: 0.3),
-          ),
     );
   }
 }

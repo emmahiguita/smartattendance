@@ -1,14 +1,15 @@
 // ============================================================================
 // ARCHIVO: photo_mark_writer.dart
-// QUÉ HACE: Persiste en SQLite la marcación biométrica con GPS real y valida
-//           de forma atómica el orden estricto de la jornada del día:
-//           `entrada` -> `salida_almuerzo` -> `regreso_almuerzo` -> `salida`.
+// QUÉ HACE: Persiste en SQLite la marcación biométrica con GPS real, validando
+//           geocerca, horario y unicidad de etapa. La restricción de orden
+//           secuencial estricto fue desactivada para permitir registrar cualquier
+//           tipo de marcación sin importar la secuencia de jornada.
 // CÓMO FUNCIONA:
 // 1. Consulta las marcas del trabajador en la fecha actual (`ColombiaClock.day(now)`).
-// 2. Ejecuta `MarkSequence.validate(priorTodayType, type)` para impedir marcar
-//    `salida`, `salida_almuerzo` o `regreso_almuerzo` fuera de orden o repetir
-//    marcas en la misma jornada.
-// POR QUÉ: Blindaje en base de datos contra saltos de etapa o doble salida (< 165 líneas).
+// 2. Verifica que el tipo no haya sido ya registrado hoy (unicidad), pero NO
+//    exige que se registren en orden fijo. Esto permite pruebas y correcciones.
+// POR QUÉ: El administrador necesita poder registrar cualquier tipo de marcación
+//          sin restricciones de continuidad para pruebas y correcciones (< 165 líneas).
 // ============================================================================
 
 import 'dart:io';
@@ -90,31 +91,22 @@ class PhotoMarkWriter {
 
         final priorToday = todayMarks.isEmpty ? null : todayMarks.first;
         final doneTypes = todayMarks.map((m) => (m['type'] as String? ?? '').toLowerCase()).toSet();
-        final String? priorTodayType = doneTypes.contains('salida')
-            ? 'salida'
-            : (doneTypes.contains('regreso_almuerzo')
-                ? 'regreso_almuerzo'
-                : (doneTypes.contains('salida_almuerzo')
-                    ? 'salida_almuerzo'
-                    : (doneTypes.contains('entrada') ? 'entrada' : null)));
 
-        // Valida estrictamente la secuencia: entrada -> salida_almuerzo -> regreso_almuerzo -> salida
-        MarkSequence.validate(priorTodayType, type);
+        // QUÉ HACE: Verifica que el tipo NO esté ya registrado hoy (unicidad por día).
+        // CÓMO: Busca si `type` ya existe en doneTypes del día actual.
+        // POR QUÉ: Se permite cualquier orden de marcación (pruebas/correcciones),
+        //          pero NO se puede registrar la misma etapa dos veces en el mismo día.
+        if (doneTypes.contains(type.trim().toLowerCase())) {
+          throw FormatException('Ya registraste "${MarkSequence.labelOf(type)}" en la jornada de hoy. No puedes repetirla.');
+        }
 
-        final journey = (type == 'entrada' || priorToday == null || priorToday['journey_id'] == null)
+        // QUÉ HACE: Determina el journey (jornada) del día al que pertenece esta marca.
+        // CÓMO: Si hay marcas previas hoy, todas comparten el mismo journey_id del primero.
+        //       Si es la primera marca del día (cualquier tipo), crea un journey nuevo.
+        // POR QUÉ: Permite iniciar la jornada con cualquier tipo de marca, no solo 'entrada'.
+        final journey = (priorToday == null || priorToday['journey_id'] == null)
             ? id
             : priorToday['journey_id'] as String;
-
-        // Impide duplicar una misma etapa dentro de la misma jornada
-        final sameStage = await tx.query(
-          'photo_marks',
-          where: 'journey_id = ? AND type = ?',
-          whereArgs: [journey, type],
-          limit: 1,
-        );
-        if (sameStage.isNotEmpty) {
-          throw FormatException('Ya registraste "${MarkSequence.labelOf(type)}" en la jornada de hoy.');
-        }
 
         final existingJourney = await tx.query('journeys', where: 'id = ?', whereArgs: [journey]);
         if (existingJourney.isEmpty) {

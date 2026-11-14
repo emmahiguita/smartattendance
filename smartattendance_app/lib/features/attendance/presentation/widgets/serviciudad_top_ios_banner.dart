@@ -1,39 +1,35 @@
 // ============================================================================
 // ARCHIVO: serviciudad_top_ios_banner.dart
-// QUÉ HACE: Carrusel superior SIN CARD con las imágenes institucionales de
-//           Serviciudad E.S.P. (`bannerInicioCiudadLimpia`,
-//           `bannerInicioMantenimientoRedes`, `bannerInicioCalidadVida`,
-//           `bannerInicioRedesTuberia`, `bannerInicioAlcantarillado`) pasando
-//           automáticamente cada 5 segundos con desvanecimiento iOS opaco hacia
-//           el fondo de la pantalla, sin texto adicional debajo.
-// CÓMO FUNCIONA:
-// 1. `Timer.periodic(Duration(seconds: 5))` avanza el `PageController` entre
-//    las imágenes enviadas, mostrándolas completas (`BoxFit.fill`).
-// 2. `ShaderMask` funde suavemente el borde inferior con el fondo de la pantalla.
-// POR QUÉ: Cumple la directiva "debe llevar estas dos imagenes" y "sin mision
-//          y vision solo las imagenes y el logo" (< 120 líneas).
+// QUÉ HACE: Carrusel institucional de Serviciudad E.S.P. ubicado debajo del
+//           encabezado del administrador/usuario sin recortar las imágenes.
+// CÓMO FUNCIONA: Despliega las fotografías oficiales en su relación de aspecto
+//                nativa exacta 16:9 (1024x576) con `BoxFit.fill` y transición
+//                suave cada 5 segundos sin velos que oscurezcan o corten bordes.
+// POR QUÉ: Evita que cascos, rostros o el logo de Serviciudad se vean cortados
+//          y elimina imágenes duplicadas (< 140 líneas).
 // ============================================================================
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_assets.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 
+/// Carrusel institucional sin recortes ubicado debajo del encabezado de usuario.
 class ServiciudadTopIosBanner extends StatefulWidget {
   const ServiciudadTopIosBanner({super.key});
 
   @override
-  State<ServiciudadTopIosBanner> createState() => _ServiciudadTopIosBannerState();
+  State<ServiciudadTopIosBanner> createState() =>
+      _ServiciudadTopIosBannerState();
 }
 
 class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
+  // QUÉ HACE: Lista única de los banners oficiales normalizados a 1024x576 (16:9).
+  // CÓMO: Referencia las dos imágenes institucionales sin duplicados.
+  // POR QUÉ: Garantiza visualización 100% completa sin recortes superiores/inferiores.
   static const List<String> _banners = [
-    AppAssets.bannerInicioCiudadLimpia,
-    AppAssets.bannerInicioMantenimientoRedes,
-    AppAssets.bannerInicioCalidadVida,
-    AppAssets.bannerInicioRedesTuberia,
-    AppAssets.bannerInicioAlcantarillado,
+    AppAssets.bannerServiciudadCiudadLimpia,
+    AppAssets.bannerServiciudadAlcantarillado,
   ];
 
   late final PageController _pageController;
@@ -65,28 +61,26 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final isLandscape =
+        MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: isLandscape ? 520 : double.infinity),
-        child: AspectRatio(
-          aspectRatio: 1024 / 580,
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            children: [
-              ShaderMask(
-                shaderCallback: (rect) => LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: isDark ? 0.95 : 0.99),
-                    Colors.white.withValues(alpha: isDark ? 0.90 : 0.95),
-                    Colors.white.withValues(alpha: 0.0),
-                  ],
-                  stops: const [0.0, 0.82, 1.0],
-                ).createShader(rect),
-                blendMode: BlendMode.dstIn,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints:
+                BoxConstraints(maxWidth: isLandscape ? 520 : double.infinity),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.cBorder, width: 0.5),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: AspectRatio(
+                aspectRatio: 1024 / 576,
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _banners.length,
@@ -94,34 +88,37 @@ class _ServiciudadTopIosBannerState extends State<ServiciudadTopIosBanner> {
                   itemBuilder: (_, idx) => Image.asset(
                     _banners[idx],
                     width: double.infinity,
+                    height: double.infinity,
                     fit: BoxFit.fill,
                     filterQuality: FilterQuality.high,
+                    errorBuilder: (_, __, ___) =>
+                        ColoredBox(color: context.cSurface),
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 8,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(_banners.length, (i) {
-                    final active = i == _currentIndex;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                      width: active ? 16 : 6,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: active ? AppColors.primary : context.cTextSecondary.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_banners.length, (i) {
+            final active = i == _currentIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 16 : 5,
+              height: 3.5,
+              decoration: BoxDecoration(
+                color: active
+                    ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                    : context.cTextSecondary.withValues(alpha: 0.30),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }

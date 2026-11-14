@@ -54,22 +54,30 @@ void main() {
 
     test('Authenticated same user equals Authenticated same user', () {
       expect(
-        const SessionAuthenticated(testUser).sameAs(const SessionAuthenticated(testUser)),
+        const SessionAuthenticated(testUser)
+            .sameAs(const SessionAuthenticated(testUser)),
         isTrue,
       );
     });
 
     test('Authenticated different users are not equal', () {
       expect(
-        const SessionAuthenticated(testUser).sameAs(const SessionAuthenticated(testAdmin)),
+        const SessionAuthenticated(testUser)
+            .sameAs(const SessionAuthenticated(testAdmin)),
         isFalse,
       );
     });
 
     test('Different sealed subtypes are not equal', () {
-      expect(const SessionUnknown().sameAs(const SessionUnauthenticated()), isFalse);
-      expect(const SessionUnknown().sameAs(const SessionAuthenticated(testUser)), isFalse);
-      expect(const SessionUnauthenticated().sameAs(const SessionAuthenticated(testUser)), isFalse);
+      expect(const SessionUnknown().sameAs(const SessionUnauthenticated()),
+          isFalse);
+      expect(
+          const SessionUnknown().sameAs(const SessionAuthenticated(testUser)),
+          isFalse);
+      expect(
+          const SessionUnauthenticated()
+              .sameAs(const SessionAuthenticated(testUser)),
+          isFalse);
     });
   });
 
@@ -80,24 +88,40 @@ void main() {
   group('UserEntity', () {
     test('Equatable: same values → equal', () {
       const u1 = UserEntity(
-        id: 1, nombre: 'A', apellido: 'B', cedula: '123',
-        correo: 'a@b.com', cargo: 'Dev',
+        id: 1,
+        nombre: 'A',
+        apellido: 'B',
+        cedula: '123',
+        correo: 'a@b.com',
+        cargo: 'Dev',
       );
       const u2 = UserEntity(
-        id: 1, nombre: 'A', apellido: 'B', cedula: '123',
-        correo: 'a@b.com', cargo: 'Dev',
+        id: 1,
+        nombre: 'A',
+        apellido: 'B',
+        cedula: '123',
+        correo: 'a@b.com',
+        cargo: 'Dev',
       );
       expect(u1, equals(u2));
     });
 
     test('Equatable: different id → not equal', () {
       const u1 = UserEntity(
-        id: 1, nombre: 'A', apellido: 'B', cedula: '123',
-        correo: 'a@b.com', cargo: 'Dev',
+        id: 1,
+        nombre: 'A',
+        apellido: 'B',
+        cedula: '123',
+        correo: 'a@b.com',
+        cargo: 'Dev',
       );
       const u2 = UserEntity(
-        id: 2, nombre: 'A', apellido: 'B', cedula: '123',
-        correo: 'a@b.com', cargo: 'Dev',
+        id: 2,
+        nombre: 'A',
+        apellido: 'B',
+        cedula: '123',
+        correo: 'a@b.com',
+        cargo: 'Dev',
       );
       expect(u1, isNot(equals(u2)));
     });
@@ -115,18 +139,33 @@ void main() {
 
     test('all props included in equality', () {
       const u1 = UserEntity(
-        id: 1, nombre: 'X', apellido: 'Y', cedula: '1',
-        correo: 'x@y.com', cargo: 'Z', telefono: '555',
+        id: 1,
+        nombre: 'X',
+        apellido: 'Y',
+        cedula: '1',
+        correo: 'x@y.com',
+        cargo: 'Z',
+        telefono: '555',
       );
       const u2 = UserEntity(
-        id: 1, nombre: 'X', apellido: 'Y', cedula: '1',
-        correo: 'x@y.com', cargo: 'Z', telefono: '555',
+        id: 1,
+        nombre: 'X',
+        apellido: 'Y',
+        cedula: '1',
+        correo: 'x@y.com',
+        cargo: 'Z',
+        telefono: '555',
       );
       expect(u1, equals(u2));
 
       const u3 = UserEntity(
-        id: 1, nombre: 'X', apellido: 'Y', cedula: '1',
-        correo: 'x@y.com', cargo: 'Z', telefono: '999',
+        id: 1,
+        nombre: 'X',
+        apellido: 'Y',
+        cedula: '1',
+        correo: 'x@y.com',
+        cargo: 'Z',
+        telefono: '999',
       );
       expect(u1, isNot(equals(u3)));
     });
@@ -141,8 +180,8 @@ void main() {
       expect(AppConfig.appVersion, '1.0.0');
     });
 
-    test('companyName is Buentiempo', () {
-      expect(AppConfig.companyName, 'Buentiempo');
+    test('companyName is BuenTiempo', () {
+      expect(AppConfig.companyName, 'BuenTiempo');
     });
 
     test('storage key constants are correct', () {

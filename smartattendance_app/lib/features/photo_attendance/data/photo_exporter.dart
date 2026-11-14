@@ -1,3 +1,4 @@
+import '../domain/photo_record.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -35,6 +36,26 @@ class PhotoExporter {
         }
         if (days.length < 100) break;
         skip += 100;
+      }
+      await sink.flush();
+    } finally {
+      await sink.close();
+    }
+    return file.path;
+  }
+
+    /// Exporta una lista específica de jornadas (filtradas o seleccionadas) a CSV.
+  static Future<String> exportSpecificDays(List<PhotoDay> days) async {
+    if (days.isEmpty) throw StateError('No hay asistencias para exportar.');
+    final root = await getTemporaryDirectory();
+    final file = File(p.join(
+        root.path, 'asistencias_${DateTime.now().millisecondsSinceEpoch}.csv'));
+    final sink = file.openWrite();
+    try {
+      sink.write('\ufeff');
+      sink.write('${PhotoDayTable.headers.map(cell).join(",")}\r\n');
+      for (final d in days) {
+        sink.write('${PhotoDayTable.cells(d).map(cell).join(",")}\r\n');
       }
       await sink.flush();
     } finally {

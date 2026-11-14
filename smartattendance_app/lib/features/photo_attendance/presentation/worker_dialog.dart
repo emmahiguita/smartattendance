@@ -1,196 +1,189 @@
 // ============================================================================
 // ARCHIVO: worker_dialog.dart
-// QUÉ HACE: Modal flotante iOS para alta de personal por el Administrador,
-//           permitiendo asignar Rol (`Colaborador`, `Supervisor`, `Administrador`),
-//           Turno, Ventana de Marcación, Cuadrilla y coordenadas GPS reales.
-// CÓMO FUNCIONA: Usa `LocationService` para capturar la posición real del móvil,
-//                asocia plantilla de horario y persiste en SQLite (`workers`).
-// POR QUÉ: Permite crear colaboradores, supervisores y administradores listos
-//          para iniciar sesión (< 190 líneas).
+// QUÉ HACE: Ventana completa profesional sin cards para alta de personal o mandos:
+//           - Restringe roles según jerarquía RBAC (Admin crea todos; Supervisor crea operarios).
+//           - Asigna horario dual (12h/24h Colombia), tolerancia, cuadrilla y geocerca GPS.
+// CÓMO FUNCIONA: Sincroniza ubicación y persiste en SQLite (`workers` y `usuarios_locales`).
+// POR QUÉ: Sustituye modales pequeños por una pantalla ejecutiva iOS (< 165 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design_system/ios_floating_glass_sheet.dart';
-import '../../../../core/design_system/ios_modal_scaffold.dart';
-import '../../../../core/location/location_service.dart';
+import '../../../../core/location/traccar_service.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/roles.dart';
 import '../domain/shift_template.dart';
 import '../domain/work_schedule.dart';
+import '../domain/worker_site.dart';
+import 'crew_dialog.dart';
 import 'local_providers.dart';
 import 'worker_dialog_fields.dart';
 
-/// Componente modal para afiliar un colaborador, supervisor o administrador.
+part 'worker_dialog_actions.dart';
+
 class WorkerDialog extends ConsumerStatefulWidget {
   const WorkerDialog({super.key});
+
+  /// QUÉ HACE: Abre la ventana profesional completa de registro con transición iOS.
+  /// CÓMO: Usa CupertinoPageRoute con fullscreenDialog y respuesta háptica.
+  /// POR QUÉ: Otorga deslizamiento vertical fluido nativo de iOS.
+  static Future<bool?> open(BuildContext context) {
+    HapticFeedback.selectionClick();
+    return Navigator.push<bool>(
+      context,
+      CupertinoPageRoute<bool>(
+        fullscreenDialog: true,
+        builder: (_) => const WorkerDialog(),
+      ),
+    );
+  }
+
   @override
   ConsumerState<WorkerDialog> createState() => _WorkerDialogState();
 }
 
-class _WorkerDialogState extends ConsumerState<WorkerDialog> {
-  final _name = TextEditingController();
-  final _document = TextEditingController();
-  final _job = TextEditingController(text: 'Colaborador');
-  List<Map<String, Object?>> _teams = [];
-  List<ShiftTemplate> _templates = [];
-  int? _crewId;
-  String? _crewName;
-  ShiftTemplate? _selectedTemplate;
-  String _toleranceMode = 'Turno exacto';
-  double? _gpsLat, _gpsLng;
-  bool _saving = false, _locating = false;
-  String? _error;
-
+class _WorkerDialogState extends _WorkerDialogActions {
   @override
-  void initState() {
-    super.initState();
-    _loadMetadata();
-  }
+  Widget build(BuildContext context) {
+    final actor = ref.watch(localActorProvider);
+    final isDark = context.isDark;
+    final title = actor.isStrictAdmin
+        ? 'Registrar Personal / Mando'
+        : 'Registrar Operario';
 
-  /// QUÉ HACE: Carga cuadrillas y plantillas de turno desde SQLite.
-  Future<void> _loadMetadata() async {
-    try {
-      final store = ref.read(localAdminStoreProvider);
-      await store.ensureDefaultData();
-      final teams = await store.rows('crews');
-      final templates = await store.shiftTemplates();
-      if (!mounted) return;
-      setState(() {
-        _teams = teams;
-        _templates = templates;
-        if (teams.isNotEmpty) {
-          _crewId = teams.first['id'] as int?;
-          _crewName = teams.first['name'] as String?;
-        }
-        if (templates.isNotEmpty) _selectedTemplate = templates.first;
-      });
-    } catch (_) {}
-  }
-
-  /// QUÉ HACE: Permite elegir el rol según el nivel del operador (Solo Administrador puede crear otro Administrador).
-  Future<void> _pickRole() async {
-    final isStrictAdmin = ref.read(localActorProvider).isStrictAdmin;
-    final roles = [
-      ('Colaborador', 'Solo marca ingreso, almuerzo y salida (sin acceso a RRHH)'),
-      ('Supervisor', 'Inicia sesión con permisos de supervisión de cuadrilla y turnos'),
-      if (isStrictAdmin) ('Administrador', 'Inicia sesión con control total de horarios, zonas, bajas y reportes'),
-    ];
-    final selected = await showIosGlassFloatingMenu<String>(
-      context: context,
-      title: 'Rol y Nivel de Acceso',
-      subtitle: 'Define los permisos con los que iniciará sesión con su cédula',
-      actions: [
-        for (final r in roles)
-          IosGlassAction<String>(
-            label: r.$1,
-            subtitle: r.$2,
-            value: r.$1,
-            icon: r.$1 == 'Colaborador' ? CupertinoIcons.person : CupertinoIcons.shield_lefthalf_fill,
+    return PopScope(
+      canPop: !_saving,
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.black : context.cBackground,
+        appBar: AppBar(
+          toolbarHeight: 50,
+          backgroundColor: isDark ? Colors.black : context.cBackground,
+          elevation: 0,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(0.5),
+            child: Container(height: 0.5, color: context.cBorder),
           ),
-      ],
-    );
-    if (mounted && selected != null) setState(() => _job.text = selected);
-  }
-
-  /// QUÉ HACE: Captura las coordenadas GPS reales del dispositivo actual.
-  Future<void> _captureGps() async {
-    setState(() => _locating = true);
-    try {
-      final loc = await const LocationService().capture();
-      if (!mounted) return;
-      setState(() {
-        if (loc != null) { _gpsLat = loc.lat; _gpsLng = loc.lng; }
-        else { _error = 'No se obtuvo señal GPS en este móvil.'; }
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Error capturando GPS: $e');
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  /// QUÉ HACE: Abre el selector flotante de plantilla de turno.
-  Future<void> _pickSchedule() async {
-    final selected = await showIosGlassFloatingMenu<ShiftTemplate>(
-      context: context,
-      title: 'Horario y Turno Asignado',
-      subtitle: 'Selecciona la jornada laboral predefinida',
-      actions: [for (final t in _templates) IosGlassAction<ShiftTemplate>(label: t.name, subtitle: t.timeFormatted, value: t, icon: CupertinoIcons.clock)],
-    );
-    if (mounted && selected != null) setState(() => _selectedTemplate = selected);
-  }
-
-  /// QUÉ HACE: Abre el selector de ventana de tolerancia horaria para marcar.
-  Future<void> _pickTolerance() async {
-    const opts = ['Turno exacto', 'Tolerancia ±30 min', 'Tolerancia ±60 min', 'Sin límite de hora'];
-    final selected = await showIosGlassFloatingMenu<String>(
-      context: context,
-      title: 'Rango de Marcación Permitido',
-      subtitle: 'Ventana de flexibilidad horaria autorizada',
-      actions: [for (final opt in opts) IosGlassAction<String>(label: opt, value: opt, icon: CupertinoIcons.timer)],
-    );
-    if (mounted && selected != null) setState(() => _toleranceMode = selected);
-  }
-
-  /// QUÉ HACE: Abre el selector flotante de cuadrilla operativa.
-  Future<void> _pickCrew() async {
-    if (_teams.isEmpty) return;
-    final selected = await showIosGlassFloatingMenu<Map<String, Object?>>(
-      context: context,
-      title: 'Asignar a Cuadrilla',
-      subtitle: 'Equipo de trabajo asignado',
-      actions: [for (final tm in _teams) IosGlassAction<Map<String, Object?>>(label: tm['name'] as String, value: tm, icon: CupertinoIcons.person_2_fill)],
-    );
-    if (mounted && selected != null) setState(() => (_crewId = selected['id'] as int, _crewName = selected['name'] as String));
-  }
-
-  /// QUÉ HACE: Construye el objeto `WorkSchedule` con la ventana horaria elegida.
-  WorkSchedule? _buildSchedule() {
-    final t = _selectedTemplate;
-    if (t == null) return null;
-    final delta = _toleranceMode == 'Tolerancia ±30 min' ? 30 : (_toleranceMode == 'Tolerancia ±60 min' ? 60 : -1);
-    final unlim = _toleranceMode == 'Sin límite de hora';
-    final markStart = unlim ? null : (delta > 0 ? (t.startMinute - delta).clamp(0, 1439) : t.startMinute);
-    final markEnd = unlim ? null : (delta > 0 ? (t.endMinute + delta).clamp(0, 1439) : t.endMinute);
-    return WorkSchedule(t.dailyMinutes, t.deductLunch, shiftName: t.name, startMinute: t.startMinute, endMinute: t.endMinute, markStartMinute: markStart, markEndMinute: markEnd, weekdays: t.weekdays);
-  }
-
-  /// QUÉ HACE: Valida y guarda la persona, su rol y su geocerca en SQLite.
-  Future<void> _save() async {
-    if (_saving) return;
-    if (_name.text.trim().isEmpty || _document.text.trim().isEmpty) {
-      setState(() => _error = 'Ingresa el nombre completo y número de cédula.');
-      return;
-    }
-    setState(() => (_saving = true, _error = null));
-    try {
-      if (_gpsLat != null && _gpsLng != null) {
-        final zoneId = await ref.read(localAdminStoreProvider).saveZone({'name': 'Zona (${_name.text.trim().split(' ').first})', 'latitude': _gpsLat!, 'longitude': _gpsLng!, 'radius_m': 100.0});
-        if (_crewId != null) {
-          final db = await ref.read(localPhotoDatabaseProvider).database;
-          await db.update('crews', {'zone_id': zoneId}, where: 'id=?', whereArgs: [_crewId]);
-        }
-      }
-      await ref.read(localPhotoRepositoryProvider).addWorker(_name.text.trim(), _document.text.trim(), _job.text.trim(), crewId: _crewId, schedule: _buildSchedule(), authorizationReference: 'Afiliación por administrador');
-      if (!mounted) return;
-      ref.invalidate(localWorkersProvider);
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) setState(() => (_error = e is FormatException ? e.message : e.toString(), _saving = false));
-    }
-  }
-
-  @override
-  void dispose() { _name.dispose(); _document.dispose(); _job.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) => PopScope(
-        canPop: !_saving,
-        child: IosFloatingModal(
-          title: 'Registrar Personal / Supervisor',
-          isSaving: _saving,
-          errorMessage: _error,
-          onSave: _save,
-          child: WorkerDialogFields(nameCtrl: _name, docCtrl: _document, jobCtrl: _job, selectedTemplate: _selectedTemplate, toleranceMode: _toleranceMode, crewName: _crewName, gpsLat: _gpsLat, gpsLng: _gpsLng, locating: _locating, onPickRole: _pickRole, onPickSchedule: _pickSchedule, onPickTolerance: _pickTolerance, onPickCrew: _pickCrew, onCaptureGps: _captureGps),
+          leading: IconButton(
+            icon: Icon(CupertinoIcons.xmark,
+                size: 19, color: context.cTextPrimary),
+            onPressed: () => Navigator.pop(context),
+          ),
+          centerTitle: true,
+          title: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(title,
+                style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                    color: context.cTextPrimary)),
+            Text('Serviciudad E.S.P. · Gestión Operativa',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: context.cTextSecondary)),
+          ]),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const CupertinoActivityIndicator(radius: 9)
+                    : Text('Guardar',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: context.cTextPrimary)),
+              ),
+            ),
+          ],
         ),
-      );
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                children: [
+                  if (_error != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.systemRed.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: AppColors.systemRed.withValues(alpha: 0.35),
+                            width: 0.5),
+                      ),
+                      child: Text(_error!,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.systemRed)),
+                    ),
+                  WorkerDialogFields(
+                    nameCtrl: _name,
+                    docCtrl: _document,
+                    jobCtrl: _job,
+                    addressCtrl: _address,
+                    passwordCtrl: _password,
+                    confirmPasswordCtrl: _confirmation,
+                    selectedTemplate: _selectedTemplate,
+                    toleranceMode: _toleranceMode,
+                    crewName: _crewName,
+                    gpsLat: _gpsLat,
+                    gpsLng: _gpsLng,
+                    isStrictAdmin: actor.isStrictAdmin,
+                    onPickRole: _pickRole,
+                    onPickSchedule: _pickSchedule,
+                    onPickTolerance: _pickTolerance,
+                    onPickCrew: _pickCrew,
+                    onLocationChanged: (pt, addr) => setState(() {
+                      _gpsLat = pt.latitude;
+                      _gpsLng = pt.longitude;
+                      _address.text = addr;
+                    }),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark
+                            ? const Color(0xFF1C1C1E)
+                            : const Color(0xFF0F172A),
+                        elevation: 0,
+                        side: BorderSide(color: context.cBorder, width: 0.5),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? const CupertinoActivityIndicator(
+                              color: Colors.white)
+                          : Text(
+                              actor.isStrictAdmin
+                                  ? 'Guardar Colaborador / Mando'
+                                  : 'Afiliar Operario al Equipo',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

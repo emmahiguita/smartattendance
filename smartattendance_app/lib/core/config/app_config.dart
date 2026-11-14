@@ -8,8 +8,11 @@ class AppConfig {
   AppConfig._();
 
   // ── App ─────────────────────────────────────────────────────────
+  static const String appName = 'BuenTiempo';
   static const String appVersion = '1.0.0';
-  static const String companyName = 'Buentiempo';
+  static const String appYear = '2026';
+  static const String companyName = 'BuenTiempo';
+
 
   static const String keyNotificationsEnabled = 'key_notifications_enabled';
 
@@ -32,6 +35,7 @@ class AppConfig {
   // ── Storage Keys ─────────────────────────────────────────────
   static const String keyAccessToken = 'access_token';
   static const String keyRefreshToken = 'refresh_token';
+  static const String keySessionServer = 'session_server_url';
   static const String keyUserId = 'user_id';
   static const String keyUserCedula = 'user_cedula';
   static const String keyUserName = 'user_name';

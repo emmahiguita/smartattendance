@@ -10,7 +10,8 @@ import 'package:smartattendance/features/photo_attendance/presentation/local_pro
 
 void main() {
   final today = ColombiaClock.day(DateTime.now());
-  final yesterday = ColombiaClock.day(DateTime.now().subtract(const Duration(days: 1)));
+  final yesterday =
+      ColombiaClock.day(DateTime.now().subtract(const Duration(days: 1)));
   final sampleWorkers = [
     LocalWorker(
       id: 1,
@@ -61,14 +62,16 @@ void main() {
   }
 
   group('Enterprise Dashboard - AttendanceKpiGrid', () {
-    testWidgets('Muestra las 4 tarjetas de métricas reales calculadas desde SQLite', (tester) async {
+    testWidgets(
+        'Muestra las 4 tarjetas de métricas reales calculadas desde SQLite',
+        (tester) async {
       await tester.pumpWidget(buildScope(child: const AttendanceKpiGrid()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Empleados activos'), findsOneWidget);
-      expect(find.text('En jornada'), findsOneWidget);
-      expect(find.text('Sin entrada'), findsOneWidget);
-      expect(find.text('Jornadas cerradas'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
+      expect(find.text('En turno'), findsOneWidget);
+      expect(find.text('Sin marca'), findsOneWidget);
+      expect(find.text('Cerradas'), findsOneWidget);
 
       // Verificamos que los números reales coincidan con los datos de muestra
       expect(find.text('3'), findsOneWidget); // total activos
@@ -76,7 +79,8 @@ void main() {
   });
 
   group('Enterprise Dashboard - DashboardStaffStatus', () {
-    testWidgets('Filtra trabajadores en vivo por búsqueda de texto y chip', (tester) async {
+    testWidgets('Filtra trabajadores en vivo por búsqueda de texto y chip',
+        (tester) async {
       await tester.pumpWidget(
         buildScope(
           child: DashboardStaffStatus(onOpenAll: () {}),
@@ -111,7 +115,9 @@ void main() {
       expect(find.text('Carlos Ruiz'), findsNothing);
     });
 
-    testWidgets('Tocar un trabajador abre la credencial 3D con diferenciación de estados', (tester) async {
+    testWidgets(
+        'Tocar un trabajador abre la credencial 3D con diferenciación de estados',
+        (tester) async {
       await tester.pumpWidget(
         buildScope(
           child: DashboardStaffStatus(onOpenAll: () {}),
@@ -125,9 +131,8 @@ void main() {
 
       // Se abre el modal con la credencial digital
       expect(find.text('CREDENCIAL DIGITAL DE ASISTENCIA'), findsOneWidget);
-      expect(find.text('EMPLEADO ACTIVO'), findsOneWidget);
-      expect(find.text('Estado laboral (Contrato)'), findsOneWidget);
-      expect(find.text('Estado de asistencia hoy'), findsOneWidget);
+      expect(find.text('ACTIVO'), findsOneWidget);
+      expect(find.text('Emmanuel Higuita'), findsWidgets);
     });
   });
 }

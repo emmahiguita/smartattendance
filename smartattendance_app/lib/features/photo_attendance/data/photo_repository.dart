@@ -11,14 +11,14 @@
 // POR QUÉ: Garantiza alta inmediata para login y cumple SRP (< 150 líneas).
 // ============================================================================
 
-import 'package:sqflite/sqflite.dart';
 import '../../../../core/localstore/local_database_service.dart';
-import '../../auth/data/datasources/local_auth_datasource.dart';
 import '../domain/attendance_location.dart';
 import '../domain/local_actor.dart';
 import '../domain/photo_record.dart';
 import '../domain/work_schedule.dart';
 import 'photo_database.dart';
+import 'worker_account_writer.dart';
+import '../domain/worker_site.dart';
 import 'photo_day_reader.dart';
 import 'photo_exporter.dart';
 import 'photo_mark_writer.dart';
@@ -66,55 +66,21 @@ class PhotoRepository implements LocalAttendanceRepository {
         .toList();
   }
 
+  Future<WorkerAccountWriter>? _accountWriter;
+
   @override
-  Future<void> addWorker(
-    String name,
-    String document,
-    String job, {
-    int? crewId,
-    WorkSchedule? schedule,
-    String? authorizationReference,
+  Future<void> addWorker(String name, String document, String job, {
+    int? crewId, WorkSchedule? schedule, String? authorizationReference,
+    String? password, WorkerSite? site,
   }) async {
-    final cleanDoc = document.trim();
-    final cleanName = name.trim();
-    final cleanJob = job.trim().isEmpty ? 'Colaborador' : job.trim();
-
-    if (!actor.isAdmin && cleanDoc != actor.document.trim()) {
-      throw const FormatException('Acción exclusiva del administrador o supervisor.');
-    }
-    if (cleanName.isEmpty || !RegExp(r'^\d{3,20}$').hasMatch(cleanDoc)) {
-      throw const FormatException('Escribe el nombre y una cédula de 3 a 20 dígitos.');
-    }
-    final db = await database.database;
-    try {
-      final newId = await db.insert('workers', {
-        'name': cleanName,
-        'document': cleanDoc,
-        'job': cleanJob,
-        if (crewId != null && actor.isAdmin) 'crew_id': crewId,
-        if (schedule != null && actor.isAdmin) 'schedule_json': schedule.encode(),
-        'authorization_reference': authorizationReference ?? 'Registro de personal en campo',
-        'authorization_policy': 'Política General SmartAttendance',
-        'authorization_at': DateTime.now().toUtc().toIso8601String(),
-      });
-
-      final parts = cleanName.split(RegExp(r'\s+'));
-      await LocalDatabaseService().insertLocalUser({
-        'id': newId,
-        'cedula': cleanDoc,
-        'nombre': parts.first,
-        'apellido': parts.length > 1 ? parts.sublist(1).join(' ') : '',
-        'correo': '',
-        'cargo': cleanJob,
-        'is_admin': LocalAuthDataSource.isRoleAdmin(cleanJob, cleanDoc) ? 1 : 0,
-      });
-    } on DatabaseException catch (error) {
-      if (error.isUniqueConstraintError()) {
-        throw const FormatException('Ya existe una persona registrada con esa cédula.');
-      }
-      rethrow;
-    }
+    if (password == null) throw const FormatException('Establece una contraseña individual para activar la cuenta.');
+    final writer = await (_accountWriter ??= _openAccountWriter());
+    await writer.create(name, document, job, password: password, crewId: crewId,
+      schedule: schedule, authorizationReference: authorizationReference, site: site);
   }
+
+  Future<WorkerAccountWriter> _openAccountWriter() async => WorkerAccountWriter(
+    await database.database, (await LocalDatabaseService().database).path, actor);
 
   @override
   Future<PhotoRecord> capture(LocalWorker worker, String type, String imagePath,

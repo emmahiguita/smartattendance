@@ -1,0 +1,109 @@
+{
+  "checked_at_utc": "2026-11-11T01:18:49.985548+00:00",
+  "version": "1.0.3",
+  "version_code": 20261112,
+  "apk": "C:\\Users\\emman\\Desktop\\Proyectos\\PROYECTO QR\\qa\\artifacts\\BuenTiempo-1.0.3-debug.apk",
+  "sha256": "bac270155bbc8ade84a46408165e1e49e5d12fd93c358258307cba2c6b1a3f35",
+  "build_passed": true,
+  "installed_verified": true,
+  "flutter": {
+    "passed": 179,
+    "skipped": 1
+  },
+  "backend": {
+    "passed": 59,
+    "warnings": 1
+  },
+  "analyze_issues": 0,
+  "source_files_unchanged_since_fingerprint": true,
+  "device_smoke": {
+    "passed": true,
+    "stage": "smoke",
+    "serial": "VGL7MVFMDYQG8T55",
+    "model": "CPH2557",
+    "android": "15",
+    "screen": "navigation"
+  },
+  "device_inventory": {
+    "read_only": true,
+    "workers": 27,
+    "accounts": 29,
+    "duplicate_worker_documents": 0,
+    "duplicate_account_documents": 0,
+    "workers_without_account": 0,
+    "scope": "Current device database copies; no creations, edits or deletions.",
+    "prior_qa_workers_expected": 5,
+    "prior_qa_workers_missing": 5,
+    "prior_qa_workers_checked": 0,
+    "prior_qa_roles_sites_windows_preserved": false
+  },
+  "backend_deployed_this_turn": false,
+  "production_ready": false,
+  "report": "docs/CIERRE_SESIONES_2026-11-10.md",
+  "historical_api_deployment": {
+    "created_at": "2026-10-27T20:42:46Z",
+    "description": "",
+    "environment_url": "https://smartattendance-api-fnvo.onrender.com",
+    "log_url": "https://dashboard.render.com/web/srv-d9olmpmgekts73e9n82g/deploys/dep-dbggpdutlv9c73a7khf0",
+    "state": "failure"
+  },
+  "historical_api_health": {
+    "url": "https://smartattendance-api-fnvo.onrender.com/health",
+    "checked_at_utc": "2026-11-11T01:19:48.993300+00:00",
+    "healthy": false,
+    "error_type": "ReadTimeout"
+  },
+  "historical_ios_build": {
+    "conclusion": "success",
+    "headSha": "e5969a0d71e5bab91db7ad43162af8606bd09cb2",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "build",
+        "steps": [
+          {
+            "conclusion": "success",
+            "name": "Set up job"
+          },
+          {
+            "conclusion": "success",
+            "name": "Checkout Repository"
+          },
+          {
+            "conclusion": "success",
+            "name": "Set up Flutter"
+          },
+          {
+            "conclusion": "success",
+            "name": "Install Dependencies"
+          },
+          {
+            "conclusion": "success",
+            "name": "Build iOS Application (Release)"
+          },
+          {
+            "conclusion": "success",
+            "name": "Package Payload into IPA"
+          },
+          {
+            "conclusion": "success",
+            "name": "Upload iOS IPA Artifact"
+          },
+          {
+            "conclusion": "success",
+            "name": "Post Set up Flutter"
+          },
+          {
+            "conclusion": "success",
+            "name": "Post Checkout Repository"
+          },
+          {
+            "conclusion": "success",
+            "name": "Complete job"
+          }
+        ]
+      }
+    ]
+  },
+  "historical_ios_unsigned": true
+}

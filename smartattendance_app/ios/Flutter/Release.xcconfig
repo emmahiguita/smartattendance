@@ -1,1 +1,3 @@
 #include "Generated.xcconfig"
+#include? "GoogleOAuth.xcconfig"
+DEVELOPMENT_TEAM=$(IOS_TEAM_ID)

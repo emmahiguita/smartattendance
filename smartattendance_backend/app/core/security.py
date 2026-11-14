@@ -4,7 +4,9 @@ JWT creation and verification utilities.
 SRP: handles ONLY token generation and validation.
 """
 from datetime import datetime, timedelta, timezone
-from jose import JWTError, jwt
+import uuid
+import jwt
+from jwt import InvalidTokenError
 from fastapi import HTTPException, status
 
 from app.core.config import settings
@@ -17,7 +19,7 @@ def _create_token(data: dict, expires_delta: timedelta, token_type: str) -> str:
     """Create a signed JWT with an explicit token-type claim."""
     payload = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
-    payload.update({"exp": expire, "type": token_type})
+    payload.update({"exp": expire, "type": token_type, "jti": str(uuid.uuid4())})
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -66,8 +68,9 @@ def decode_refresh_token(token: str) -> dict:
 
 def _decode(token: str) -> dict:
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+                          options={"require": ["exp", "sub"]})
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido o expirado",

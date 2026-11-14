@@ -21,7 +21,6 @@ import '../domain/photo_record.dart';
 import 'biometric_viewfinder.dart';
 import 'capture_controls.dart';
 import 'local_providers.dart';
-import 'worker_assignment_dialog.dart';
 
 class PhotoCaptureScreen extends ConsumerStatefulWidget {
   const PhotoCaptureScreen({
@@ -148,7 +147,6 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen> with Wi
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = ref.watch(localActorProvider).isAdmin;
     final preview = BiometricViewfinder(
       cameraController: _cameraCtrl,
       imagePath: _path,
@@ -167,7 +165,6 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen> with Wi
       coords: _coords,
       recovered: _recovered,
       onRetry: !_busy ? _captureAndVerify : null,
-      onConfigureWorker: isAdmin ? () => showDialog<bool>(context: context, builder: (_) => WorkerAssignmentDialog(worker: widget.worker)) : null,
     );
 
     return Scaffold(

@@ -1,24 +1,31 @@
 // lib/core/validators/input_validators.dart
 
 abstract final class InputValidators {
-  // Cédula validation
+  // Contrato de los campos CC existentes: entre 6 y 13 dígitos.
+  // Los documentos genéricos se validan por separado, sin atribuir reglas legales.
   static String? validateCedula(String? input) {
+    if (input == null || input.trim().isEmpty) return 'La cédula no puede estar vacía';
+    if (!RegExp(r'^\d{6,13}$').hasMatch(input.trim())) return 'Ingresa una cédula de 6 a 13 dígitos';
+    return null;
+  }
+
+  static String? validateDocument(String? input) {
     if (input == null || input.trim().isEmpty) {
-      return 'La cédula no puede estar vacía';
+      return 'El documento no puede estar vacío';
     }
 
     final trimmed = input.trim();
 
-    if (trimmed.length < 6) {
-      return 'Mínimo 6 dígitos';
+    if (trimmed.length < 4) {
+      return 'Mínimo 4 caracteres';
     }
 
-    if (trimmed.length > 13) {
-      return 'Máximo 13 dígitos';
+    if (trimmed.length > 16) {
+      return 'Máximo 16 caracteres';
     }
 
-    if (!RegExp(r'^[0-9]+$').hasMatch(trimmed)) {
-      return 'Solo se aceptan números';
+    if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(trimmed)) {
+      return 'Solo números y letras sin signos';
     }
 
     return null;

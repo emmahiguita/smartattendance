@@ -1,20 +1,28 @@
-﻿import '../entities/user_entity.dart';
+// ============================================================================
+// ARCHIVO: auth_repository.dart
+// QUÉ HACE: Contrato de interfaz del repositorio de autenticación (DIP).
+// CÓMO FUNCIONA: Define los métodos requeridos para autenticación por cédula,
+//                Google, registro y restablecimiento de contraseña.
+// POR QUÉ: Desacopla la lógica de presentación del origen concreto de datos.
+// ============================================================================
 
-/// Interface for Authentication Repository.
-/// Dependency Inversion Principle (DIP): ViewModels depend on this abstraction,
-/// not on the concrete AuthRepositoryImpl.
+import '../entities/user_entity.dart';
+
 abstract interface class AuthRepository {
-  /// Login por cÃ©dula. [password] es obligatoria si la cuenta la tiene
+  /// Login por cédula. [password] es obligatoria si la cuenta la tiene
   /// configurada (el servidor la exige).
   /// [isOffline] salta el intento remoto y va directo a auth local (SQLite).
-  Future<(String token, UserEntity user)> loginByCedula(String cedula,
-      {String? password, bool isOffline = false});
+  Future<(String token, UserEntity user)> loginByCedula(
+    String cedula, {
+    String? password,
+    bool isOffline = false,
+  });
 
   /// Login con Google: el id_token se verifica server-side contra el client
   /// ID configurado. La cuenta debe existir por correo en el sistema.
   Future<(String token, UserEntity user)> googleLogin(String idToken);
 
-  /// Registro pÃºblico con contraseÃ±a. Retorna sesiÃ³n iniciada (tokens persistidos).
+  /// Registro público con contraseña. Retorna sesión iniciada (tokens persistidos).
   Future<(String token, UserEntity user)> register({
     required String nombre,
     required String apellido,
@@ -26,10 +34,14 @@ abstract interface class AuthRepository {
     String? fechaNacimiento,
   });
 
-  Future<String> requestPasswordResetCode({required String cedula, required String correo});
+  /// Solicita el código de restablecimiento enviado al correo institucional.
+  Future<String> requestPasswordResetCode({
+    required String cedula,
+    required String correo,
+  });
 
-  /// RecuperaciÃ³n de contraseÃ±a: identidad verificada con cÃ©dula + correo.
-  /// Retorna el mensaje de confirmaciÃ³n del servidor.
+  /// Recuperación de contraseña: identidad verificada con cédula + correo + código OTP.
+  /// Retorna el mensaje de confirmación del servidor.
   Future<String> resetPassword({
     required String cedula,
     required String correo,
@@ -37,5 +49,3 @@ abstract interface class AuthRepository {
     required String code,
   });
 }
-
-

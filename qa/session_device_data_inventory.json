@@ -1,0 +1,13 @@
+{
+  "read_only": true,
+  "workers": 27,
+  "accounts": 29,
+  "duplicate_worker_documents": 0,
+  "duplicate_account_documents": 0,
+  "workers_without_account": 0,
+  "scope": "Current device database copies; no creations, edits or deletions.",
+  "prior_qa_workers_expected": 5,
+  "prior_qa_workers_missing": 5,
+  "prior_qa_workers_checked": 0,
+  "prior_qa_roles_sites_windows_preserved": false
+}

@@ -46,9 +46,7 @@ final class AppLogger {
   }) {
     if (!EnvironmentConfig.enableLogging) return;
     info('→ [$method] $endpoint');
-    if (data != null) {
-      debug('  Data: $data');
-    }
+    // Los cuerpos pueden contener contraseñas, tokens o datos personales.
   }
 
   static void logApiResponse(
@@ -58,7 +56,6 @@ final class AppLogger {
   ) {
     if (!EnvironmentConfig.enableLogging) return;
     info('← $statusCode $endpoint');
-    debug('  Response: $response');
   }
 
   static void logApiError(
@@ -68,7 +65,7 @@ final class AppLogger {
   ) {
     AppLogger.error(
       '✗ [$method] $endpoint',
-      error: error,
+      error: error.runtimeType,
     );
   }
 

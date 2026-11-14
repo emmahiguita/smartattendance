@@ -1,11 +1,10 @@
 // ============================================================================
 // ARCHIVO: app_colors.dart
-// QUÉ HACE: Paleta cromática y tokens del sistema de diseño Titanium Enterprise
-//           con Modo Oscuro 100% Apple iOS Liquid Glass Transparente Profesional.
-// CÓMO FUNCIONA: Define constantes semánticas de color, superficies translúcidas
-//                de cristal esmerilado y bordes especulares para modo oscuro.
-// POR QUÉ: Materializa un modo oscuro 100% iOS transparente profesional con
-//          máxima legibilidad y estética ejecutiva (< 140 líneas).
+// QUÉ HACE: Define la paleta neutra de alto contraste estilo Apple iOS Pro.
+// CÓMO FUNCIONA: Usa negro puro (#000000) para fondo oscuro y tonos metálicos
+//                claros/legibles para controles y estados semánticos.
+// POR QUÉ: Evita textos oscuros ilegibles sobre fondo negro y elimina bordes
+//          azules chillones o franjas amarillas (< 140 líneas).
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -14,47 +13,49 @@ import 'package:flutter/material.dart';
 
 abstract final class AppColors {
   // ── Núcleo Metálico Serviciudad Titanium Enterprise ──
-  static const Color primary = Color(0xFF005A9C); // Azul Serviciudad oficial
-  static const Color primaryDark = Color(0xFF0A84FF); // Azul iOS Dark Mode luminoso
-  static const Color accent = Color(0xFF1598D3); // Celeste agua institucional
-  static const Color graphite = Color(0xFF263445); // Grafito / Titanio oscuro
-  static const Color silver = Color(0xFFDCE2E9); // Plata satinada
-  static const Color titanium = Color(0xFF8C9BAB); // Titanio neutro
-  static const Color snow = Color(0xFFF5F7FA); // Nieve (Fondo claro)
+  // Gris platino legible tanto en modo oscuro (#000000) como claro (#FFFFFF)
+  // cuando un widget legado referencia AppColors.primary directamente.
+  static const Color primary = Color(0xFF94A3B8);
+  static const Color primaryDark = Color(0xFFF8FAFC);
+  static const Color accent = Color(0xFF94A3B8);
+  static const Color graphite = Color(0xFF263445);
+  static const Color silver = Color(0xFFDCE2E9);
+  static const Color titanium = Color(0xFF8C9BAB);
+  static const Color snow = Color(0xFFF5F7FA);
 
-  // ── Semántica de Negocio y Estados ──
-  static const Color success = Color(0xFF18794E); // Verde empresarial
-  static const Color successDark = Color(0xFF30D158); // Verde iOS Dark Mode
-  static const Color warning = Color(0xFFA66414); // Ámbar supervisión
-  static const Color error = Color(0xFFB93838); // Rojo alerta
-  static const Color errorDark = Color(0xFFFF453A); // Rojo iOS Dark Mode
+  // ── Semántica de Negocio y Estados (Legibles en Modo Oscuro y Claro) ──
+  static const Color success = Color(0xFF34C759); // Verde iOS legible
+  static const Color successDark = Color(0xFF30D158);
+  static const Color warning = Color(0xFFFF9F0A); // Ámbar iOS legible
+  static const Color error = Color(0xFFFF3B30);
+  static const Color errorDark = Color(0xFFFF453A);
   static const Color systemGreen = success;
   static const Color systemGreenDark = successDark;
   static const Color systemRed = error;
   static const Color systemRedDark = errorDark;
   static const Color systemOrange = warning;
   static const Color systemBlue = primary;
-  static const Color accentIndigo = Color(0xFF2A4D6E);
-  static const Color accentIndigoDark = Color(0xFF1E3A56);
+  static const Color accentIndigo = Color(0xFF94A3B8);
+  static const Color accentIndigoDark = Color(0xFFE2E8F0);
 
   // ── Superficies y Fondos Modo Claro ──
-  static const Color background = Color(0xFFF6F8FB); // Hielo titanio claro
-  static const Color backgroundSecondary = silver; // #DCE2E9
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color backgroundSecondary = silver;
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color borderColor = Color(0xFFE2E8F0); // Borde metálico sutil
+  static const Color borderColor = Color(0xFFE2E8F0);
   static const Color separator = Color(0xFFE2E8F0);
 
   // ── Tipografía Modo Claro ──
-  static const Color textPrimary = Color(0xFF0F172A); // Slate 900 alta legibilidad
-  static const Color textSecondary = Color(0xFF475569); // Slate 600 sobrio
-  static const Color textTertiary = Color(0xFF64748B); // Slate 500
+  static const Color textPrimary = Color(0xFF0F172A);
+  static const Color textSecondary = Color(0xFF475569);
+  static const Color textTertiary = Color(0xFF64748B);
 
-  // ── Modo Oscuro 100% iOS Liquid Glass Transparente Profesional ──
-  static const Color darkBackground = Color(0xFF050A14); // Obsidiana iOS OLED profunda
-  static const Color darkSurface = Color(0xFF101E33); // Cristal oscuro translúcido base
-  static const Color darkBorder = Color(0x2EFFFFFF); // Borde especular cristal iOS (18% blanco)
-  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Blanco cristal iOS
-  static const Color darkTextSecondary = Color(0xFFB0C0D4); // Plata translúcido legible
+  // ── Modo Oscuro 100% iOS OLED Profesional (#000000) ──
+  static const Color darkBackground = Color(0xFF000000);
+  static const Color darkSurface = Color(0xFF111111);
+  static const Color darkBorder = Color(0x2EFFFFFF);
+  static const Color darkTextPrimary = Color(0xFFF8FAFC);
+  static const Color darkTextSecondary = Color(0xFFBDBDBD);
 
   // ── Grises Auxiliares y Compatibilidad ──
   static const Color systemGray = titanium;
@@ -76,7 +77,7 @@ abstract final class AppColors {
 
   // ── Gradientes Metálicos Sutiles ──
   static const LinearGradient metallicSteelGradient = LinearGradient(
-    colors: [primary, Color(0xFF234462)],
+    colors: [Color(0xFF334155), Color(0xFF1E293B)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -86,29 +87,27 @@ abstract final class AppColors {
     end: Alignment.bottomCenter,
   );
   static const LinearGradient gradientAttendance = metallicSteelGradient;
-  static const LinearGradient gradientQR = LinearGradient(
-    colors: [primary, accentIndigo],
-  );
+  static const LinearGradient gradientQR = metallicSteelGradient;
   static const LinearGradient gradientHistory = LinearGradient(
-    colors: [success, Color(0xFF125C3B)],
+    colors: [success, Color(0xFF15803D)],
   );
 }
 
 abstract final class DesignTokens {
   static const double radiusXS = 6.0;
   static const double radiusSmall = 8.0;
-  static const double radiusButton = 12.0;
+  static const double radiusButton = 10.0;
   static const double radiusMedium = 12.0;
-  static const double radiusCard = 16.0;
-  static const double radiusPanel = 16.0;
-  static const double radiusLarge = 18.0;
-  static const double radiusXL = 22.0;
-  static const double radiusPanelLarge = 22.0;
+  static const double radiusCard = 12.0;
+  static const double radiusPanel = 14.0;
+  static const double radiusLarge = 16.0;
+  static const double radiusXL = 20.0;
+  static const double radiusPanelLarge = 20.0;
   static const double radiusPill = 999.0;
 
-  static const double borderWidth = 0.8;
-  static const double buttonHeight = 52.0;
-  static const double minTouchTargetSize = 48.0;
+  static const double borderWidth = 0.5;
+  static const double buttonHeight = 46.0;
+  static const double minTouchTargetSize = 44.0;
 
   static const double spaceXS = 4.0;
   static const double space4 = 4.0;
@@ -126,7 +125,7 @@ abstract final class DesignTokens {
   static const double spaceXXL = 48.0;
 
   static const EdgeInsets screenPadding = EdgeInsets.symmetric(horizontal: 16);
-  static const EdgeInsets cardPadding = EdgeInsets.all(16);
+  static const EdgeInsets cardPadding = EdgeInsets.all(12);
 
   static List<BoxShadow> get cardShadow => const [];
   static List<BoxShadow> cardShadowColored(Color color) => const [];

@@ -12,6 +12,7 @@ app = "smartattendance-api"
   ACCESS_TOKEN_EXPIRE_MINUTES = "1440"
   REFRESH_TOKEN_EXPIRE_DAYS = "30"
   TIMEZONE = "America/Bogota"
+  STATIC_DIRECTORY = "/data/static"
   HORA_ENTRADA_LIMITE = "08:30"
   ALLOWED_ORIGINS = '["*"]'
 
