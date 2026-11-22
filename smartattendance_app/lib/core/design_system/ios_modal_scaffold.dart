@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import 'aqua_gloss_button.dart';
 
 class IosFloatingModal extends StatelessWidget {
   const IosFloatingModal({
@@ -76,26 +77,16 @@ class IosFloatingModal extends StatelessWidget {
                       ),
                     ),
                   ),
-                  TextButton(
-                    onPressed: isSaving
-                        ? null
-                        : () {
-                            HapticFeedback.lightImpact();
-                            onSave();
-                          },
-                    child: isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            saveLabel,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: context.cTextPrimary,
-                            ),
-                          ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: AquaGlossButton(
+                      label: saveLabel,
+                      compact: true,
+                      isLoading: isSaving,
+                      topColor: const Color(0xFF1A8CFF),
+                      bottomColor: const Color(0xFF005ECB),
+                      onPressed: isSaving ? null : onSave,
+                    ),
                   ),
                 ],
               ),

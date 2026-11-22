@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 
-from app.database.base import Base, engine, get_db, SessionLocal
+from app.database.base import Base, engine, get_db, SessionLocal, create_all_tables
 from main import app
 from app.models.user import User
 from app.models.attendance import Attendance
@@ -12,7 +12,7 @@ from app.core.security import create_access_token
 
 @pytest.fixture(autouse=True)
 def setup_db():
-    Base.metadata.create_all(bind=engine)
+    create_all_tables()
     db = SessionLocal()
     # Limpiar tablas previas de prueba
     db.query(Attendance).delete()

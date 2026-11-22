@@ -1,6 +1,8 @@
 # 📚 ÍNDICE DE DOCUMENTACIÓN - SmartAttendance
 
-> **Auditoría Principal de Seguridad y Roles (14 Noviembre 2026):** [Auditoría de Seguridad, Funcionalidad y Arquitectura RBAC](AUDITORIA_SEGURIDAD_RBAC_2026-11-14.md): Análisis exhaustivo de permisos (Super Administrador, Supervisor, Colaborador), Requisitos Funcionales (RF), Requisitos No Funcionales (RNF), Casos de Uso (CU) y validación en hardware real.
+> **Última Auditoría Integral y Diagnóstico de Pendientes (18 Noviembre 2026):** [Auditoría Integral y Diagnóstico de Pendientes](AUDITORIA_INTEGRAL_PENDIENTES_2026-11-18.md): Diagnóstico exhaustivo de pruebas (Flutter & FastAPI 100%), análisis estático, reglas de modularización (< 200 líneas), seguridad de sesiones locales y lista priorizada de pendientes para producción total.
+
+> **Auditoría de Seguridad y Roles (14 Noviembre 2026):** [Auditoría de Seguridad, Funcionalidad y Arquitectura RBAC](AUDITORIA_SEGURIDAD_RBAC_2026-11-14.md): Análisis exhaustivo de permisos (Super Administrador, Supervisor, Colaborador), Requisitos Funcionales (RF), Requisitos No Funcionales (RNF), Casos de Uso (CU) y validación en hardware real.
 
 > **Estado actual:** [Cierre de sesiones y autenticación](CIERRE_SESIONES_2026-11-10.md): correcciones de sesión, revocación, 179 pruebas móviles y 59 del servidor aprobadas, con pendientes de despliegue.
 

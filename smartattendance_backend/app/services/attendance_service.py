@@ -91,11 +91,30 @@ class AttendanceService:
                     detalles.append({"uuid_marca": item.uuid_marca, "status": "error_usuario_inactivo_o_no_encontrado"})
                     continue
 
+                foto_url = item.foto_url
+                if item.foto_base64 and not foto_url:
+                    try:
+                        import base64
+                        from app.core.file_storage import STATIC_DIRECTORY
+                        attendance_photos_dir = STATIC_DIRECTORY / "attendance_photos"
+                        attendance_photos_dir.mkdir(parents=True, exist_ok=True)
+                        photo_filename = f"{item.uuid_marca}.jpg"
+                        photo_path = attendance_photos_dir / photo_filename
+                        raw_data = item.foto_base64
+                        if "," in raw_data:
+                            raw_data = raw_data.split(",", 1)[1]
+                        photo_bytes = base64.b64decode(raw_data)
+                        photo_path.write_bytes(photo_bytes)
+                        foto_url = f"/static/attendance_photos/{photo_filename}"
+                    except Exception:
+                        pass
+
                 tipo = item.tipo or self._decide_tipo(item.usuario_id)
                 record = self._repo.create_from_offline(
                     usuario_id=item.usuario_id, tipo=tipo,
                     fecha_hora_local=item.fecha_hora_local, uuid_marca=item.uuid_marca,
                     latitud=item.latitud, longitud=item.longitud, direccion=item.direccion,
+                    foto_url=foto_url,
                 )
                 existing_by_uuid[item.uuid_marca] = record
                 background_tasks.add_task(sheets_service.sync_to_google_sheets, record.id)

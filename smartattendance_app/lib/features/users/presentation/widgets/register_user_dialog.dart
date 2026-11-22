@@ -172,7 +172,7 @@ class _RegisterUserDialogState extends State<_RegisterUserDialog> {
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: context.cTextPrimary, letterSpacing: -0.5),
                           ),
                           Text(
-                            actor.isStrictAdmin ? 'Gestión Central · Serviciudad E.S.P.' : 'Líder de Cuadrilla · Serviciudad E.S.P.',
+                            actor.isStrictAdmin ? 'Gestión Central · BuenTiempo' : 'Líder de Cuadrilla · BuenTiempo',
                             style: TextStyle(fontSize: 12, color: context.cGray),
                           ),
                         ],

@@ -10,8 +10,8 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../crew_dialog.dart';
+import 'textured_3d_action_button.dart';
 
 class CrewMenuAnchor extends StatelessWidget {
   const CrewMenuAnchor({super.key, required this.zones, required this.onSaved});
@@ -28,16 +28,12 @@ class CrewMenuAnchor extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-        style: TextButton.styleFrom(
-          foregroundColor: context.cTextPrimary,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        ),
+  Widget build(BuildContext context) => Textured3DActionButton(
+        icon: CupertinoIcons.person_2_fill,
+        label: '+ Nuevo Equipo',
+        topColor: const Color(0xFF1E4E79),
+        bottomColor: const Color(0xFF0A2540),
+        depthColor: const Color(0xFF051322),
         onPressed: () => _openDialog(context),
-        icon: const Icon(CupertinoIcons.person_2, size: 19),
-        label: const Text(
-          '+ Nuevo Equipo',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
       );
 }

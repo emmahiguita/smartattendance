@@ -161,7 +161,7 @@ class ProfileFormFields extends StatelessWidget {
             context,
             icon: CupertinoIcons.mail_solid,
             label: 'Correo Electrónico',
-            hint: 'correo@serviciudad.gov.co',
+            hint: 'correo@buentiempo.app',
             controller: correoCtrl,
             keyboardType: TextInputType.emailAddress,
             validator: (v) => InputValidators.validateEmail(v),

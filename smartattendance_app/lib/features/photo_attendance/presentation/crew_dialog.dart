@@ -1,13 +1,11 @@
 // ============================================================================
 // ARCHIVO: crew_dialog.dart
-// QUÉ HACE: Modal estilo iOS Inset Grouped para crear o editar un Equipo:
-//           - Configura nombre, supervisor (con selector), suplente y vigencia.
-//           - Permite seleccionar los puestos aplicados al equipo (`Operador`,
-//             `Colaborador`, `Operario`, etc.) y al Administrador crear puestos.
-//           - Permite elegir o crear un Sitio de Trabajo con Dirección real.
-//           - Permite asignar personal con su puesto desde Nuevo Equipo o edición.
+// QUÉ HACE: Modal estilo iOS Inset Grouped para crear o editar un Equipo
+//           ("Nuevo Equipo" / "Detalle de Cuadrilla") con resolución del
+//           nombre del supervisor, puestos habilitados, sitio con dirección
+//           real e integrantes asignados.
 // CÓMO FUNCIONA: Utiliza `IosFloatingModal` con persistencia en `LocalAdminStore`.
-// POR QUÉ: Cumple con la gestión integral de puestos, equipos y dirección (< 240 líneas).
+// POR QUÉ: Gestión integral de puestos, equipos y dirección en iOS/Android (< 195 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -16,7 +14,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/design_system/ios_modal_scaffold.dart';
 import '../../../../core/location/traccar_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/roles.dart';
 import '../domain/photo_record.dart';
 import 'local_providers.dart';
@@ -135,9 +132,7 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
 
   Future<void> _save() async {
     final actor = ref.read(localActorProvider);
-    if (!actor.isStrictAdmin && actor.document.trim().isNotEmpty) {
-      _supervisor.text = actor.document.trim();
-    }
+    if (!actor.isStrictAdmin && actor.document.trim().isNotEmpty) _supervisor.text = actor.document.trim();
     if (_name.text.trim().isEmpty || _supervisor.text.trim().isEmpty) {
       setState(() => _error = 'Completa el nombre del equipo y cédula del supervisor.');
       return;
@@ -203,6 +198,8 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
   Widget build(BuildContext context) {
     final actor = ref.watch(localActorProvider);
     final workers = ref.watch(localWorkersProvider).valueOrNull ?? const [];
+    final supWorker = workers.where((w) => w.document.trim() == _supervisor.text.trim()).firstOrNull;
+
     return PopScope(
       canPop: !_busy,
       child: IosFloatingModal(
@@ -214,14 +211,15 @@ class _CrewDialogState extends ConsumerState<CrewDialog> {
           IosFormGroup(header: 'Datos de la Cuadrilla', children: [
             IosFormFieldRow(label: 'Equipo', placeholder: 'Ej. Cuadrilla Operativa Norte', controller: _name, textCapitalization: TextCapitalization.words),
             IosFormFieldRow(
-              label: 'Supervisor',
+              label: supWorker != null ? 'Supervisor (${supWorker.name.split(' ').first})' : 'Supervisor',
               placeholder: 'Cédula del encargado',
               controller: _supervisor,
               keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
               trailing: actor.isStrictAdmin && workers.isNotEmpty
                   ? GestureDetector(
                       onTap: () => _pickSupervisor(workers),
-                      child: Text('Elegir', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.cTextPrimary)),
+                      child: const Text('Elegir', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF007AFF))),
                     )
                   : null,
             ),

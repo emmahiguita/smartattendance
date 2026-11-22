@@ -28,6 +28,7 @@ class AttendanceCreate(BaseModel):
     longitud: float | None = None
     direccion: str | None = None
     uuid_marca: str | None = None
+    foto_url: str | None = None
 
 
 class AttendanceResponse(BaseModel):
@@ -42,6 +43,7 @@ class AttendanceResponse(BaseModel):
     longitud: float | None = None
     direccion: str | None = None
     uuid_marca: str | None = None
+    foto_url: str | None = None
     created_at: datetime
 
 

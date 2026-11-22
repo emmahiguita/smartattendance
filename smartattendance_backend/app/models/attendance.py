@@ -43,6 +43,7 @@ class Attendance(Base):
     longitud: Mapped[float] = mapped_column(Float, nullable=True)
     direccion: Mapped[str] = mapped_column(String, nullable=True)
     uuid_marca: Mapped[str | None] = mapped_column(String, nullable=True, unique=True, index=True)
+    foto_url: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

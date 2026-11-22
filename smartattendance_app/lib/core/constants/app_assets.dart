@@ -1,7 +1,7 @@
 // ============================================================================
 // ARCHIVO: app_assets.dart
 // QUÉ HACE: Registro centralizado de recursos gráficos (logos, banners e iconos)
-//           del kit visual oficial de Serviciudad E.S.P. sin duplicados.
+//           del kit visual oficial de BuenTiempo sin duplicados.
 // CÓMO FUNCIONA: Constantes fuertemente tipadas organizadas por categoría con
 //                soporte para carga directa mediante `Image.asset`.
 // POR QUÉ: Evita strings mágicos y archivos duplicados en el bundle (< 180 líneas).
@@ -9,13 +9,11 @@
 
 abstract final class AppAssets {
   // ── LOGOS ──
-  static const String logoOficialReal =
-      'assets/logos/serviciudad_oficial_logo.png';
-  static const String logoCompletoVertical =
-      'assets/logos/logo_completo_vertical.png';
-  static const String logoHorizontal = 'assets/logos/logo_horizontal.png';
-  static const String simboloSinFondo = 'assets/logos/simbolo_sin_fondo.png';
-  static const String logoOficial = 'assets/logos/serviciudad_oficial_logo.png';
+  static const String logoOficialReal = 'assets/logo.png';
+  static const String logoCompletoVertical = 'assets/logo.png';
+  static const String logoHorizontal = 'assets/logo.png';
+  static const String simboloSinFondo = 'assets/logo.png';
+  static const String logoOficial = 'assets/logo.png';
 
   // ── FONDOS Y WALLPAPERS ──
   static const String fondoPantalla = 'assets/images/fondo_pantalla.png';

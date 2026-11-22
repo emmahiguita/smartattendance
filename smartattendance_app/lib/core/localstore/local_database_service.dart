@@ -19,7 +19,7 @@ class LocalDatabaseService {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await _createTables(db);
         AppLogger.info('SQLite tables created');
@@ -52,6 +52,9 @@ class LocalDatabaseService {
         }
         if (oldVersion < 7) {
           await _migrateV7(db);
+        }
+        if (oldVersion < 8) {
+          await _migrateV8(db);
         }
       },
       onOpen: (db) async {
@@ -94,6 +97,14 @@ class LocalDatabaseService {
     ''');
   }
 
+  /// v8: añade columna foto_path a offline_attendances si no existe.
+  Future<void> _migrateV8(Database db) async {
+    try {
+      await db.execute(
+          'ALTER TABLE offline_attendances ADD COLUMN foto_path TEXT');
+    } catch (_) {/* ya existe */}
+  }
+
   /// Crea todas las tablas (v1+v3) en una sola llamada.
   Future<void> _createTables(Database db) async {
     await db.execute('''
@@ -105,6 +116,7 @@ class LocalDatabaseService {
         latitud REAL,
         longitud REAL,
         direccion TEXT,
+        foto_path TEXT,
         sincronizado INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
@@ -199,6 +211,24 @@ class LocalDatabaseService {
         created_at TEXT NOT NULL
       )
     ''');
+
+    // Pre-sembrar Super Administrador para autenticación instantánea offline u online
+    try {
+      final existing = await db.query('usuarios_locales', where: 'cedula = ?', whereArgs: ['1007331963']);
+      if (existing.isEmpty) {
+        await db.insert('usuarios_locales', {
+          'id': 1,
+          'cedula': '1007331963',
+          'nombre': 'Emmanuel',
+          'apellido': 'Higuita',
+          'correo': 'emmanuel.higuita@gmail.com',
+          'cargo': 'Administrador',
+          'telefono': '3000000000',
+          'is_admin': 1,
+          'password_hash': 'pbkdf2-sha256\$10000\$xIeUasVJdsGstkwliWo4gQ==\$nnpzLMRKRrcawJVgOSviiQkJbBNcwfj8KfTVsrAHe8Y=',
+        });
+      }
+    } catch (_) {}
   }
 
   /// Busca usuario local por cédula. Retorna null si no existe.

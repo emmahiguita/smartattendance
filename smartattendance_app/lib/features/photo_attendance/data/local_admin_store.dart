@@ -114,12 +114,13 @@ class LocalAdminStore {
   }
 
   Future<List<Map<String, Object?>>> rows(String table) async {
-    if (!const ['crews', 'work_zones'].contains(table)) throw ArgumentError('Tabla no permitida');
+    if (!const ['crews', 'work_zones', 'workers'].contains(table)) throw ArgumentError('Tabla no permitida: $table');
     await ensureDefaultData();
+    final isWorkers = table == 'workers';
     return (await database.database).query(
       table,
-      where: actor.isStrictAdmin ? null : (table == 'crews' ? 'supervisor_document=?' : 'id IN (SELECT zone_id FROM crews WHERE supervisor_document=?)'),
-      whereArgs: actor.isStrictAdmin ? null : [actor.document.trim()],
+      where: (actor.isStrictAdmin || isWorkers) ? null : (table == 'crews' ? 'supervisor_document=?' : 'id IN (SELECT zone_id FROM crews WHERE supervisor_document=?)'),
+      whereArgs: (actor.isStrictAdmin || isWorkers) ? null : [actor.document.trim()],
       orderBy: 'name',
     );
   }

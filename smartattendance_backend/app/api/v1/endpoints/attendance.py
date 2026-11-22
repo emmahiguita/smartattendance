@@ -4,7 +4,7 @@ Attendance endpoints — CRUD for attendance records.
 SRP: router delegates all logic to AttendanceService.
 """
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, UploadFile, File
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -59,6 +59,57 @@ def sync_offline_attendance(
             for r in records
         ]
     return AttendanceService(db).sync_offline_batch(records, background_tasks)
+
+
+@router.post("/photo-mark", response_model=AttendanceResponse, status_code=201, summary="Registrar marcación biométrica con foto")
+async def register_photo_mark(
+    cedula: str = Query(..., description="Cédula del colaborador"),
+    tipo: str = Query(..., description="Tipo de marcación"),
+    uuid_marca: str = Query(..., description="UUID generado en el dispositivo"),
+    latitud: float | None = Query(None),
+    longitud: float | None = Query(None),
+    direccion: str | None = Query(None),
+    foto: UploadFile = File(None, description="Foto de evidencia biométrica"),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AttendanceResponse:
+    """Registra una marcación con evidencia fotográfica y coordenadas GPS."""
+    from app.repositories.user_repository import UserRepository
+    from app.repositories.attendance_repository import AttendanceRepository
+    from app.core.file_storage import STATIC_DIRECTORY
+
+    user = UserRepository(db).get_by_cedula(cedula)
+    if not user:
+        raise HTTPException(status_code=404, detail="Colaborador no encontrado.")
+
+    att_repo = AttendanceRepository(db)
+    existing = att_repo.get_by_uuid_marca(uuid_marca)
+    if existing:
+        return AttendanceResponse.model_validate(existing)
+
+    foto_url = None
+    if foto:
+        photos_dir = STATIC_DIRECTORY / "attendance_photos"
+        photos_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{uuid_marca}.jpg"
+        filepath = photos_dir / filename
+        content = await foto.read()
+        filepath.write_bytes(content)
+        foto_url = f"/static/attendance_photos/{filename}"
+
+    create_data = AttendanceCreate(
+        usuario_id=user.id,
+        tipo=tipo,
+        latitud=latitud,
+        longitud=longitud,
+        direccion=direccion,
+        uuid_marca=uuid_marca,
+        foto_url=foto_url,
+    )
+    if background_tasks is None:
+        background_tasks = BackgroundTasks()
+    return AttendanceService(db).register(create_data, background_tasks)
 
 
 

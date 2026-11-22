@@ -3,8 +3,9 @@
 // QUÉ HACE: Muestra las operaciones administrativas (Equipos, Personal,
 //           Horarios, Extras) según permisos RBAC del actor autenticado.
 // CÓMO FUNCIONA: Navega mediante `CupertinoSlidingSegmentedControl` con divisor
-//                fino de 0.5px, respuesta háptica y transición fluida iOS.
-// POR QUÉ: Aprovecha el ancho y alto del teléfono con estética iOS (< 155 líneas).
+//                fino de 0.5px, respuesta háptica y transición fluida `FadeTransition`
+//                anclada arriba sin saltos de altura ni recreación destructiva.
+// POR QUÉ: Aprovecha el ancho y alto del teléfono con estética iOS (< 165 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
@@ -26,13 +27,33 @@ class AdminManagementScreen extends ConsumerStatefulWidget {
       _AdminManagementScreenState();
 }
 
-class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
+class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedTab = 0;
   String? _staffFilter;
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 170),
+      value: 1.0,
+    );
+    _fadeAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
 
   // QUÉ HACE: Renderiza la etiqueta de cada segmento con transición de peso tipográfico.
-  // CÓMO: Usa AnimatedDefaultTextStyle con curva easeOutCubic.
-  // POR QUÉ: Evita saltos bruscos al deslizar el selector segmentado iOS.
   Widget _tab(int index, String label) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
         child: AnimatedDefaultTextStyle(
@@ -51,7 +72,6 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
   @override
   Widget build(BuildContext context) {
     final actor = ref.watch(localActorProvider);
-    final disableAnim = MediaQuery.disableAnimationsOf(context);
     if (!actor.isAdmin) {
       return Center(
         child: Padding(
@@ -87,14 +107,19 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
       );
     }
 
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 94;
+
     return ColoredBox(
       color: context.isDark ? Colors.black : context.cBackground,
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-        child: Column(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1020),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: EdgeInsets.fromLTRB(16, 10, 16, bottomClearance),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             CupertinoSlidingSegmentedControl<int>(
@@ -114,28 +139,17 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
                 if (value != null && value != _selectedTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = value);
+                  if (!MediaQuery.disableAnimationsOf(context)) {
+                    _fadeCtrl.forward(from: 0.0);
+                  }
                 }
               },
             ),
             const SizedBox(height: 10),
             Divider(height: 1, thickness: 0.5, color: context.cBorder),
             const SizedBox(height: 10),
-            AnimatedSwitcher(
-              duration: disableAnim
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.015, 0),
-                    end: Offset.zero,
-                  ).animate(anim),
-                  child: child,
-                ),
-              ),
+            FadeTransition(
+              opacity: _fadeAnim,
               child: switch (_selectedTab) {
                 0 => const HrReportsTab(key: ValueKey('reports')),
                 1 => HrStaffTab(
@@ -149,6 +163,8 @@ class _AdminManagementScreenState extends ConsumerState<AdminManagementScreen> {
               },
             ),
           ],
+        ),
+      ),
         ),
       ),
     );

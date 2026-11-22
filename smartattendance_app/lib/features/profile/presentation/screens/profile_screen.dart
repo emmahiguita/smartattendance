@@ -33,15 +33,21 @@ class ProfileScreen extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
     final user = session is SessionAuthenticated ? session.user : null;
     final isAdmin = ref.watch(localActorProvider).isAdmin;
-    final avatarFile = EmployeeAvatarService.resolveFile(user?.fotoUrl);
+    final avatarFile =
+        EmployeeAvatarService.resolveFile(user?.fotoUrl, user?.cedula);
     final initial =
         (user?.nombre ?? '').isEmpty ? '?' : user!.nombre[0].toUpperCase();
 
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 94;
+
     return ColoredBox(
       color: context.isDark ? Colors.black : context.cBackground,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-        children: [
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 880),
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(16, 14, 16, bottomClearance),
+            children: [
           Row(
             children: [
               Semantics(
@@ -152,6 +158,8 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
         ],
+      ),
+        ),
       ),
     );
   }

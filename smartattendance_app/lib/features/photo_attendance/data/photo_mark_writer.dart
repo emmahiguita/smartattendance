@@ -17,6 +17,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/location/traccar_service.dart';
+import '../../../../core/localstore/local_database_service.dart';
 import '../../../../core/utils/attendance_type.dart';
 import '../domain/attendance_location.dart';
 import '../domain/local_actor.dart';
@@ -139,6 +140,40 @@ class PhotoMarkWriter {
           'operator_document': actor.document,
         };
         await tx.insert('photo_marks', row);
+
+        // Encolado transparente para sincronización automática en la nube
+        try {
+          final localDb = LocalDatabaseService();
+          var localUser = await localDb.getLocalUserByCedula(worker.document);
+          if (localUser == null) {
+            final nextId = await localDb.nextLocalUserId();
+            final nameParts = (employee['name'] as String? ?? 'Colaborador').split(' ');
+            final firstName = nameParts.first;
+            final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+            await localDb.insertLocalUser({
+              'id': nextId,
+              'cedula': worker.document,
+              'nombre': firstName,
+              'apellido': lastName,
+              'cargo': employee['job'] as String? ?? 'Operario',
+              'is_admin': 0,
+            });
+            localUser = await localDb.getLocalUserByCedula(worker.document);
+          }
+          final userId = (localUser?['id'] as int?) ?? worker.id;
+          await localDb.insertOfflineAttendance({
+            'uuid_marca': id,
+            'usuario_id': userId,
+            'fecha_hora_local': now.toIso8601String(),
+            'tipo': type,
+            'latitud': location.latitude,
+            'longitud': location.longitude,
+            'direccion': employee['zone_name'] ?? 'Zona Operativa',
+            'foto_path': photo.path,
+            'sincronizado': 0,
+            'created_at': now.toIso8601String(),
+          });
+        } catch (_) {}
 
         if (type == 'salida') {
           await tx.update('journeys', {'status': 'closed'}, where: 'id = ?', whereArgs: [journey]);

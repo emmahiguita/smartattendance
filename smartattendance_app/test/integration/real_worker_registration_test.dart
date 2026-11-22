@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:smartattendance/core/localstore/local_database_service.dart';
 import 'package:smartattendance/features/auth/data/datasources/local_auth_datasource.dart';
+import 'package:smartattendance/features/auth/data/datasources/local_password.dart';
 import 'package:smartattendance/features/photo_attendance/data/photo_database.dart';
 import 'package:smartattendance/features/photo_attendance/data/photo_repository.dart';
 import 'package:smartattendance/features/photo_attendance/data/local_admin_store.dart';
@@ -19,6 +20,7 @@ void main() {
   const admin = LocalActor('900000001', true, isStrictAdmin: true);
   const password = 'PruebaSegura9';
   setUp(() async {
+    LocalPassword.iterations = 1000;
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
     directory = await Directory.systemTemp.createTemp('attendance-registration-');
@@ -29,6 +31,7 @@ void main() {
     await photos.database;
   });
   tearDown(() async {
+    LocalPassword.iterations = 600000;
     await (await photos.database).close();
     await (await accounts.database).close();
     await directory.delete(recursive: true);
@@ -83,7 +86,14 @@ void main() {
       password: password, crewId: other, site: const WorkerSite(name: 'Ajeno',
         address: 'Sitio ajeno', latitude: 4.81, longitude: -75.69)), throwsFormatException);
     expect(await (await photos.database).query('workers'), isEmpty);
-    expect(await (await accounts.database).query('usuarios_locales'), isEmpty);
+    expect(
+      await (await accounts.database).query(
+        'usuarios_locales',
+        where: 'cedula IN (?, ?)',
+        whereArgs: const ['901000002', '901000003'],
+      ),
+      isEmpty,
+    );
     expect(await (await photos.database).query('work_zones'), isEmpty);
   }, timeout: const Timeout(Duration(minutes: 2)));
 

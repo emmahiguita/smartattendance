@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/network/connectivity_service.dart';
 import '../../../../core/auth/session_controller.dart';
+import '../../../../core/auth/token_store.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/localstore/secure_storage_provider.dart';
@@ -60,10 +61,10 @@ class OfflineSyncController extends StateNotifier<OfflineSyncState> {
   final FlutterSecureStorage _storage;
 
   /// Retorna true si la sesión actual es real (token del backend),
-  /// false si es la sesión offline falsa ("local-offline-token").
+  /// false si es una sesión offline o local (TokenStore.isLocalToken).
   Future<bool> _hasRealSession() async {
     final token = await _storage.read(key: AppConfig.keyAccessToken);
-    return token != null && token != 'local-offline-token';
+    return token != null && !TokenStore.isLocalToken(token);
   }
 
   Future<void> _init() async {

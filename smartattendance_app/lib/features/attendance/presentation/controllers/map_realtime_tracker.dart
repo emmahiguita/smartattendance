@@ -18,7 +18,7 @@ import '../../../photo_attendance/domain/work_zone.dart';
 class MapRealtimeTracker extends ChangeNotifier {
   MapRealtimeTracker({required PhotoDatabase database, String? userDocument})
       : _database = database,
-        _userDocument = userDocument ?? 'serviciudad-gps';
+        _userDocument = userDocument ?? 'buentiempo-gps';
 
   final PhotoDatabase _database;
   final String _userDocument;

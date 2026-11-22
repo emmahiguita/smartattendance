@@ -41,6 +41,7 @@ ATTENDANCE_NULLABLE_COLUMNS = {
     "longitud":  "FLOAT",
     "direccion": "VARCHAR",
     "uuid_marca": "VARCHAR",
+    "foto_url":   "VARCHAR",
 }
 
 
@@ -55,8 +56,8 @@ def run_migrations(engine: Engine) -> None:
 
     with Session(engine) as db:
         _migrate_users_columns(db, engine)
-        _migrate_attendance_columns(db, engine)
         _migrate_attendance_type(db)
+        _migrate_attendance_columns(db, engine)
 
 
 # ── Users ────────────────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ def _migrate_attendance_type(db: Session) -> None:
             longitud    FLOAT,
             direccion   VARCHAR,
             uuid_marca  VARCHAR,
+            foto_url    VARCHAR,
             created_at  DATETIME,
             CONSTRAINT fk_attendance_user FOREIGN KEY(usuario_id) REFERENCES users (id)
         )
@@ -145,12 +147,17 @@ def _migrate_attendance_type(db: Session) -> None:
     db.execute(text("CREATE INDEX IF NOT EXISTS ix_attendance_usuario_id ON attendance (usuario_id)"))
     db.execute(text("CREATE INDEX IF NOT EXISTS ix_attendance_uuid_marca ON attendance (uuid_marca)"))
 
+    old_cols = [r[1] for r in db.execute(text("PRAGMA table_info('attendance_old')")).fetchall()]
+    uuid_expr = "uuid_marca" if "uuid_marca" in old_cols else "NULL"
+    foto_expr = "foto_url" if "foto_url" in old_cols else "NULL"
+
     db.execute(text(
-        """
+        f"""
         INSERT INTO attendance
-            (id, usuario_id, fecha, hora, tipo, latitud, longitud, direccion, uuid_marca, created_at)
+            (id, usuario_id, fecha, hora, tipo, latitud, longitud, direccion, uuid_marca, foto_url, created_at)
         SELECT id, usuario_id, fecha, hora, tipo, latitud, longitud, direccion,
-               CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('attendance_old') WHERE name='uuid_marca') THEN uuid_marca ELSE NULL END,
+               {uuid_expr},
+               {foto_expr},
                created_at
         FROM attendance_old
         """

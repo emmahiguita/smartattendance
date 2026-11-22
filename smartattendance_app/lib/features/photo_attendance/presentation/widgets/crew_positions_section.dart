@@ -12,6 +12,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/design_system/aqua_gloss_button.dart';
 import '../../../../core/design_system/ios_modal_scaffold.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -90,27 +91,13 @@ class CrewPositionsSection extends StatelessWidget {
                     ),
                   ),
                   if (isStrictAdmin)
-                    InkWell(
-                      onTap: () => _promptNewPosition(context),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(CupertinoIcons.add_circled_solid, size: 14, color: context.cTextPrimary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Crear puesto',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: context.cTextPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    AquaGlossButton(
+                      icon: CupertinoIcons.plus,
+                      label: 'Crear puesto',
+                      compact: true,
+                      topColor: const Color(0xFF1E4E79),
+                      bottomColor: const Color(0xFF0A2540),
+                      onPressed: () => _promptNewPosition(context),
                     ),
                 ],
               ),

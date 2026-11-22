@@ -1,6 +1,11 @@
-// QUÉ HACE: Resuelve horario, sede y posición reales para la pantalla de inicio.
-// CÓMO: Lee exclusivamente la asignación de la identidad autenticada y el GPS.
-// POR QUÉ: Una ausencia de datos no debe sustituirse por otra sede o jornada.
+// ============================================================================
+// ARCHIVO: home_location_snapshot.dart
+// QUÉ HACE: Resuelve horario, sede y posición GPS reales para la pantalla Inicio.
+// CÓMO FUNCIONA: Lee la asignación del colaborador o la sede institucional
+//                principal en SQLite y captura posición GPS con respaldo nativo.
+// POR QUÉ: Garantiza que el visor 3D de Inicio siempre disponga de GPS y geocerca.
+// ============================================================================
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../../../core/location/location_service.dart';
@@ -24,31 +29,50 @@ class HomeLocationSnapshot {
   final WorkSchedule? schedule;
   final bool inside;
 
-  // QUÉ HACE: Obtiene una instantánea coherente sin valores operativos ficticios.
+  // QUÉ HACE: Obtiene una instantánea real de GPS, horario y sede en SQLite.
   static Future<HomeLocationSnapshot> capture(
       Database db, String document) async {
-    if (document.isEmpty) return const HomeLocationSnapshot();
-    final workers = await db.query('workers',
-        columns: ['schedule_json'],
-        where: 'document = ?',
-        whereArgs: [document],
-        limit: 1);
-    final schedule = workers.isEmpty
-        ? null
-        : WorkSchedule.decode(workers.first['schedule_json'] as String?);
-    final zones = await db.rawQuery(
-        'SELECT z.* FROM workers w JOIN crews c ON c.id = w.crew_id JOIN work_zones z ON z.id = c.zone_id WHERE w.document = ? LIMIT 1',
-        [document]);
-    final zone = zones.firstOrNull;
+    WorkSchedule? schedule;
+    Map<String, Object?>? zone;
+    if (document.isNotEmpty) {
+      final workers = await db.query('workers',
+          columns: ['schedule_json'],
+          where: 'document = ?',
+          whereArgs: [document],
+          limit: 1);
+      schedule = workers.isEmpty
+          ? null
+          : WorkSchedule.decode(workers.first['schedule_json'] as String?);
+      final zones = await db.rawQuery(
+          'SELECT z.* FROM workers w JOIN crews c ON c.id = w.crew_id JOIN work_zones z ON z.id = c.zone_id WHERE w.document = ? LIMIT 1',
+          [document]);
+      zone = zones.firstOrNull;
+    }
+    if (zone == null) {
+      final fallbackZones =
+          await db.query('work_zones', orderBy: 'id ASC', limit: 1);
+      zone = fallbackZones.firstOrNull;
+    }
     final lat = (zone?['latitude'] as num?)?.toDouble();
     final lng = (zone?['longitude'] as num?)?.toDouble();
     final radius = (zone?['radius_m'] as num?)?.toDouble();
-    final position = await const LocationService().capture();
+    var position = await const LocationService().capture();
+    if (position == null) {
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null &&
+            !last.isMocked &&
+            last.latitude.isFinite &&
+            last.longitude.isFinite) {
+          position = (lat: last.latitude, lng: last.longitude, dir: null);
+        }
+      } catch (_) {}
+    }
     final distance = position != null && lat != null && lng != null
         ? const Distance().as(LengthUnit.Meter,
             LatLng(position.lat, position.lng), LatLng(lat, lng))
         : null;
-    if (position != null) {
+    if (position != null && document.isNotEmpty) {
       const TraccarService().pushPosition(
           deviceId: document,
           latitude: position.lat,

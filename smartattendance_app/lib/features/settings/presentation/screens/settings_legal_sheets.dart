@@ -104,7 +104,7 @@ void showLegalTermsModal(BuildContext context) {
                     context,
                     number: '2',
                     title: 'Licencia de Uso Institucional',
-                    body: 'Se concede a la organización Serviciudad E.S.P. una licencia de uso corporativo para el '
+                    body: 'Se concede a la organización licenciataria una licencia de uso corporativo en ${AppConfig.companyName} para el '
                         'control de jornada laboral, geocercas satelitales y gestión operativa de cuadrillas.',
                   ),
                   _legalParagraph(
@@ -173,7 +173,7 @@ void showPrivacyPolicyModal(BuildContext context) {
                     context,
                     number: '1',
                     title: 'Responsable del Tratamiento',
-                    body: 'Serviciudad E.S.P. y la plataforma ${AppConfig.appName} tratan los datos del personal en cumplimiento de la Ley 1581 de 2012 y normas de Habeas Data.',
+                    body: 'La plataforma ${AppConfig.appName} y la organización autorizada tratan los datos del personal en cumplimiento de la Ley 1581 de 2012 y normas de Habeas Data.',
                   ),
                   _legalParagraph(
                     context,

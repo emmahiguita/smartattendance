@@ -25,7 +25,7 @@ import '../../features/photo_attendance/presentation/photo_history_screen.dart';
 import '../../features/profile/presentation/screens/edit_profile_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 
-/// Nombres de rutas corporativas oficiales de Serviciudad E.S.P.
+/// Nombres de rutas corporativas oficiales de BuenTiempo.
 abstract final class AppRoutes {
   static const splash = '/';
   static const login = '/login';

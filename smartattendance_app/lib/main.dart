@@ -1,34 +1,58 @@
-// lib/main.dart
+// ============================================================================
+// ARCHIVO: main.dart
+// QUÉ HACE: Punto de entrada multiplataforma (Android, iOS, Windows, macOS,
+//           Linux) de BuenTiempo con inicialización de SQLite FFI en escritorio
+//           y configuración de orientaciones y tema adaptativo.
+// CÓMO FUNCIONA:
+// 1. En escritorio (`Windows`, `Linux`, `macOS`) inicializa `sqfliteFfiInit()`
+//    y asigna `databaseFactory = databaseFactoryFfi` para que SQLite funcione
+//    nativamente igual que en Android e iOS.
+// 2. En móvil (`Android`, `iOS`) habilita rotación adaptativa y barra de estado.
+// POR QUÉ: Garantiza ejecución multiplataforma 100% real (< 115 líneas).
+// ============================================================================
+
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
-import 'core/router/app_router.dart';
+import 'core/utils/employee_avatar_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('es', null);
 
-  // Habilitar orientaciones vertical y horizontal adaptativa (Material Expressive)
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  // Inicialización SQLite FFI para ejecución nativa en Windows, macOS y Linux
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    try {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    } catch (_) {}
+  }
+
+  await initializeDateFormatting('es', null);
+  await EmployeeAvatarService.ensureInitialized();
+
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
 
   runApp(
-    // ProviderScope: DIP root — all providers resolved here.
     const ProviderScope(child: SmartAttendanceApp()),
   );
 }
 
-/// Application root widget.
-/// SRP: only sets up MaterialApp and routing.
 class SmartAttendanceApp extends ConsumerWidget {
   const SmartAttendanceApp({super.key});
 
@@ -36,18 +60,14 @@ class SmartAttendanceApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeControllerProvider);
-
-    // Barra de estado acorde al tema activo (antes era forzada a iconos
-    // oscuros siempre → invisibles en dark mode).
     _applySystemOverlay(context, themeMode);
 
     return MaterialApp.router(
-      title: 'Buentiempo',
+      title: 'BuenTiempo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode, // Preferencia del usuario (Configuración)
-      // Español: textos nativos de Material (calendario, diálogos, etc.)
+      themeMode: themeMode,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -59,8 +79,6 @@ class SmartAttendanceApp extends ConsumerWidget {
     );
   }
 
-  /// Ajusta el contraste de la barra de estado al brillo efectivo.
-  /// Se re-ejecuta en cada build (el themeMode se observa arriba).
   void _applySystemOverlay(BuildContext context, ThemeMode themeMode) {
     final systemDark =
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
@@ -72,7 +90,6 @@ class SmartAttendanceApp extends ConsumerWidget {
 
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      // Fondo oscuro → iconos claros; fondo claro → iconos oscuros.
       statusBarIconBrightness:
           effectiveDark ? Brightness.light : Brightness.dark,
       statusBarBrightness: effectiveDark ? Brightness.dark : Brightness.light,

@@ -1,4 +1,6 @@
 // lib/features/attendance/data/repositories/attendance_repository_impl.dart
+import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -137,6 +139,17 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
         'Sincronizando ${pending.length} registros de asistencia offline con el backend...');
 
     final recordsPayload = pending.map((row) {
+      String? base64Photo;
+      final fotoPath = row['foto_path'] as String?;
+      if (fotoPath != null && fotoPath.isNotEmpty) {
+        try {
+          final file = File(fotoPath);
+          if (file.existsSync() && file.lengthSync() <= 5 * 1024 * 1024) {
+            base64Photo = base64Encode(file.readAsBytesSync());
+          }
+        } catch (_) {}
+      }
+
       return {
         'uuid_marca': row['uuid_marca'],
         'usuario_id': row['usuario_id'],
@@ -145,6 +158,7 @@ final class AttendanceRepositoryImpl implements AttendanceRepository {
         'latitud': row['latitud'],
         'longitud': row['longitud'],
         'direccion': row['direccion'],
+        if (base64Photo != null) 'foto_base64': base64Photo,
       };
     }).toList();
 

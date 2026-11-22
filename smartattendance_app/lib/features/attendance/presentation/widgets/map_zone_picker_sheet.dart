@@ -66,11 +66,13 @@ void showMapZonePickerSheet({
                     title: Text(z.name,
                         style: TextStyle(
                             fontSize: 14,
+                            color: context.cTextPrimary,
                             fontWeight:
                                 isSel ? FontWeight.w700 : FontWeight.w500)),
                     subtitle: Text(
-                        '${z.address ?? 'Dosquebradas'} • Radio ${z.radius.round()} m',
-                        style: const TextStyle(fontSize: 12)),
+                        '${(z.address ?? '').trim().isEmpty ? 'Sin dirección registrada' : z.address} · Radio ${z.radius.round()} m',
+                        style: TextStyle(
+                            fontSize: 12, color: context.cTextSecondary)),
                     trailing: isSel
                         ? const Icon(CupertinoIcons.checkmark_alt,
                             color: Color(0xFF007AFF), size: 18)

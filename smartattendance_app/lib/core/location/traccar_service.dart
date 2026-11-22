@@ -70,7 +70,7 @@ class TraccarService {
     final serverUrl = await getServerUrl();
     final now = DateTime.now();
     final cleanId =
-        deviceId.trim().isEmpty ? 'serviciudad-node' : deviceId.trim();
+        deviceId.trim().isEmpty ? 'buentiempo-node' : deviceId.trim();
     if (serverUrl.isEmpty) {
       return TraccarSyncResult(
         ok: false,
@@ -79,12 +79,12 @@ class TraccarService {
         syncedAt: now,
       );
     }
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
+      validateStatus: (status) => status != null && status < 500,
+    ));
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 5),
-        validateStatus: (status) => status != null && status < 500,
-      ));
       final response = await dio.post<dynamic>(
         serverUrl,
         queryParameters: {
@@ -115,6 +115,8 @@ class TraccarService {
         statusText: 'Telemetría guardada local (Servidor en espera)',
         syncedAt: now,
       );
+    } finally {
+      dio.close();
     }
   }
 
@@ -155,12 +157,12 @@ class TraccarService {
         return LatLng(locations.first.latitude, locations.first.longitude);
       }
     } catch (_) {}
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
+      headers: const {'User-Agent': 'BuenTiempoAttendance/1.0'},
+    ));
     try {
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 5),
-        headers: const {'User-Agent': 'SmartAttendanceServiciudad/1.0'},
-      ));
       final res = await dio.get<List<dynamic>>(
         'https://nominatim.openstreetmap.org/search',
         queryParameters: {'q': fullQuery, 'format': 'json', 'limit': '1'},
@@ -172,7 +174,10 @@ class TraccarService {
         final lon = double.tryParse('${item['lon']}');
         if (lat != null && lon != null) return LatLng(lat, lon);
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      dio.close();
+    }
     return null;
   }
 

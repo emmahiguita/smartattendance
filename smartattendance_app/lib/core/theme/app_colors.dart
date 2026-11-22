@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 // ignore_for_file: non_constant_identifier_names
 
 abstract final class AppColors {
-  // ── Núcleo Metálico Serviciudad Titanium Enterprise ──
+  // ── Núcleo Metálico BuenTiempo Titanium Enterprise ──
   // Gris platino legible tanto en modo oscuro (#000000) como claro (#FFFFFF)
   // cuando un widget legado referencia AppColors.primary directamente.
   static const Color primary = Color(0xFF94A3B8);

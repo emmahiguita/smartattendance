@@ -85,15 +85,18 @@ class TomTomTrafficProvider implements TrafficProvider {
   }
 
   /// QUÉ HACE: Consulta la velocidad de tráfico real en el punto satelital del usuario.
-  /// CÓMO: Invoca `flowSegmentData` de TomTom v4 y decodifica el JSON.
+  /// CÓMO: Valida primero una API key real (fail-fast sin peticiones 403 zombi),
+  ///       invoca `flowSegmentData` de TomTom v4 y cierra el cliente `Dio` en `finally`.
+  /// POR QUÉ: Evita fugas de sockets y gasto de red/batería cada 25 s si no hay key propia.
   @override
   Future<TrafficFlowInfo?> fetchPointFlow(double lat, double lng) async {
+    final key = await _resolveKey();
+    if (key.isEmpty || key == defaultPublicDevKey) return null;
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 4),
+      receiveTimeout: const Duration(seconds: 4),
+    ));
     try {
-      final key = await _resolveKey();
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 4),
-        receiveTimeout: const Duration(seconds: 4),
-      ));
       const url = 'https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json';
       final res = await dio.get<Map<String, dynamic>>(
         url,
@@ -121,6 +124,8 @@ class TomTomTrafficProvider implements TrafficProvider {
       );
     } catch (_) {
       return null;
+    } finally {
+      dio.close();
     }
   }
 }

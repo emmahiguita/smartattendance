@@ -5,7 +5,8 @@ from app.models.attendance import Attendance
 from app.models.qr_code import QRCode
 from app.models.message import Message
 from app.models.auth_state import AuthSession, PasswordChallenge
+from app.models.crew import WorkZone, Crew, CrewPosition
 
-__all__ = ["User", "Attendance", "QRCode", "Message"]
+__all__ = ["User", "Attendance", "QRCode", "Message", "WorkZone", "Crew", "CrewPosition"]
 
 

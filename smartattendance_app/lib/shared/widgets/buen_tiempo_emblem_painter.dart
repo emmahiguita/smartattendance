@@ -27,7 +27,13 @@ import '../../core/theme/buen_tiempo_colors.dart';
 /// - S (Single Responsibility): Exclusivamente calcula y dibuja la geometría del logo.
 /// ============================================================================
 class BuenTiempoEmblemPainter extends CustomPainter {
-  const BuenTiempoEmblemPainter();
+  final Color clockColor;
+  final Color checkColor;
+
+  const BuenTiempoEmblemPainter({
+    this.clockColor = BuenTiempoColors.navy,
+    this.checkColor = BuenTiempoColors.teal,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -75,10 +81,10 @@ class BuenTiempoEmblemPainter extends CustomPainter {
     }
 
     // -------------------------------------------------------------------------
-    // 2. DIAL DEL RELOJ (Azul Marino Corporativo)
+    // 2. DIAL DEL RELOJ (Azul Marino / Blanco adaptativo en modo oscuro)
     // -------------------------------------------------------------------------
     final clockPaint = Paint()
-      ..color = BuenTiempoColors.navy
+      ..color = clockColor
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = strokeWidth;
@@ -94,7 +100,7 @@ class BuenTiempoEmblemPainter extends CustomPainter {
 
     // Marcas horarias interiores (12, 3, 6, 9)
     final tickPaint = Paint()
-      ..color = BuenTiempoColors.navy
+      ..color = clockColor
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = strokeWidth * 0.70;
@@ -129,7 +135,7 @@ class BuenTiempoEmblemPainter extends CustomPainter {
     // 3. CHECKMARK CENTRAL (Verde Azulado / Asistencia a Tiempo)
     // -------------------------------------------------------------------------
     final checkPaint = Paint()
-      ..color = BuenTiempoColors.teal
+      ..color = checkColor
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -144,5 +150,7 @@ class BuenTiempoEmblemPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant BuenTiempoEmblemPainter oldDelegate) =>
+      oldDelegate.clockColor != clockColor ||
+      oldDelegate.checkColor != checkColor;
 }

@@ -42,9 +42,9 @@ enum MapCartoStyle {
     fallback: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   ),
 
-  // ── 4. Topográfico: Google Maps Terrain con cotas de elevación ──
+  // ── 4. Topográfico / Relieve: Google Maps Terrain con cotas de elevación ──
   topo(
-    'Topográfico',
+    'Relieve',
     'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
     CupertinoIcons.compass,
     subdomains: ['0', '1', '2', '3'],
@@ -74,8 +74,13 @@ enum MapCartoStyle {
     this.fallback,
   });
 
-  MapCartoStyle get next =>
-      MapCartoStyle.values[(index + 1) % MapCartoStyle.values.length];
+  // QUÉ HACE: Cicla entre los 4 planos cartográficos principales (Calles -> Satélite -> Relieve -> Nocturno).
+  MapCartoStyle get next => switch (this) {
+        MapCartoStyle.streets => MapCartoStyle.satellite,
+        MapCartoStyle.satellite => MapCartoStyle.topo,
+        MapCartoStyle.topo => MapCartoStyle.dark,
+        MapCartoStyle.dark || MapCartoStyle.traffic => MapCartoStyle.streets,
+      };
 }
 
 class MapBaseTileLayer extends StatelessWidget {

@@ -7,6 +7,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../../../../core/location/osrm_routing_service.dart';
 import '../../../../core/location/weather_service.dart';
 import '../controllers/map_realtime_tracker.dart';
 import 'map_carto_style.dart';
@@ -22,12 +23,18 @@ class MapTelemetryHud extends StatelessWidget {
     required this.isStrictAdmin,
     required this.onOpenZoneManager,
     required this.onSelectZoneModal,
+    this.is3DMode = true,
+    this.pitchLabel = '3D 60°',
+    this.onToggle3D,
     this.trafficEnabled = false,
     this.onToggleTraffic,
     this.trafficInfo,
     this.weather,
     this.weatherRadarEnabled = false,
     this.onToggleWeatherRadar,
+    this.activeRoute,
+    this.loadingRoute = false,
+    this.onComputeRoute,
   });
 
   final MapRealtimeTracker tracker;
@@ -36,12 +43,18 @@ class MapTelemetryHud extends StatelessWidget {
   final bool isStrictAdmin;
   final VoidCallback onOpenZoneManager;
   final VoidCallback onSelectZoneModal;
+  final bool is3DMode;
+  final String pitchLabel;
+  final VoidCallback? onToggle3D;
   final bool trafficEnabled;
   final VoidCallback? onToggleTraffic;
   final String? trafficInfo;
   final RealtimeWeatherData? weather;
   final bool weatherRadarEnabled;
   final VoidCallback? onToggleWeatherRadar;
+  final RoadRouteResult? activeRoute;
+  final bool loadingRoute;
+  final VoidCallback? onComputeRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +72,9 @@ class MapTelemetryHud extends StatelessWidget {
           speedKmh: speedKmh,
           currentStyle: currentStyle,
           onCycleStyle: onCycleStyle,
+          is3DMode: is3DMode,
+          pitchLabel: pitchLabel,
+          onToggle3D: onToggle3D,
           trafficEnabled: trafficEnabled,
           onToggleTraffic: onToggleTraffic,
           trafficInfo: trafficInfo,
@@ -74,6 +90,9 @@ class MapTelemetryHud extends StatelessWidget {
           onSelectZoneModal: onSelectZoneModal,
           trafficEnabled: trafficEnabled,
           weather: weather,
+          activeRoute: activeRoute,
+          loadingRoute: loadingRoute,
+          onComputeRoute: onComputeRoute,
         ),
       ],
     );

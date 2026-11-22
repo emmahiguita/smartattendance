@@ -146,6 +146,7 @@ class AttendanceRepository:
             longitud=data.longitud,
             direccion=data.direccion,
             uuid_marca=data.uuid_marca,
+            foto_url=data.foto_url,
         )
         self._db.add(record)
         self._db.commit()
@@ -161,6 +162,7 @@ class AttendanceRepository:
         latitud: float | None = None,
         longitud: float | None = None,
         direccion: str | None = None,
+        foto_url: str | None = None,
     ) -> Attendance:
         record = Attendance(
             usuario_id=usuario_id,
@@ -171,6 +173,7 @@ class AttendanceRepository:
             longitud=longitud,
             direccion=direccion,
             uuid_marca=uuid_marca,
+            foto_url=foto_url,
         )
         self._db.add(record)
         self._db.commit()

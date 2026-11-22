@@ -2,13 +2,14 @@
 // ARCHIVO: employee_avatar_service.dart
 // QUÉ HACE: Gestiona la fotografía real en miniatura de cada empleado
 //           (captura desde Cámara o selección desde Galería), su persistencia
-//           local en el dispositivo y su sincronización inmediata con la sesión.
+//           local multiplataforma (iOS y Android) y su recuperación en disco.
 // CÓMO FUNCIONA:
-// 1. Muestra un `CupertinoActionSheet` para elegir Cámara o Galería (`ImagePicker`).
-// 2. Copia la imagen en `employee_avatars/avatar_<cedula>.jpg`.
-// 3. Actualiza `usuarios_locales` en SQLite y `sessionControllerProvider` en RAM.
-// POR QUÉ: Permite que cualquier empleado o administrador agregue su foto real
-//          y aparezca su miniatura en Inicio, Barra Superior y Perfil (< 115 líneas).
+// 1. `resolveFile` verifica primero `fotoUrl` directo y por `basename` dentro
+//    del contenedor activo de iOS/Android (`ApplicationSupportDirectory`),
+//    evitando pérdida de imagen cuando iOS rota el UUID del sandbox.
+// 2. `pickAndSavePhoto` guarda la imagen en `employee_avatars`, actualiza
+//    SQLite (`usuarios_locales`) y `sessionControllerProvider`.
+// POR QUÉ: Garantiza paridad 100% entre iOS y Android para el avatar (< 165 líneas).
 // ============================================================================
 
 import 'dart:io';
@@ -22,12 +23,69 @@ import '../auth/session_controller.dart';
 import '../localstore/local_database_service.dart';
 
 abstract final class EmployeeAvatarService {
-  /// QUÉ HACE: Resuelve el archivo físico de la foto del empleado si existe.
-  static File? resolveFile(String? fotoUrl) {
-    if (fotoUrl == null || fotoUrl.trim().isEmpty) return null;
-    final clean = fotoUrl.replaceFirst('file://', '').trim();
-    final f = File(clean);
-    if (f.existsSync() && f.lengthSync() > 0) return f;
+  static String? _cachedSupportPath;
+
+  static const List<String> _androidAvatarDirs = [
+    '/data/user/0/io.smartattendance.attendance/files/employee_avatars',
+    '/data/data/io.smartattendance.attendance/files/employee_avatars',
+  ];
+
+  // QUÉ HACE: Pre-carga el directorio de soporte nativo (iOS Library/Application Support
+  //           y Android files) para resolución síncrona inmediata.
+  static Future<void> ensureInitialized() async {
+    if (_cachedSupportPath != null) return;
+    try {
+      final dir = await getApplicationSupportDirectory();
+      _cachedSupportPath = p.join(dir.path, 'employee_avatars');
+    } catch (_) {}
+  }
+
+  // QUÉ HACE: Resuelve sincrónicamente el archivo físico de la foto miniatura
+  //           tanto en iOS (rotación de UUID de contenedor) como en Android.
+  static File? resolveFile(String? fotoUrl, [String? cedula]) {
+    if (_cachedSupportPath == null) {
+      ensureInitialized();
+    }
+
+    if (fotoUrl != null && fotoUrl.trim().isNotEmpty) {
+      final clean = fotoUrl.replaceFirst('file://', '').trim();
+      final direct = File(clean);
+      if (direct.existsSync() && direct.lengthSync() > 0) return direct;
+      if (_cachedSupportPath != null) {
+        final relocated = File(p.join(_cachedSupportPath!, p.basename(clean)));
+        if (relocated.existsSync() && relocated.lengthSync() > 0) {
+          return relocated;
+        }
+      }
+    }
+
+    final candidateDirs = <String>[
+      if (_cachedSupportPath != null) _cachedSupportPath!,
+      ..._androidAvatarDirs,
+    ];
+
+    final cleanCedula = (cedula ?? '').trim();
+    for (final dirPath in candidateDirs) {
+      try {
+        final dir = Directory(dirPath);
+        if (!dir.existsSync()) continue;
+        final files = dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.lengthSync() > 0)
+            .toList();
+        if (files.isEmpty) continue;
+        files.sort(
+            (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+        if (cleanCedula.isNotEmpty) {
+          final match = files
+              .where((f) => p.basename(f.path).contains('avatar_${cleanCedula}_'))
+              .firstOrNull;
+          if (match != null) return match;
+        }
+        return files.first;
+      } catch (_) {}
+    }
     return null;
   }
 
@@ -42,7 +100,8 @@ abstract final class EmployeeAvatarService {
       context: context,
       builder: (ctx) => CupertinoActionSheet(
         title: const Text('Foto Real del Empleado'),
-        message: Text('Selecciona o toma la fotografía de perfil para ${user.fullName}'),
+        message: Text(
+            'Selecciona o toma la fotografía de perfil para ${user.fullName}'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(ctx, ImageSource.camera),
@@ -74,10 +133,13 @@ abstract final class EmployeeAvatarService {
       final supportDir = await getApplicationSupportDirectory();
       final folder = Directory(p.join(supportDir.path, 'employee_avatars'));
       await folder.create(recursive: true);
+      _cachedSupportPath = folder.path;
 
-      final ext = p.extension(picked.path).isNotEmpty ? p.extension(picked.path) : '.jpg';
+      final ext =
+          p.extension(picked.path).isNotEmpty ? p.extension(picked.path) : '.jpg';
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final targetPath = p.join(folder.path, 'avatar_${user.cedula.trim()}_$ts$ext');
+      final targetPath =
+          p.join(folder.path, 'avatar_${user.cedula.trim()}_$ts$ext');
       final savedFile = await File(picked.path).copy(targetPath);
 
       try {
@@ -103,7 +165,9 @@ abstract final class EmployeeAvatarService {
         fotoUrl: savedFile.path,
         isAdmin: user.isAdmin,
       );
-      await ref.read(sessionControllerProvider.notifier).authenticate(updatedUser);
+      await ref
+          .read(sessionControllerProvider.notifier)
+          .authenticate(updatedUser);
     } catch (_) {}
   }
 }

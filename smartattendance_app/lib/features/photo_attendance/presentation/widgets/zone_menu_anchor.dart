@@ -8,8 +8,8 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../zone_dialog.dart';
+import 'textured_3d_action_button.dart';
 
 class ZoneMenuAnchor extends StatelessWidget {
   const ZoneMenuAnchor({super.key, required this.onSaved});
@@ -25,16 +25,12 @@ class ZoneMenuAnchor extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-        style: TextButton.styleFrom(
-          foregroundColor: context.cTextPrimary,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        ),
+  Widget build(BuildContext context) => Textured3DActionButton(
+        icon: CupertinoIcons.location_solid,
+        label: '+ Nueva Zona',
+        topColor: const Color(0xFF0EA5A8),
+        bottomColor: const Color(0xFF007782),
+        depthColor: const Color(0xFF004F57),
         onPressed: () => _openDialog(context),
-        icon: const Icon(CupertinoIcons.location, size: 19),
-        label: const Text(
-          '+ Nueva Zona',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
       );
 }

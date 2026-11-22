@@ -1,11 +1,11 @@
 // ============================================================================
 // ARCHIVO: map_hud_controls.dart
-// QUÉ HACE: Controles superpuestos (HUD) con efecto Glassmorphism para el
-//           visor cartográfico GPS y estado vacío sin spinner infinito.
-// CÓMO FUNCIONA: Renderiza `MapTopHudBar` (coordenadas y estilo),
-//                `MapBottomHudBar` (zoom, centrado y pantalla completa) y
-//                `MapEmptySignalState` (reintento limpio cuando no hay señal).
-// POR QUÉ: Cumple SRP (< 185 líneas) y elimina el bucle infinito de carga GPS.
+// QUÉ HACE: Controles superpuestos (HUD) con efecto Liquid Glass claro/adaptativo
+//           para el visor cartográfico GPS y selector de planos 3D/2D.
+// CÓMO FUNCIONA: Renderiza `MapTopHudBar` (perspectiva 3D/35°/2D, plano y tráfico),
+//                `MapBottomHudBar` (zoom, centrado y seguimiento) y
+//                `MapEmptySignalState` sin spinner infinito.
+// POR QUÉ: Cumple SRP (< 190 líneas) y unifica el diseño claro profesional.
 // ============================================================================
 
 import 'dart:ui';
@@ -23,91 +23,97 @@ class MapTopHudBar extends StatelessWidget {
     required this.hasFix,
     required this.selectedStyle,
     required this.onCycleStyle,
+    this.pitchLabel = '3D 60°',
+    this.is3DActive = true,
+    this.onTogglePitch,
     this.trafficEnabled = false,
     this.onToggleTraffic,
   });
 
   final double latitude, longitude;
-  final bool hasFix;
+  final bool hasFix, is3DActive, trafficEnabled;
   final MapCartoStyle selectedStyle;
+  final String pitchLabel;
   final VoidCallback onCycleStyle;
-  final bool trafficEnabled;
-  final VoidCallback? onToggleTraffic;
+  final VoidCallback? onTogglePitch, onToggleTraffic;
+
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required Color activeColor,
+    required bool isDark,
+    required Color fg,
+    required VoidCallback onTap,
+  }) =>
+      GestureDetector(
+        onTap: onTap,
+        child: _HudGlassPill(
+          isDark: isDark,
+          color: active ? activeColor : null,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 12.5, color: active ? Colors.white : fg),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: active ? Colors.white : fg)),
+          ]),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final dotColor = hasFix ? AppColors.systemGreen : AppColors.systemOrange;
+    final isDark = context.isDark;
+    final fg = isDark ? Colors.white : const Color(0xFF0F172A);
+    final dotColor = hasFix ? const Color(0xFF16A34A) : AppColors.systemOrange;
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       Flexible(
         child: _HudGlassPill(
+          isDark: isDark,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-                width: 7,
-                height: 7,
-                decoration:
-                    BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+            Container(width: 7, height: 7, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                hasFix
-                    ? '${latitude.toStringAsFixed(4)}°, ${longitude.toStringAsFixed(4)}°'
-                    : 'Sin fijación GPS',
+                hasFix ? '${latitude.toStringAsFixed(4)}°, ${longitude.toStringAsFixed(4)}°' : 'Sin GPS',
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white),
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg),
               ),
             ),
           ]),
         ),
       ),
-      const SizedBox(width: 8),
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (onToggleTraffic != null) ...[
-            GestureDetector(
-              onTap: onToggleTraffic,
-              child: _HudGlassPill(
-                color: trafficEnabled
-                    ? AppColors.systemGreen.withValues(alpha: 0.35)
-                    : null,
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(CupertinoIcons.car_detailed,
-                      size: 13,
-                      color: trafficEnabled
-                          ? AppColors.systemGreen
-                          : Colors.white70),
-                  const SizedBox(width: 4),
-                  Text('Tráfico',
-                      style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: trafficEnabled
-                              ? AppColors.systemGreen
-                              : Colors.white)),
-                ]),
-              ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          GestureDetector(
-            onTap: onCycleStyle,
-            child: _HudGlassPill(
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(selectedStyle.icon, size: 13, color: Colors.white),
-                const SizedBox(width: 5),
-                Text(selectedStyle.label,
-                    style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
-              ]),
-            ),
-          ),
+      const SizedBox(width: 6),
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        if (onTogglePitch != null) ...[
+          _chip(
+              icon: is3DActive ? CupertinoIcons.cube_fill : CupertinoIcons.view_2d,
+              label: pitchLabel,
+              active: is3DActive,
+              activeColor: const Color(0xFF007782),
+              isDark: isDark,
+              fg: fg,
+              onTap: onTogglePitch!),
+          const SizedBox(width: 6),
         ],
-      ),
+        _chip(
+            icon: selectedStyle.icon,
+            label: selectedStyle.label,
+            active: selectedStyle != MapCartoStyle.streets,
+            activeColor: const Color(0xFF0284C7),
+            isDark: isDark,
+            fg: fg,
+            onTap: onCycleStyle),
+        if (onToggleTraffic != null) ...[
+          const SizedBox(width: 6),
+          _chip(
+              icon: CupertinoIcons.car_detailed,
+              label: 'Tráfico',
+              active: trafficEnabled,
+              activeColor: const Color(0xFF047857),
+              isDark: isDark,
+              fg: fg,
+              onTap: onToggleTraffic!),
+        ],
+      ]),
     ]);
   }
 }
@@ -130,41 +136,39 @@ class MapBottomHudBar extends StatelessWidget {
   final bool isFollowing;
 
   @override
-  Widget build(BuildContext context) =>
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        GestureDetector(
-          onTap: onExpand,
-          child: _HudGlassPill(
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(expandIcon, size: 14, color: Colors.white),
-              const SizedBox(width: 4),
-              Text(expandLabel,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white)),
-            ]),
-          ),
+  Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    final fg = isDark ? Colors.white : const Color(0xFF0F172A);
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      GestureDetector(
+        onTap: onExpand,
+        child: _HudGlassPill(
+          isDark: isDark,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(expandIcon, size: 13.5, color: isFollowing ? const Color(0xFF007782) : fg),
+            const SizedBox(width: 5),
+            Text(expandLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
+          ]),
         ),
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          _HudIconBtn(icon: CupertinoIcons.minus, onTap: onZoomOut),
-          const SizedBox(width: 6),
-          _HudIconBtn(icon: CupertinoIcons.plus, onTap: onZoomIn),
-          const SizedBox(width: 6),
-          _HudIconBtn(
-            icon: isFollowing
-                ? CupertinoIcons.location_fill
-                : CupertinoIcons.location,
-            color: isFollowing ? const Color(0xFF38BDF8) : Colors.white,
-            onTap: onRecenter,
-          ),
-        ]),
-      ]);
+      ),
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        _HudIconBtn(icon: CupertinoIcons.minus, isDark: isDark, color: fg, onTap: onZoomOut),
+        const SizedBox(width: 6),
+        _HudIconBtn(icon: CupertinoIcons.plus, isDark: isDark, color: fg, onTap: onZoomIn),
+        const SizedBox(width: 6),
+        _HudIconBtn(
+          icon: isFollowing ? CupertinoIcons.location_fill : CupertinoIcons.location,
+          isDark: isDark,
+          color: isFollowing ? const Color(0xFF0284C7) : fg,
+          onTap: onRecenter,
+        ),
+      ]),
+    ]);
+  }
 }
 
 class MapEmptySignalState extends StatelessWidget {
-  const MapEmptySignalState(
-      {super.key, required this.height, required this.isLoading, this.onRetry});
+  const MapEmptySignalState({super.key, required this.height, required this.isLoading, this.onRetry});
   final double height;
   final bool isLoading;
   final VoidCallback? onRetry;
@@ -184,35 +188,21 @@ class MapEmptySignalState extends StatelessWidget {
       child: Center(
         child: isLoading
             ? Column(mainAxisSize: MainAxisSize.min, children: [
-                const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2.2, color: AppColors.primary)),
+                const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.primary)),
                 const SizedBox(height: 8),
                 Text('Obteniendo señal GPS del dispositivo…',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: context.cTextSecondary)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.cTextSecondary)),
               ])
             : Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(CupertinoIcons.location_slash_fill,
-                    size: 26,
-                    color: AppColors.systemOrange.withValues(alpha: 0.85)),
+                Icon(CupertinoIcons.location_slash_fill, size: 26, color: AppColors.systemOrange.withValues(alpha: 0.85)),
                 const SizedBox(height: 6),
                 Text('Señal GPS no disponible en este momento',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: context.cTextPrimary)),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.cTextPrimary)),
                 if (onRetry != null)
                   TextButton.icon(
                     onPressed: onRetry,
                     icon: const Icon(CupertinoIcons.refresh, size: 15),
-                    label: const Text('Activar y reintentar GPS',
-                        style: TextStyle(
-                            fontSize: 11.5, fontWeight: FontWeight.w700)),
+                    label: const Text('Activar y reintentar GPS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
                   ),
               ]),
       ),
@@ -221,22 +211,23 @@ class MapEmptySignalState extends StatelessWidget {
 }
 
 class _HudGlassPill extends StatelessWidget {
-  const _HudGlassPill({required this.child, this.color});
+  const _HudGlassPill({required this.child, required this.isDark, this.color});
   final Widget child;
+  final bool isDark;
   final Color? color;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: color ?? const Color(0xFF0F172A).withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.16), width: 0.8),
+              color: color ?? (isDark ? const Color(0xFF0F172A).withValues(alpha: 0.86) : Colors.white.withValues(alpha: 0.94)),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.16) : Colors.black.withValues(alpha: 0.08), width: 0.8),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.08), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: child,
           ),
@@ -245,14 +236,12 @@ class _HudGlassPill extends StatelessWidget {
 }
 
 class _HudIconBtn extends StatelessWidget {
-  const _HudIconBtn(
-      {required this.icon, required this.onTap, this.color = Colors.white});
+  const _HudIconBtn({required this.icon, required this.onTap, required this.isDark, required this.color});
   final IconData icon;
   final VoidCallback onTap;
+  final bool isDark;
   final Color color;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-      onTap: onTap,
-      child: _HudGlassPill(child: Icon(icon, size: 15, color: color)));
+  Widget build(BuildContext context) => GestureDetector(onTap: onTap, child: _HudGlassPill(isDark: isDark, child: Icon(icon, size: 15, color: color)));
 }

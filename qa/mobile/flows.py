@@ -60,7 +60,9 @@ def create_crew_as_admin(ui, state):
     custom_pos = 'Operador Planta ' + state['run'][-3:]
     if ui.visible('Crear puesto'):
         ui.tap('Crear puesto')
-        ui.fill('Operador', custom_pos, index=-1)
+        ui.wait(lambda: ui.visible('Crear Nuevo Puesto'), 'No abrió diálogo Crear Nuevo Puesto', seconds=10)
+        time.sleep(0.3)
+        ui.fill('Operador', custom_pos, index=-1, hide_keyboard=False)
         ui.tap('Crear Puesto', exact=True)
         ui.expect(custom_pos)
     ui.tap('Guardar', exact=True)
@@ -164,7 +166,8 @@ def admin_stage(ui, state, credentials, serial):
               2. Crea puesto personalizado y cuadrilla con sitio.
               3. Crea al Supervisor y valida su persistencia en SQLite.
     """
-    ui.d.screen_on()
+    ui.d.unlock()
+    ui.d.press('home')
     ui.d.app_start(PACKAGE, stop=True)
     ui.wait(
         lambda: ui.visible('Perfil', exact=True) or ui.visible('Contraseña'),
@@ -195,7 +198,8 @@ def supervisor_stage(ui, state, serial):
                  Colombia (12h/24h) y Sitio GPS.
               5. Verifica rechazo de duplicados y persistencia tras reinicio.
     """
-    ui.d.screen_on()
+    ui.d.unlock()
+    ui.d.press('home')
     ui.d.app_start(PACKAGE, stop=True)
     ui.wait(
         lambda: ui.visible('Perfil', exact=True) or ui.visible('Contraseña'),
@@ -268,7 +272,8 @@ def edit_stage(ui, state, serial):
                  nombre del equipo y la dirección física del sitio de trabajo.
               5. Comprueba en SQLite que el equipo y la geocerca se actualizaron.
     """
-    ui.d.screen_on()
+    ui.d.unlock()
+    ui.d.press('home')
     ui.d.app_start(PACKAGE, stop=False)
     ui.wait(
         lambda: ui.visible('Perfil', exact=True) or ui.visible('Contraseña') or ui.visible('Equipos', exact=True),
@@ -288,8 +293,11 @@ def edit_stage(ui, state, serial):
     target_doc = target_worker['doc']
 
     if not ui.visible(target_name):
-        ui.fill('Buscar', target_doc)
-        time.sleep(1)
+        if ui.d(className='android.widget.EditText').exists:
+            ui.fill('Buscar', target_doc)
+            time.sleep(0.5)
+        else:
+            ui.reveal(target_name)
 
     if ui.visible('Editar asignación'):
         ui.tap('Editar asignación')

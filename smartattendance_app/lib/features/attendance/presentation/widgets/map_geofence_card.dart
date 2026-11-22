@@ -1,20 +1,22 @@
 // ============================================================================
 // ARCHIVO: map_geofence_card.dart
-// QUÉ HACE: Tarjeta Liquid Glass con estado táctico de geocerca, telemetría
-//           meteorológica en vivo (lluvia, temperatura), tráfico y Traccar.
-// CÓMO FUNCIONA: Despliega nombre de sede, distancia, semáforo vehicular e
-//                indicador de clima con reporte si hay precipitaciones activas.
-// POR QUÉ: Extraído de MapTelemetryHud para cumplir la regla estricta < 200 líneas.
+// QUÉ HACE: Tarjeta Liquid Glass profesional de geocerca GPS, sedes, ruta,
+//           estado de marcación, clima real y leyenda de tráfico de alto contraste.
+// CÓMO FUNCIONA: Delega píldoras e indicadores a `map_geofence_widgets.dart`,
+//                elimina opciones zombi y usa colores WCAG AA claro/oscuro.
+// POR QUÉ: Cumple estrictamente SRP (< 180 líneas) y cero acciones muertas.
 // ============================================================================
 
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/design_system/aqua_gloss_button.dart';
+import '../../../../core/location/osrm_routing_service.dart';
 import '../../../../core/location/weather_service.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../controllers/map_realtime_tracker.dart';
+import 'map_geofence_widgets.dart';
 
 class MapGeofenceCard extends StatelessWidget {
   const MapGeofenceCard({
@@ -25,24 +27,33 @@ class MapGeofenceCard extends StatelessWidget {
     required this.onSelectZoneModal,
     this.trafficEnabled = false,
     this.weather,
+    this.activeRoute,
+    this.loadingRoute = false,
+    this.onComputeRoute,
   });
 
   final MapRealtimeTracker tracker;
-  final bool isStrictAdmin;
-  final VoidCallback onOpenZoneManager;
-  final VoidCallback onSelectZoneModal;
-  final bool trafficEnabled;
+  final bool isStrictAdmin, trafficEnabled, loadingRoute;
+  final VoidCallback onOpenZoneManager, onSelectZoneModal;
   final RealtimeWeatherData? weather;
+  final RoadRouteResult? activeRoute;
+  final VoidCallback? onComputeRoute;
 
   Future<void> _openNavigation(double lat, double lng) async {
-    final intentUri = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-    final webUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
-    try {
-      if (await canLaunchUrl(intentUri)) {
-        await launchUrl(intentUri, mode: LaunchMode.externalApplication);
-        return;
-      }
-    } catch (_) {}
+    final candidates = [
+      Uri.parse('google.navigation:q=$lat,$lng&mode=d'),
+      Uri.parse('comgooglemaps://?daddr=$lat,$lng&directionsmode=driving'),
+    ];
+    for (final uri in candidates) {
+      try {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } catch (_) {}
+    }
+    final webUri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
     await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 
@@ -53,145 +64,120 @@ class MapGeofenceCard extends StatelessWidget {
     final inside = tracker.isInsideZone;
     final distM = tracker.distanceToZone;
     final distLabel = distM != null
-        ? (distM >= 1000 ? '${(distM / 1000).toStringAsFixed(1)} km' : '${distM.round()} m')
-        : 'Buscando GPS';
-    final badgeColor = inside ? (isDark ? AppColors.successDark : AppColors.success) : const Color(0xFFF59E0B);
+        ? (distM >= 1000 ? 'a ${(distM / 1000).toStringAsFixed(1)} km' : 'a ${distM.round()} m')
+        : 'calculando…';
+    final statusColor = inside
+        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF15803D))
+        : (isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309));
+    final statusBg = inside
+        ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.45) : const Color(0xFFDCFCE7))
+        : (isDark ? const Color(0xFF78350F).withValues(alpha: 0.42) : const Color(0xFFFEF3C7));
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF07101E).withValues(alpha: 0.60) : context.cSurface.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.16) : context.cBorder.withValues(alpha: 0.70), width: 0.85),
+            color: isDark ? const Color(0xFF07101E).withValues(alpha: 0.78) : Colors.white.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.16) : Colors.black.withValues(alpha: 0.08),
+              width: 0.85,
+            ),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08), blurRadius: 14, offset: const Offset(0, 4)),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Icon(inside ? CupertinoIcons.checkmark_shield_fill : CupertinoIcons.location_north_line_fill, size: 16, color: badgeColor),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text('${zone?.name ?? 'Sede Principal'} • $distLabel',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.cTextPrimary)),
+              Row(children: [
+                Icon(inside ? CupertinoIcons.checkmark_shield_fill : CupertinoIcons.location_solid, size: 16, color: statusColor),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(zone?.name ?? 'Sin sede seleccionada',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: context.cTextPrimary)),
+                ),
+                if (zone != null) ...[
+                  const SizedBox(width: 8),
+                  AquaGlossButton(
+                    icon: CupertinoIcons.location_north_fill,
+                    label: activeRoute != null ? 'Navegar' : 'Ruta',
+                    compact: true,
+                    isLoading: loadingRoute,
+                    topColor: const Color(0xFF1A8CFF),
+                    bottomColor: const Color(0xFF005ECB),
+                    onPressed: activeRoute != null
+                        ? () => _openNavigation(zone.latitude, zone.longitude)
+                        : (onComputeRoute ?? () => _openNavigation(zone.latitude, zone.longitude)),
                   ),
-                  if (tracker.zones.length > 1)
-                    GestureDetector(
-                      onTap: onSelectZoneModal,
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(color: context.cPrimary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(CupertinoIcons.building_2_fill, size: 11, color: context.cPrimary),
-                            const SizedBox(width: 3),
-                            Text('Sedes (${tracker.zones.length})', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: context.cPrimary)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (isStrictAdmin)
-                    GestureDetector(
-                      onTap: onOpenZoneManager,
-                      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 5), child: Icon(CupertinoIcons.pencil_circle_fill, size: 18, color: context.cPrimary)),
-                    ),
-                  if (zone != null)
-                    GestureDetector(
-                      onTap: () => _openNavigation(zone.latitude, zone.longitude),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFF007AFF), borderRadius: BorderRadius.circular(8)),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(CupertinoIcons.location_north_fill, size: 11, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text('Ruta', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white)),
-                          ],
-                        ),
-                      ),
-                    ),
                 ],
-              ),
-              const SizedBox(height: 3),
-              Text('Sede: ${zone?.name ?? 'Principal'} • Radio: ${zone?.radius.round() ?? 80} m',
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: context.cTextPrimary)),
-              Text(
-                inside ? '✅ DENTRO: Habilitado para picar asistencia' : '⚠️ FUERA DE SEDE: Acércate al perímetro para marcar',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: badgeColor),
-              ),
-              if (weather != null) ...[
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(weather!.iconEmoji, style: const TextStyle(fontSize: 10)),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        '${weather!.conditionText} • ${weather!.temperatureC.toStringAsFixed(1)}°C (Hum: ${weather!.humidityPercent}%, Viento: ${weather!.windSpeedKmh.round()} km/h)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 9.2, fontWeight: FontWeight.w600, color: weather!.isRaining ? const Color(0xFF38BDF8) : context.cTextSecondary),
-                      ),
+              ]),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(
+                  child: Text(
+                    activeRoute != null
+                        ? 'Ruta: ${activeRoute!.durationLabel} · ${activeRoute!.distanceLabel}'
+                        : 'Radio ${zone?.radius.round() ?? 80} m · $distLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: activeRoute != null
+                          ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1))
+                          : context.cTextSecondary,
                     ),
-                  ],
+                  ),
                 ),
-              ],
-              if (trafficEnabled) ...[
-                const SizedBox(height: 3),
-                const Row(
-                  children: [
-                    _DotPill(color: Color(0xFF34C759), text: 'Fluido'),
-                    SizedBox(width: 7),
-                    _DotPill(color: Color(0xFFFFCC00), text: 'Lento'),
-                    SizedBox(width: 7),
-                    _DotPill(color: Color(0xFFFF3B30), text: 'Trancón'),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 4),
-              GestureDetector(
-                onTap: tracker.syncTraccarManual,
-                child: Row(
-                  children: [
-                    const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 11, color: Color(0xFF38BDF8)),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(tracker.traccarStatus, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF38BDF8))),
+                if (tracker.zones.length > 1)
+                  MapMetaPill(icon: CupertinoIcons.building_2_fill, label: 'Sedes (${tracker.zones.length})', isDark: isDark, onTap: onSelectZoneModal),
+                if (isStrictAdmin) ...[
+                  const SizedBox(width: 6),
+                  MapMetaPill(icon: CupertinoIcons.pencil, label: 'Editar', isDark: isDark, onTap: onOpenZoneManager),
+                ],
+              ]),
+              const SizedBox(height: 7),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5.5),
+                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(9)),
+                child: Row(children: [
+                  Icon(inside ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.exclamationmark_triangle_fill, size: 13.5, color: statusColor),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      inside ? 'Dentro de sede · Habilitado para marcar asistencia' : 'Fuera de sede · Acércate al perímetro para marcar',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor),
                     ),
-                    Text(tracker.isSyncingTraccar ? 'Transmitiendo…' : 'Sincronizar Traccar', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: context.cPrimary)),
-                  ],
-                ),
+                  ),
+                ]),
               ),
+              if (weather != null || trafficEnabled) ...[
+                const SizedBox(height: 6),
+                Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  if (trafficEnabled) ...[
+                    MapTrafficDot(dotColor: const Color(0xFF16A34A), textColor: isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D), text: 'Fluido'),
+                    MapTrafficDot(dotColor: const Color(0xFFEAB308), textColor: isDark ? const Color(0xFFFDE047) : const Color(0xFF92400E), text: 'Lento'),
+                    MapTrafficDot(dotColor: const Color(0xFFDC2626), textColor: isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C), text: 'Trancón'),
+                  ],
+                  if (weather != null)
+                    Text('${weather!.conditionText} · ${weather!.temperatureC.toStringAsFixed(0)}°C',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: context.cTextSecondary)),
+                ]),
+              ],
             ],
           ),
         ),
       ),
     );
   }
-}
-
-class _DotPill extends StatelessWidget {
-  const _DotPill({required this.color, required this.text});
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
-          const SizedBox(width: 3),
-          Text(text, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color)),
-        ],
-      );
 }

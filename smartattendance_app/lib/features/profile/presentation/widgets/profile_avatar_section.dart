@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/buen_tiempo_logo.dart';
 
 class ProfileAvatarSection extends StatelessWidget {
   final String? resolvedPhotoUrl;
@@ -128,15 +129,11 @@ class ProfileAvatarSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                CupertinoIcons.building_2_fill,
-                size: 13,
-                color: context.cTextSecondary,
-              ),
+              const BuenTiempoLogo(size: 14, iconOnly: true),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  'SERVICIUDAD E.S.P. · $cargo · C.C. $cedula',
+                  'BUENTIEMPO · $cargo · C.C. $cedula',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

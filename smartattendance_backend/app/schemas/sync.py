@@ -21,6 +21,8 @@ class AttendanceOfflineItem(BaseModel):
     latitud: float | None = None
     longitud: float | None = None
     direccion: str | None = None
+    foto_base64: str | None = Field(None, description="Foto en Base64 tomada como evidencia biométrica")
+    foto_url: str | None = Field(None, description="URL pública de la foto si ya fue cargada")
 
 class AttendanceBatchSyncRequest(BaseModel):
     records: list[AttendanceOfflineItem]

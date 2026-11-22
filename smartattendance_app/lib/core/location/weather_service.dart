@@ -97,6 +97,11 @@ class WeatherService {
   String? _cachedRadarTileUrl;
   DateTime? _lastRadarFetch;
 
+  // QUÉ HACE: Libera el cliente HTTP y sockets abiertos al desmontar el mapa.
+  // CÓMO: Invoca `_dio.close()` evitando fugas de memoria/descriptores.
+  // POR QUÉ: Previene fugas de recursos al alternar pestañas o cerrar el visor.
+  void dispose() => _dio.close();
+
   // QUÉ HACE: Obtiene el clima en vivo de Open-Meteo para las coordenadas del empleado.
   // CÓMO: Realiza HTTP GET con caché inteligente de 3 minutos para evitar sobrecarga.
   Future<RealtimeWeatherData?> fetchCurrentWeather(double lat, double lng) async {

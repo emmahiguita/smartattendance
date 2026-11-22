@@ -1,17 +1,18 @@
 // ============================================================================
 // ARCHIVO: home_header.dart
-// QUÉ HACE: Identifica al usuario/administrador autenticado con avatar, cargo y fecha.
-// CÓMO FUNCIONA: Presenta una cabecera horizontal compacta estilo iOS sin tarjetas
-//                ni contenedores decorativos para dar paso a las acciones principales.
-// POR QUÉ: Aprovecha el espacio superior y mantiene legibilidad total (< 90 líneas).
+// QUÉ HACE: Renderiza el bloque de saludo limpio y proporcionado sobre la ola
+//           azul superior (icono de usuario translúcido sin bordes agresivos +
+//           "Hola, <Nombre>" y "<Cargo> · <Fecha>" en blanco nítido).
+// CÓMO FUNCIONA: Compacta alturas para dejar espacio equilibrado a las tarjetas
+//                y al mapa miniatura en la misma pantalla.
+// POR QUÉ: Tipografía limpia sin errores ni desorientación visual (< 105 líneas).
 // ============================================================================
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/auth/session_controller.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/employee_avatar_service.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../photo_attendance/domain/work_schedule.dart';
 
@@ -29,7 +30,6 @@ class HomeHeader extends ConsumerWidget {
             ? user as UserEntity
             : null;
     final name = actual?.fullName ?? 'Colaborador';
-    final file = EmployeeAvatarService.resolveFile(actual?.fotoUrl);
     final now = ColombiaClock.wall(DateTime.now());
     String date;
     try {
@@ -40,63 +40,54 @@ class HomeHeader extends ConsumerWidget {
     final role = actual?.cargo ?? 'Colaborador';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.only(left: 2, right: 2, top: 2),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Semantics(
-            button: true,
-            label: 'Actualizar foto de perfil',
-            child: InkWell(
-              borderRadius: BorderRadius.circular(22),
-              onTap: () =>
-                  EmployeeAvatarService.pickAndSavePhoto(context, ref, actual),
-              child: CircleAvatar(
-                radius: 21,
-                backgroundColor: context.cSurface,
-                foregroundColor: context.cTextPrimary,
-                backgroundImage: file == null ? null : FileImage(file),
-                child: file == null
-                    ? Text(
-                        name.isEmpty ? 'C' : name[0].toUpperCase(),
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600),
-                      )
-                    : null,
+          GestureDetector(
+            onTap: onOpenDirectory,
+            child: Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                CupertinoIcons.person,
+                color: Colors.white,
+                size: 20,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'SERVICIUDAD E.S.P.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.7,
-                    color: context.cTextSecondary,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
                   'Hola, ${name.split(' ').first}',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18.5,
+                    height: 1.12,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
-                    color: context.cTextPrimary,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '$role · $date',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: context.cTextSecondary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.0,
+                    height: 1.12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
                   ),
                 ),
               ],

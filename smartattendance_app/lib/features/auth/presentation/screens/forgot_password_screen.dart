@@ -214,7 +214,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               controller: _correoController,
               keyboardType: TextInputType.emailAddress,
               validator: InputValidators.validateEmail,
-              decoration: const InputDecoration(hintText: 'correo@serviciudad.gov.co', prefixIcon: Icon(Icons.mail_outline, size: 20)),
+              decoration: const InputDecoration(hintText: 'correo@buentiempo.app', prefixIcon: Icon(Icons.mail_outline, size: 20)),
             ),
             const SizedBox(height: 10),
             Align(

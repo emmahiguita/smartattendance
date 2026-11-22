@@ -9,10 +9,12 @@
 //          `resumed` y garantiza captura 100% integrada estilo iOS.
 // ============================================================================
 
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/router/app_router.dart';
 import '../data/capture_draft.dart';
@@ -111,11 +113,17 @@ class _PhotoCaptureScreenState extends ConsumerState<PhotoCaptureScreen> with Wi
 
       if (_path == null) {
         if (_cameraCtrl == null || !_cameraCtrl!.value.isInitialized) await _initCamera();
-        if (_cameraCtrl == null || !_cameraCtrl!.value.isInitialized) {
+        if (_cameraCtrl != null && _cameraCtrl!.value.isInitialized) {
+          setState(() => _stage = 'Capturando biometría facial…');
+          _path = (await _cameraCtrl!.takePicture()).path;
+        } else if (!(Platform.isAndroid || Platform.isIOS)) {
+          setState(() => _stage = 'Seleccionando fotografía en escritorio…');
+          final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 88);
+          if (picked == null) throw const FormatException('Selecciona una fotografía para registrar la marca.');
+          _path = picked.path;
+        } else {
           throw const FormatException('Cámara frontal no disponible. Intenta de nuevo.');
         }
-        setState(() => _stage = 'Capturando biometría facial…');
-        _path = (await _cameraCtrl!.takePicture()).path;
         await _draft.write(widget.worker, type, _path, _captureId);
       }
 

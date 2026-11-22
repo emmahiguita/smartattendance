@@ -1,6 +1,6 @@
 // ============================================================================
 // ARCHIVO: login_screen.dart
-// QUÉ HACE: Pantalla de inicio de sesión de Serviciudad E.S.P. con Liquid Glass,
+// QUÉ HACE: Pantalla de inicio de sesión de BuenTiempo con Liquid Glass,
 //           acceso con documento y contraseña propia u OAuth Google.
 // CÓMO FUNCIONA: Enlaza `LoginFormCard` con `LoginViewModel` y `SessionController`.
 // POR QUÉ: Cumple estrictamente la regla modular < 160 líneas bajo Clean Architecture.

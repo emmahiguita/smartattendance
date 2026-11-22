@@ -1,6 +1,6 @@
 // ============================================================================
 // ARCHIVO: login_form_card.dart
-// QUÉ HACE: Tarjeta de formulario de acceso Liquid Glass de Serviciudad E.S.P.
+// QUÉ HACE: Tarjeta de formulario de acceso Liquid Glass de BuenTiempo.
 //           Diseñada exclusivamente para autenticación de colaboradores y
 //           administradores, sin opciones públicas de autoregistro ni olvido de clave.
 // CÓMO FUNCIONA: Captura cédula (CC) y contraseña, conmuta rol RBAC, permite

@@ -1,31 +1,29 @@
 // ============================================================================
 // ARCHIVO: map_tab_screen.dart
-// QUÉ HACE: Visor geoespacial satelital 100% en vivo con streaming GPS por
-//           hardware, detección de geocercas multi-sede SQLite y telemetría iOS.
-// CÓMO FUNCIONA: Se enlaza a `MapRealtimeTracker` para actualizar posición,
-//                distancia, velocidad, precisión (±m) y rumbo satelital sin mocks.
-// POR QUÉ: Reemplaza mapas estáticos con un sistema de geolocalización profesional
-//          y seguro para asistencia y geocercas (< 195 líneas).
+// QUÉ HACE: Orquestador de navegación cartográfica multi-plano 3D/35°/2D
+//           (MapLibre + OpenFreeMap gratis con edificios 3D, Satélite Híbrido,
+//           Relieve Topográfico, Nocturno 3D y rutas viales OSRM).
+// CÓMO FUNCIONA: Combina `MapRealtimeTracker` (GPS real), `OsrmRoutingService`
+//                (rutas por calles) y `WeatherService` sobre `Map3DNavigationView`.
+// POR QUÉ: Aplica SRP y DIP permitiendo ver todos los planos en 3D/2D (< 230 líneas).
 // ============================================================================
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/location/osrm_routing_service.dart';
+import '../../../../core/location/traffic_provider.dart';
+import '../../../../core/location/weather_service.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../photo_attendance/presentation/local_providers.dart';
 import '../../../photo_attendance/presentation/zone_dialog.dart';
 import '../controllers/map_realtime_tracker.dart';
+import '../widgets/map_3d_navigation_view.dart';
 import '../widgets/map_hud_controls.dart';
 import '../widgets/map_sonar_layer.dart';
 import '../widgets/map_telemetry_hud.dart';
-import '../widgets/map_traffic_overlay.dart';
-import '../widgets/map_weather_overlay.dart';
 import '../widgets/map_zone_picker_sheet.dart';
-import '../../../../core/location/traffic_provider.dart';
-import '../../../../core/location/weather_service.dart';
 
 class MapTabScreen extends ConsumerStatefulWidget {
   final double? latitude, longitude, zoneLat, zoneLng, zoneRadius;
@@ -49,27 +47,35 @@ class MapTabScreen extends ConsumerStatefulWidget {
   ConsumerState<MapTabScreen> createState() => _MapTabScreenState();
 }
 
-class _MapTabScreenState extends ConsumerState<MapTabScreen>
-    with SingleTickerProviderStateMixin {
-  final MapController _mapController = MapController();
-  late final AnimationController _pulseController;
+class _MapTabScreenState extends ConsumerState<MapTabScreen> {
+  final Map3DControllerBridge _bridge3D = Map3DControllerBridge();
+  final WeatherService _weatherService = WeatherService();
+  final TomTomTrafficProvider _trafficProvider = TomTomTrafficProvider();
+  final NavigationRoutingProvider _router = const OsrmRoutingService();
+
   late final MapRealtimeTracker _tracker;
   MapCartoStyle? _manualStyle;
+  double _cameraPitch = 58.0;
   bool _trafficEnabled = true;
+  bool _weatherRadarEnabled = false;
+  bool _loadingRoute = false;
   TrafficFlowInfo? _trafficFlow;
-  DateTime? _lastTrafficFetch;
-  final WeatherService _weatherService = WeatherService();
   RealtimeWeatherData? _weatherData;
+  RoadRouteResult? _activeRoute;
   String? _radarTileUrl;
-  bool _weatherRadarEnabled = true;
-  DateTime? _lastWeatherFetch;
+  DateTime? _lastTrafficFetch, _lastWeatherFetch;
+
+  String get _pitchLabel => _cameraPitch >= 50
+      ? '3D 60°'
+      : (_cameraPitch >= 20 ? 'Vista 35°' : 'Plano 2D');
+
+  void _cyclePitch() => setState(() {
+        _cameraPitch = _cameraPitch >= 50 ? 35.0 : (_cameraPitch >= 20 ? 0.0 : 58.0);
+      });
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2200))
-      ..repeat();
     _tracker = MapRealtimeTracker(
       database: ref.read(localPhotoDatabaseProvider),
       userDocument: widget.userDocument,
@@ -87,10 +93,6 @@ class _MapTabScreenState extends ConsumerState<MapTabScreen>
     if (!mounted) return;
     final pos = _tracker.currentPosition;
     if (pos != null) {
-      if (_tracker.followUser) {
-        _mapController.move(
-            LatLng(pos.latitude, pos.longitude), _mapController.camera.zoom);
-      }
       if (_trafficEnabled) _fetchTraffic(pos.latitude, pos.longitude);
       _fetchWeather(pos.latitude, pos.longitude);
     }
@@ -99,58 +101,46 @@ class _MapTabScreenState extends ConsumerState<MapTabScreen>
 
   Future<void> _fetchWeather(double lat, double lng) async {
     final now = DateTime.now();
-    if (_lastWeatherFetch != null &&
-        now.difference(_lastWeatherFetch!).inSeconds < 40) {
-      return;
-    }
+    if (_lastWeatherFetch != null && now.difference(_lastWeatherFetch!).inSeconds < 40) return;
     _lastWeatherFetch = now;
     final w = await _weatherService.fetchCurrentWeather(lat, lng);
     final r = await _weatherService.fetchLatestRadarTileUrl();
-    if (mounted) {
-      setState(() {
-        if (w != null) _weatherData = w;
-        if (r != null) _radarTileUrl = r;
-      });
-    }
+    if (mounted) setState(() { if (w != null) _weatherData = w; if (r != null) _radarTileUrl = r; });
   }
 
   Future<void> _fetchTraffic(double lat, double lng) async {
     final now = DateTime.now();
-    if (_lastTrafficFetch != null &&
-        now.difference(_lastTrafficFetch!).inSeconds < 25) {
-      return;
-    }
+    if (_lastTrafficFetch != null && now.difference(_lastTrafficFetch!).inSeconds < 25) return;
     _lastTrafficFetch = now;
-    final info = await TomTomTrafficProvider().fetchPointFlow(lat, lng);
+    final info = await _trafficProvider.fetchPointFlow(lat, lng);
     if (mounted && info != null) setState(() => _trafficFlow = info);
   }
 
-  void _toggleTraffic() {
-    setState(() => _trafficEnabled = !_trafficEnabled);
-    if (_trafficEnabled) {
-      final pos = _tracker.currentPosition;
-      if (pos != null) _fetchTraffic(pos.latitude, pos.longitude);
+  // QUÉ HACE: Traza la ruta vial real por calles vía OSRM e inclina cámara a 60°.
+  Future<void> _computeRoadRoute(LatLng origin, LatLng destination) async {
+    if (_loadingRoute) return;
+    setState(() => _loadingRoute = true);
+    final route = await _router.fetchDrivingRoute(origin: origin, destination: destination);
+    if (!mounted) return;
+    setState(() {
+      _loadingRoute = false;
+      _activeRoute = route;
+    });
+    if (route != null) {
+      _bridge3D.flyTo?.call(origin, zoom: 16.8, pitch: _cameraPitch);
     }
   }
 
-  @override
-  void dispose() {
-    _tracker.removeListener(_handleTrackerUpdate);
-    _tracker.dispose();
-    _pulseController.dispose();
-    _mapController.dispose();
-    super.dispose();
-  }
-
-  void _zoomBy(double d) => _mapController.move(_mapController.camera.center,
-      (_mapController.camera.zoom + d).clamp(3.0, 20.0));
-
   Future<void> _openZoneManager() async {
     final db = await ref.read(localPhotoDatabaseProvider).database;
-    final rows = await db.query('work_zones', orderBy: 'id ASC', limit: 1);
+    final activeId = _tracker.activeZone?.id;
+    final rows = activeId != null
+        ? await db.query('work_zones', where: 'id = ?', whereArgs: [activeId], limit: 1)
+        : await db.query('work_zones', orderBy: 'id ASC', limit: 1);
     if (!mounted) return;
     final changed = await showDialog<bool>(context: context, builder: (_) => ZoneDialog(zone: rows.firstOrNull));
     if (changed == true) {
+      _activeRoute = null;
       _tracker.start(fallbackLat: widget.latitude, fallbackLng: widget.longitude, preferredZoneName: widget.zoneName);
       widget.onRefresh?.call();
     }
@@ -162,113 +152,101 @@ class _MapTabScreenState extends ConsumerState<MapTabScreen>
         activeZone: _tracker.activeZone,
         onZoneSelected: (z) {
           _tracker.selectZone(z);
-          _mapController.move(LatLng(z.latitude, z.longitude), 16.5);
+          setState(() => _activeRoute = null);
+          _bridge3D.flyTo?.call(LatLng(z.latitude, z.longitude), zoom: 16.5, pitch: _cameraPitch);
         },
       );
 
   @override
+  void dispose() {
+    _tracker.removeListener(_handleTrackerUpdate);
+    _tracker.dispose();
+    _weatherService.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final style =
-        _manualStyle ?? (isDark ? MapCartoStyle.dark : MapCartoStyle.streets);
+    final style = _manualStyle ?? (isDark ? MapCartoStyle.dark : MapCartoStyle.streets);
     final isStrictAdmin = ref.watch(localActorProvider).isStrictAdmin;
     final pos = _tracker.currentPosition;
-    final userPt = LatLng(pos?.latitude ?? widget.latitude ?? 4.8333,
-        pos?.longitude ?? widget.longitude ?? -75.6833);
+    final userPt = LatLng(pos?.latitude ?? widget.latitude ?? 4.8333, pos?.longitude ?? widget.longitude ?? -75.6833);
     final activeZone = _tracker.activeZone;
     final zonePt = activeZone != null
         ? LatLng(activeZone.latitude, activeZone.longitude)
         : LatLng(widget.zoneLat ?? 4.8333, widget.zoneLng ?? -75.6833);
-    final inside = _tracker.isInsideZone;
+    final routePts = _activeRoute?.points ?? const <LatLng>[];
+    final liveHeading = (pos != null && pos.speed >= 1.5) ? pos.heading : 0.0;
 
-    // OrientationBuilder adapta la posición del HUD según orientación
-    // PORTRAIT: HUD en la parte superior (top:14)
-    // LANDSCAPE: HUD se mueve a la izquierda con ancho máximo 280px para no tapar el mapa
     return OrientationBuilder(
       builder: (context, orientation) {
         final isLandscape = orientation == Orientation.landscape;
         return Stack(children: [
-      FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(initialCenter: userPt, initialZoom: 16.5, minZoom: 3.0, maxZoom: 20.0),
-        children: [
-          MapBaseTileLayer(style: style),
-          MapTrafficOverlay(enabled: _trafficEnabled),
-          MapWeatherOverlay(enabled: _weatherRadarEnabled, radarTileUrl: _radarTileUrl),
-          if (_tracker.hasFix && activeZone != null)
-            PolylineLayer(polylines: [
-              Polyline(points: [userPt, zonePt], strokeWidth: 2.8, color: inside ? AppColors.successDark : const Color(0xFF007AFF)),
-            ]),
-          for (final z in _tracker.zones.where((z) => z.id != activeZone?.id))
-            CircleLayer(circles: [
-              CircleMarker(
-                point: LatLng(z.latitude, z.longitude),
-                radius: z.radius,
-                useRadiusInMeter: true,
-                color: Colors.blue.withValues(alpha: 0.08),
-                borderColor: const Color(0xFF007AFF).withValues(alpha: 0.45),
-                borderStrokeWidth: 1.2,
-              ),
-            ]),
-          MapSonarCircleLayer(
-            point: zonePt,
-            pulseAnimation: _pulseController,
-            zoneRadiusMeters: activeZone?.radius ?? widget.zoneRadius ?? 80.0,
-            isInside: inside,
-            zoneName: activeZone?.name ?? widget.zoneName,
-          ),
-          MapUserLocationMarkerLayer(
-            point: userPt,
+          Map3DNavigationView(
+            userPoint: userPt,
+            zonePoint: zonePt,
+            zones: _tracker.zones,
+            activeZone: activeZone,
             hasFix: _tracker.hasFix,
-            accuracyMeters: pos?.accuracy ?? 0,
-            heading: pos?.heading ?? 0,
-            isInside: inside,
-            pulseAnimation: _pulseController,
-            userLabel: 'Tu ubicación',
-            onTap: () => _mapController.move(userPt, 18.0),
+            isInsideZone: _tracker.isInsideZone,
+            followUser: _tracker.followUser,
+            heading: liveHeading,
+            isDark: isDark,
+            cartoStyle: style,
+            cameraPitch: _cameraPitch,
+            trafficEnabled: _trafficEnabled,
+            weatherRadarEnabled: _weatherRadarEnabled,
+            radarTileUrl: _radarTileUrl,
+            routePoints: routePts,
+            bridge: _bridge3D,
           ),
-        ],
-      ),
-      Positioned(
-        top: 14,
-        left: 14,
-        right: isLandscape ? null : 14,
-        width: isLandscape ? 280 : null,
-        child: MapTelemetryHud(
-          tracker: _tracker,
-          currentStyle: style,
-          onCycleStyle: () => setState(() => _manualStyle = style.next),
-          trafficEnabled: _trafficEnabled,
-          onToggleTraffic: _toggleTraffic,
-          trafficInfo: _trafficFlow?.congestionLabel,
-          weather: _weatherData,
-          weatherRadarEnabled: _weatherRadarEnabled,
-          onToggleWeatherRadar: () => setState(() => _weatherRadarEnabled = !_weatherRadarEnabled),
-          isStrictAdmin: isStrictAdmin,
-          onOpenZoneManager: _openZoneManager,
-          onSelectZoneModal: _openZonePicker,
-        ),
-      ),
-      Positioned(
-        bottom: isLandscape ? 16 : 92,
-        left: 14,
-        right: 14,
-        child: MapBottomHudBar(
-          expandLabel: _tracker.followUser ? 'Siguiendo en vivo' : 'Foco libre',
-          expandIcon: _tracker.followUser ? CupertinoIcons.location_north_fill : CupertinoIcons.location,
-          isFollowing: _tracker.followUser,
-          onExpand: _tracker.toggleFollowUser,
-          onZoomIn: () => _zoomBy(1.0),
-          onZoomOut: () => _zoomBy(-1.0),
-          onRecenter: () {
-            _tracker.followUser = true;
-            _mapController.move(userPt, 17.5);
-            setState(() {});
-          },
-        ),
-      ),
-    ]);
-      }, // cierre OrientationBuilder builder
-    ); // cierre OrientationBuilder
+          Positioned(
+            top: 12,
+            left: 14,
+            right: isLandscape ? null : 14,
+            width: isLandscape ? 280 : null,
+            child: MapTelemetryHud(
+              tracker: _tracker,
+              currentStyle: style,
+              is3DMode: _cameraPitch > 0,
+              pitchLabel: _pitchLabel,
+              onToggle3D: _cyclePitch,
+              onCycleStyle: () => setState(() => _manualStyle = style.next),
+              trafficEnabled: _trafficEnabled,
+              onToggleTraffic: () => setState(() => _trafficEnabled = !_trafficEnabled),
+              trafficInfo: _trafficFlow?.congestionLabel,
+              weather: _weatherData,
+              weatherRadarEnabled: _weatherRadarEnabled,
+              onToggleWeatherRadar: () => setState(() => _weatherRadarEnabled = !_weatherRadarEnabled),
+              isStrictAdmin: isStrictAdmin,
+              onOpenZoneManager: _openZoneManager,
+              onSelectZoneModal: _openZonePicker,
+              activeRoute: _activeRoute,
+              loadingRoute: _loadingRoute,
+              onComputeRoute: activeZone == null ? null : () => _computeRoadRoute(userPt, zonePt),
+            ),
+          ),
+          Positioned(
+            bottom: MediaQuery.paddingOf(context).bottom + (isLandscape ? 82 : 88),
+            left: 14,
+            right: 14,
+            child: MapBottomHudBar(
+              expandLabel: _tracker.followUser ? 'Siguiendo en vivo' : 'Foco libre',
+              expandIcon: _tracker.followUser ? CupertinoIcons.location_north_fill : CupertinoIcons.location,
+              isFollowing: _tracker.followUser,
+              onExpand: _tracker.toggleFollowUser,
+              onZoomIn: () => _bridge3D.zoomIn?.call(),
+              onZoomOut: () => _bridge3D.zoomOut?.call(),
+              onRecenter: () {
+                _tracker.followUser = true;
+                _bridge3D.flyTo?.call(userPt, zoom: 17.2, pitch: _cameraPitch, bearing: liveHeading);
+                setState(() {});
+              },
+            ),
+          ),
+        ]);
+      },
+    );
   }
 }

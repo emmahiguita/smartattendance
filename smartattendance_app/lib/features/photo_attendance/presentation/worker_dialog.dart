@@ -11,6 +11,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/design_system/aqua_gloss_button.dart';
 import '../../../../core/design_system/ios_floating_glass_sheet.dart';
 import '../../../../core/location/traccar_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -79,7 +80,7 @@ class _WorkerDialogState extends _WorkerDialogActions {
                     fontSize: 15.5,
                     fontWeight: FontWeight.w700,
                     color: context.cTextPrimary)),
-            Text('Serviciudad E.S.P. · Gestión Operativa',
+            Text('BuenTiempo · Gestión Operativa',
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -87,17 +88,16 @@ class _WorkerDialogState extends _WorkerDialogActions {
           ]),
           actions: [
             Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: CupertinoButton(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const CupertinoActivityIndicator(radius: 9)
-                    : Text('Guardar',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: context.cTextPrimary)),
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: AquaGlossButton(
+                  label: 'Guardar',
+                  compact: true,
+                  isLoading: _saving,
+                  topColor: const Color(0xFF1A8CFF),
+                  bottomColor: const Color(0xFF005ECB),
+                  onPressed: _saving ? null : _save,
+                ),
               ),
             ),
           ],

@@ -1,7 +1,7 @@
 // ============================================================================
 // ARCHIVO: roles.dart
 // QUÉ HACE: Fuente única de verdad para la jerarquía de roles y puestos (RBAC)
-//           en Serviciudad E.S.P. / SmartAttendance:
+//           en BuenTiempo / SmartAttendance:
 //           - Administrador General: Crea puestos, equipos, zonas y todo rol.
 //           - Supervisor / Encargado: Gestiona su cuadrilla y asigna puestos
 //             operativos (Operador, Colaborador, Operario, etc.).
